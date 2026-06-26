@@ -1,15 +1,20 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: OptimDZ API - Linear Programming Simplex Solver
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: simplex
+    description: Simplex solver operations
+  - name: problems
+    description: Saved problems management
+  - name: templates
+    description: Sector templates
 paths:
   /healthz:
     get:
@@ -24,6 +29,154 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /simplex/solve:
+    post:
+      operationId: solveProblem
+      tags: [simplex]
+      summary: Solve a linear programming problem
+      description: Accepts variables, constraints, and an objective function, returns optimal solution with step-by-step tableau and sensitivity analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProblemInput"
+      responses:
+        "200":
+          description: Solution found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SolveResult"
+        "400":
+          description: Invalid input or infeasible problem
+
+  /problems:
+    get:
+      operationId: listProblems
+      tags: [problems]
+      summary: List all saved problems
+      parameters:
+        - name: sector
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of saved problems
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SavedProblem"
+    post:
+      operationId: saveProblem
+      tags: [problems]
+      summary: Save a problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedProblemInput"
+      responses:
+        "201":
+          description: Problem saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedProblem"
+
+  /problems/stats:
+    get:
+      operationId: getProblemStats
+      tags: [problems]
+      summary: Get stats on saved problems
+      responses:
+        "200":
+          description: Problem statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemStats"
+
+  /problems/{id}:
+    get:
+      operationId: getProblem
+      tags: [problems]
+      summary: Get a specific saved problem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Problem found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedProblem"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteProblem
+      tags: [problems]
+      summary: Delete a saved problem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /templates:
+    get:
+      operationId: listTemplates
+      tags: [templates]
+      summary: List all sector templates
+      responses:
+        "200":
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Template"
+
+  /templates/{sector}:
+    get:
+      operationId: getTemplate
+      tags: [templates]
+      summary: Get a template by sector
+      parameters:
+        - name: sector
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+        "404":
+          description: Not found
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +187,331 @@ components:
       required:
         - status
 
+    Variable:
+      type: object
+      properties:
+        name:
+          type: string
+        coefficient:
+          type: number
+        unit:
+          type: string
+      required:
+        - name
+        - coefficient
+
+    Constraint:
+      type: object
+      properties:
+        name:
+          type: string
+        coefficients:
+          type: array
+          items:
+            type: number
+        operator:
+          type: string
+          enum: ["<=", ">=", "="]
+        rhs:
+          type: number
+        unit:
+          type: ["string", "null"]
+      required:
+        - name
+        - coefficients
+        - operator
+        - rhs
+
+    ProblemInput:
+      type: object
+      properties:
+        name:
+          type: string
+        sector:
+          type: string
+          enum: [industry, agriculture, trade, custom]
+        objectiveType:
+          type: string
+          enum: [maximize, minimize]
+        variables:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variable"
+        constraints:
+          type: array
+          items:
+            $ref: "#/components/schemas/Constraint"
+        language:
+          type: string
+          enum: [ar, fr]
+          default: fr
+      required:
+        - objectiveType
+        - variables
+        - constraints
+
+    TableauRow:
+      type: object
+      properties:
+        iteration:
+          type: integer
+        basisVariable:
+          type: string
+        row:
+          type: array
+          items:
+            type: number
+        pivotColumn:
+          type: ["integer", "null"]
+        pivotRow:
+          type: ["integer", "null"]
+      required:
+        - iteration
+        - basisVariable
+        - row
+
+    SimplexStep:
+      type: object
+      properties:
+        iteration:
+          type: integer
+        tableau:
+          type: array
+          items:
+            $ref: "#/components/schemas/TableauRow"
+        pivotElement:
+          type: ["string", "null"]
+        explanation:
+          type: string
+        explanationAr:
+          type: string
+      required:
+        - iteration
+        - tableau
+        - explanation
+        - explanationAr
+
+    SensitivityRange:
+      type: object
+      properties:
+        name:
+          type: string
+        currentValue:
+          type: number
+        allowableIncrease:
+          type: ["number", "null"]
+        allowableDecrease:
+          type: ["number", "null"]
+        shadowPrice:
+          type: ["number", "null"]
+        reducedCost:
+          type: ["number", "null"]
+        isCritical:
+          type: boolean
+      required:
+        - name
+        - currentValue
+        - isCritical
+
+    SolveResult:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [optimal, infeasible, unbounded]
+        optimalValue:
+          type: ["number", "null"]
+        variables:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: number
+              unit:
+                type: ["string", "null"]
+            required:
+              - name
+              - value
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimplexStep"
+        sensitivityAnalysis:
+          type: object
+          properties:
+            objectiveCoefficients:
+              type: array
+              items:
+                $ref: "#/components/schemas/SensitivityRange"
+            constraints:
+              type: array
+              items:
+                $ref: "#/components/schemas/SensitivityRange"
+        alerts:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [warning, info, error]
+              message:
+                type: string
+              messageAr:
+                type: string
+            required:
+              - type
+              - message
+              - messageAr
+        managerialSummary:
+          type: string
+        managerialSummaryAr:
+          type: string
+        iterationCount:
+          type: integer
+      required:
+        - status
+        - iterationCount
+
+    SavedProblemInput:
+      type: object
+      properties:
+        name:
+          type: string
+        sector:
+          type: string
+        problemData:
+          $ref: "#/components/schemas/ProblemInput"
+        result:
+          type: ["object", "null"]
+      required:
+        - name
+        - sector
+        - problemData
+
+    SavedProblem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        sector:
+          type: string
+        objectiveType:
+          type: string
+        status:
+          type: ["string", "null"]
+        optimalValue:
+          type: ["number", "null"]
+        problemData:
+          type: object
+        result:
+          type: ["object", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - sector
+        - objectiveType
+        - createdAt
+
+    ProblemStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        bySector:
+          type: object
+          additionalProperties:
+            type: integer
+        byStatus:
+          type: object
+          additionalProperties:
+            type: integer
+        recentProblems:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedProblem"
+      required:
+        - total
+        - bySector
+        - byStatus
+        - recentProblems
+
+    TemplateVariable:
+      type: object
+      properties:
+        name:
+          type: string
+        nameAr:
+          type: string
+        coefficient:
+          type: number
+        unit:
+          type: string
+      required:
+        - name
+        - nameAr
+        - coefficient
+
+    TemplateConstraint:
+      type: object
+      properties:
+        name:
+          type: string
+        nameAr:
+          type: string
+        coefficients:
+          type: array
+          items:
+            type: number
+        operator:
+          type: string
+        rhs:
+          type: number
+        unit:
+          type: ["string", "null"]
+      required:
+        - name
+        - nameAr
+        - coefficients
+        - operator
+        - rhs
+
+    Template:
+      type: object
+      properties:
+        sector:
+          type: string
+        name:
+          type: string
+        nameAr:
+          type: string
+        description:
+          type: string
+        descriptionAr:
+          type: string
+        objectiveType:
+          type: string
+        variables:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplateVariable"
+        constraints:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplateConstraint"
+      required:
+        - sector
+        - name
+        - nameAr
+        - description
+        - descriptionAr
+        - objectiveType
+        - variables
+        - constraints
