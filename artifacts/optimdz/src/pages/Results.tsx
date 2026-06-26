@@ -11,6 +11,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Save, AlertTriangle, Info, CheckCircle2, TrendingUp, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ManagerialRecommendations } from "@/components/ManagerialRecommendations";
 
 export default function Results() {
   const { t, language } = useLanguage();
@@ -168,6 +169,8 @@ export default function Results() {
               </Table>
             </CardContent>
           </Card>
+
+          <ManagerialRecommendations input={input} result={result} />
 
           {result.sensitivityAnalysis && (
             <Card>
