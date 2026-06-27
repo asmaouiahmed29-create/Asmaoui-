@@ -13,6 +13,7 @@ import { ArrowLeft, Save, AlertTriangle, Info, CheckCircle2, TrendingUp, Trendin
 import { useToast } from "@/hooks/use-toast";
 import { ManagerialRecommendations } from "@/components/ManagerialRecommendations";
 import { OptimAssistant } from "@/components/OptimAssistant";
+import { WhatIfPanel } from "@/components/WhatIfPanel";
 
 export default function Results() {
   const { t, language } = useLanguage();
@@ -174,6 +175,8 @@ export default function Results() {
           <ManagerialRecommendations input={input} result={result} />
 
           <OptimAssistant input={input} result={result} />
+
+          <WhatIfPanel input={input} result={result} />
 
           {result.sensitivityAnalysis && (
             <Card>
