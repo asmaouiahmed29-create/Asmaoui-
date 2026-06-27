@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Save, AlertTriangle, Info, CheckCircle2, TrendingUp, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ManagerialRecommendations } from "@/components/ManagerialRecommendations";
+import { OptimAssistant } from "@/components/OptimAssistant";
 
 export default function Results() {
   const { t, language } = useLanguage();
@@ -171,6 +172,8 @@ export default function Results() {
           </Card>
 
           <ManagerialRecommendations input={input} result={result} />
+
+          <OptimAssistant input={input} result={result} />
 
           {result.sensitivityAnalysis && (
             <Card>
