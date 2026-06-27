@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useProblemState } from "@/lib/ProblemContext";
+import { useScenarios } from "@/lib/ScenarioContext";
 import { useSaveProblem } from "@workspace/api-client-react";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,7 +11,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Save, AlertTriangle, Info, CheckCircle2, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ArrowLeft, Save, AlertTriangle, Info, CheckCircle2, TrendingUp, TrendingDown, GitCompare, BookmarkPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ManagerialRecommendations } from "@/components/ManagerialRecommendations";
 import { OptimAssistant } from "@/components/OptimAssistant";
@@ -22,6 +32,20 @@ export default function Results() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { input, result } = useProblemState();
+  const { saveScenario } = useScenarios();
+  const [scenarioDialogOpen, setScenarioDialogOpen] = useState(false);
+  const [scenarioName, setScenarioName] = useState("");
+
+  const handleSaveScenario = () => {
+    if (!input || !result) return;
+    saveScenario(scenarioName || t("Scénario sans nom", "سيناريو بدون اسم"), input, result);
+    setScenarioDialogOpen(false);
+    setScenarioName("");
+    toast({
+      title: t("Scénario sauvegardé", "تم حفظ السيناريو"),
+      description: t("Consultez la page Scénarios pour comparer.", "اذهب إلى صفحة السيناريوهات للمقارنة."),
+    });
+  };
 
   const saveMutation = useSaveProblem({
     mutation: {
@@ -92,10 +116,18 @@ export default function Results() {
           </h1>
         </div>
         
-        <Button onClick={handleSave} disabled={saveMutation.isPending} variant="secondary">
-          <Save className="w-4 h-4 mr-2" />
-          {t("Sauvegarder le résultat", "حفظ النتيجة")}
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {result.status === "optimal" && (
+            <Button variant="outline" onClick={() => setScenarioDialogOpen(true)}>
+              <BookmarkPlus className="w-4 h-4 mr-2" />
+              {t("حفظ السيناريو", "Sauvegarder Scénario")}
+            </Button>
+          )}
+          <Button onClick={handleSave} disabled={saveMutation.isPending} variant="secondary">
+            <Save className="w-4 h-4 mr-2" />
+            {t("Sauvegarder le résultat", "حفظ النتيجة")}
+          </Button>
+        </div>
       </div>
 
       {result.alerts && result.alerts.length > 0 && (
@@ -241,6 +273,55 @@ export default function Results() {
           )}
         </>
       )}
+
+      {/* Save Scenario Dialog */}
+      <Dialog open={scenarioDialogOpen} onOpenChange={setScenarioDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookmarkPlus className="w-5 h-5 text-primary" />
+              {t("حفظ السيناريو", "Sauvegarder le scénario")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                "Donnez un nom à ce scénario pour le retrouver facilement dans la comparaison.",
+                "أعطِ اسمًا لهذا السيناريو لتتمكن من مقارنته لاحقاً."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <label className="text-sm font-medium text-foreground block">
+              {t("اسم السيناريو", "Nom du scénario")}
+            </label>
+            <input
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder={t("Scénario Été 2026 / خطة الصيف 2026", "خطة الصيف 2026")}
+              value={scenarioName}
+              onChange={(e) => setScenarioName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSaveScenario(); }}
+              autoFocus
+            />
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "القيمة المثلى",
+                "Valeur optimale"
+              )}{": "}
+              <span className="font-bold text-foreground">
+                {result.optimalValue?.toLocaleString(language === "ar" ? "ar-DZ" : "fr-FR", { maximumFractionDigits: 0 })} DZD
+              </span>
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setScenarioDialogOpen(false)}>
+              {t("إلغاء", "Annuler")}
+            </Button>
+            <Button onClick={handleSaveScenario}>
+              <BookmarkPlus className="w-4 h-4 mr-2" />
+              {t("حفظ", "Sauvegarder")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -5,12 +5,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { LanguageProvider } from "@/lib/LanguageContext";
 import { ProblemProvider } from "@/lib/ProblemContext";
+import { ScenarioProvider } from "@/lib/ScenarioContext";
 import { Layout } from "@/components/Layout";
 
 import Home from "@/pages/Home";
 import History from "@/pages/History";
 import Solve from "@/pages/Solve";
 import Results from "@/pages/Results";
+import ScenarioCompare from "@/pages/ScenarioCompare";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +24,7 @@ function Router() {
         <Route path="/solve" component={Solve} />
         <Route path="/results" component={Results} />
         <Route path="/history" component={History} />
+        <Route path="/scenarios" component={ScenarioCompare} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -33,12 +36,14 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <ProblemProvider>
-          <TooltipProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <Router />
-            </WouterRouter>
-            <Toaster />
-          </TooltipProvider>
+          <ScenarioProvider>
+            <TooltipProvider>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <Router />
+              </WouterRouter>
+              <Toaster />
+            </TooltipProvider>
+          </ScenarioProvider>
         </ProblemProvider>
       </LanguageProvider>
     </QueryClientProvider>

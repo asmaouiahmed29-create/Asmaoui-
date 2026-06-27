@@ -1,17 +1,20 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useScenarios } from "@/lib/ScenarioContext";
 import { Button } from "@/components/ui/button";
-import { Calculator, LayoutDashboard, History, Settings } from "lucide-react";
+import { Calculator, LayoutDashboard, History, GitCompare } from "lucide-react";
 
 export function Navbar() {
   const [location] = useLocation();
   const { language, setLanguage, t } = useLanguage();
+  const { scenarios } = useScenarios();
 
   const navItems = [
     { href: "/", label: t("Tableau de bord", "لوحة القيادة"), icon: LayoutDashboard },
     { href: "/solve", label: t("Nouveau Problème", "مسألة جديدة"), icon: Calculator },
     { href: "/history", label: t("Historique", "السجل"), icon: History },
+    { href: "/scenarios", label: t("Scénarios", "السيناريوهات"), icon: GitCompare, badge: scenarios.length || undefined },
   ];
 
   return (
@@ -29,15 +32,20 @@ export function Navbar() {
             const isActive = location === item.href;
             const Icon = item.icon;
             return (
-              <Link 
-                key={item.href} 
+              <Link
+                key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2 text-sm font-medium transition-colors ${
+                className={`relative flex items-center gap-2 text-sm font-medium transition-colors ${
                   isActive ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
                 } h-16`}
               >
                 <Icon className="w-4 h-4" />
                 {item.label}
+                {"badge" in item && item.badge ? (
+                  <span className="absolute -top-0.5 -right-3 min-w-[18px] h-[18px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1">
+                    {item.badge}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
