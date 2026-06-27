@@ -19,13 +19,14 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Save, AlertTriangle, Info, CheckCircle2, TrendingUp, TrendingDown, GitCompare, BookmarkPlus } from "lucide-react";
+import { ArrowLeft, Save, AlertTriangle, Info, CheckCircle2, TrendingUp, TrendingDown, GitCompare, BookmarkPlus, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ManagerialRecommendations } from "@/components/ManagerialRecommendations";
 import { OptimAssistant } from "@/components/OptimAssistant";
 import { WhatIfPanel } from "@/components/WhatIfPanel";
 import { SensitivityReport } from "@/components/SensitivityReport";
 import { KPIDashboard } from "@/components/KPIDashboard";
+import { PDFExportDialog } from "@/components/PDFExportDialog";
 
 export default function Results() {
   const { t, language } = useLanguage();
@@ -35,6 +36,7 @@ export default function Results() {
   const { saveScenario } = useScenarios();
   const [scenarioDialogOpen, setScenarioDialogOpen] = useState(false);
   const [scenarioName, setScenarioName] = useState("");
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
 
   const handleSaveScenario = () => {
     if (!input || !result) return;
@@ -118,10 +120,16 @@ export default function Results() {
         
         <div className="flex items-center gap-2 flex-wrap">
           {result.status === "optimal" && (
-            <Button variant="outline" onClick={() => setScenarioDialogOpen(true)}>
-              <BookmarkPlus className="w-4 h-4 mr-2" />
-              {t("حفظ السيناريو", "Sauvegarder Scénario")}
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setPdfDialogOpen(true)}>
+                <FileText className="w-4 h-4 mr-2" />
+                {t("تصدير PDF", "Exporter PDF")}
+              </Button>
+              <Button variant="outline" onClick={() => setScenarioDialogOpen(true)}>
+                <BookmarkPlus className="w-4 h-4 mr-2" />
+                {t("حفظ السيناريو", "Sauvegarder Scénario")}
+              </Button>
+            </>
           )}
           <Button onClick={handleSave} disabled={saveMutation.isPending} variant="secondary">
             <Save className="w-4 h-4 mr-2" />
@@ -272,6 +280,16 @@ export default function Results() {
             </Card>
           )}
         </>
+      )}
+
+      {/* PDF Export Dialog */}
+      {input && result && (
+        <PDFExportDialog
+          open={pdfDialogOpen}
+          onOpenChange={setPdfDialogOpen}
+          input={input}
+          result={result}
+        />
       )}
 
       {/* Save Scenario Dialog */}
