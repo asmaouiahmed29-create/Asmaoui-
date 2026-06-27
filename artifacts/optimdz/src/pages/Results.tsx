@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ManagerialRecommendations } from "@/components/ManagerialRecommendations";
 import { OptimAssistant } from "@/components/OptimAssistant";
 import { WhatIfPanel } from "@/components/WhatIfPanel";
+import { SensitivityReport } from "@/components/SensitivityReport";
 
 export default function Results() {
   const { t, language } = useLanguage();
@@ -179,46 +180,7 @@ export default function Results() {
           <WhatIfPanel input={input} result={result} />
 
           {result.sensitivityAnalysis && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("Analyse de Sensibilité", "تحليل الحساسية")}</CardTitle>
-                <CardDescription>{t("Impact des variations sur la solution optimale.", "تأثير التغيرات على الحل الأمثل.")}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {result.sensitivityAnalysis.constraints && result.sensitivityAnalysis.constraints.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-lg mb-3">{t("Ressources / Contraintes", "الموارد / القيود")}</h3>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{t("Contrainte", "القيد")}</TableHead>
-                          <TableHead className="text-right">{t("Prix Fictif (Shadow Price)", "سعر الظل")}</TableHead>
-                          <TableHead className="text-right">{t("Valeur Actuelle", "القيمة الحالية")}</TableHead>
-                          <TableHead className="text-right">{t("Hausse Max", "الزيادة المسموحة")}</TableHead>
-                          <TableHead className="text-right">{t("Baisse Max", "النقصان المسموح")}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {result.sensitivityAnalysis.constraints.map((c, idx) => (
-                          <TableRow key={idx} className={c.isCritical ? "bg-accent/10" : ""}>
-                            <TableCell className="font-medium flex items-center gap-2">
-                              {c.name}
-                              {c.isCritical && <Badge variant="outline" className="text-accent-foreground border-accent-foreground bg-accent/20 text-xs">{t("Critique", "حرج")}</Badge>}
-                            </TableCell>
-                            <TableCell className={`text-right font-bold ${c.shadowPrice && c.shadowPrice > 0 ? "text-secondary" : ""}`}>
-                              {c.shadowPrice !== null && c.shadowPrice !== undefined ? c.shadowPrice.toLocaleString(language === 'ar' ? 'ar-DZ' : 'fr-FR', { maximumFractionDigits: 2 }) : "-"}
-                            </TableCell>
-                            <TableCell className="text-right">{c.currentValue}</TableCell>
-                            <TableCell className="text-right text-muted-foreground">{c.allowableIncrease === null ? "∞" : c.allowableIncrease}</TableCell>
-                            <TableCell className="text-right text-muted-foreground">{c.allowableDecrease === null ? "∞" : c.allowableDecrease}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <SensitivityReport input={input} result={result} />
           )}
 
           {result.steps && result.steps.length > 0 && (

@@ -417,13 +417,45 @@ export function solveSimplex(input: ProblemInput): SolveResult {
     let shadowPrice: number | null = null;
     const slackName = `s${i + 1}`;
     const sIdx = varNames.indexOf(slackName);
+
+    let allowIncrease: number | null = null; // null = ∞
+    let allowDecrease: number | null = null; // null = ∞
+
     if (sIdx >= 0) {
       shadowPrice = round(c.operator === "<=" ? -objRow[sIdx] : objRow[sIdx]);
+
+      // RHS ranging — parametric analysis on the slack column
+      const basicRow = basisFixed.indexOf(sIdx);
+      if (basicRow >= 0) {
+        // Slack is basic → non-binding constraint
+        // Allowable decrease = current slack value (how much RHS can shrink before binding)
+        allowDecrease = round(tableau[basicRow][totalVars]);
+        allowIncrease = null; // ∞ — can always increase a non-binding RHS
+      } else {
+        // Slack is non-basic → binding constraint
+        // Use the column of s_i in the final tableau
+        let maxIncrease: number = Infinity;
+        let maxDecrease: number = Infinity;
+        const sign = c.operator === ">=" ? -1 : 1;
+        for (let r = 0; r < m; r++) {
+          const colVal = sign * tableau[r][sIdx];
+          const rhsVal = tableau[r][totalVars];
+          if (colVal < -EPSILON) {
+            maxIncrease = Math.min(maxIncrease, -rhsVal / colVal);
+          } else if (colVal > EPSILON) {
+            maxDecrease = Math.min(maxDecrease, rhsVal / colVal);
+          }
+        }
+        allowIncrease = maxIncrease === Infinity ? null : round(maxIncrease);
+        allowDecrease = maxDecrease === Infinity ? null : round(maxDecrease);
+      }
     }
 
     return {
       name: c.name,
       currentValue: c.rhs,
+      allowableIncrease: allowIncrease,
+      allowableDecrease: allowDecrease,
       shadowPrice,
       isCritical: shadowPrice !== null && Math.abs(shadowPrice) > 1e-4,
     };
