@@ -15,6 +15,7 @@ import { ManagerialRecommendations } from "@/components/ManagerialRecommendation
 import { OptimAssistant } from "@/components/OptimAssistant";
 import { WhatIfPanel } from "@/components/WhatIfPanel";
 import { SensitivityReport } from "@/components/SensitivityReport";
+import { KPIDashboard } from "@/components/KPIDashboard";
 
 export default function Results() {
   const { t, language } = useLanguage();
@@ -143,6 +144,8 @@ export default function Results() {
               </CardContent>
             </Card>
           </section>
+
+          <KPIDashboard input={input} result={result} />
 
           <Card>
             <CardHeader>
