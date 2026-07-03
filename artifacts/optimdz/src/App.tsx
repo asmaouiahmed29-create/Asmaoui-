@@ -17,8 +17,9 @@ import Solve from "@/pages/Solve";
 import Results from "@/pages/Results";
 import ScenarioCompare from "@/pages/ScenarioCompare";
 
-import TransportHome from "@/pages/transportation/Home";
-import TransportSolve from "@/pages/transportation/Solve";
+import TransportHome     from "@/pages/transportation/Home";
+import TransportSolve    from "@/pages/transportation/Solve";
+import TransportSolution from "@/pages/transportation/Solution";
 
 const queryClient = new QueryClient();
 
@@ -36,8 +37,9 @@ function Router() {
           <TransportProvider>
             <TransportLayout>
               <Switch>
-                <Route path="/transport" component={TransportHome} />
-                <Route path="/transport/solve" component={TransportSolve} />
+                <Route path="/transport"          component={TransportHome} />
+                <Route path="/transport/solve"    component={TransportSolve} />
+                <Route path="/transport/solution" component={TransportSolution} />
                 <Route component={NotFound} />
               </Switch>
             </TransportLayout>

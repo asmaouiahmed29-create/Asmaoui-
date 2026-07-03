@@ -91,7 +91,7 @@ const SECTOR_LABELS: Record<SectorKey, { fr: string; ar: string }> = {
 };
 
 // ── Template data ─────────────────────────────────────────────────────────────
-interface Template {
+export interface Template {
   nameFr: string; nameAr: string;
   objectiveType: "minimize" | "maximize";
   sources: Array<{ nameFr: string; nameAr: string; supply: number }>;
@@ -99,7 +99,7 @@ interface Template {
   costs: number[][];
 }
 
-const TEMPLATES: Record<SectorKey, Template | null> = {
+export const TEMPLATES: Record<SectorKey, Template | null> = {
   trade: {
     nameFr: "Distribution Régionale — Unifast Commerce SPA",
     nameAr: "التوزيع الإقليمي — يونيفاست كوميرس",
@@ -500,18 +500,7 @@ export default function TransportSolve() {
       costs,
     });
 
-    console.log("Transport Problem (Stage 1 complete):", {
-      name, sector, objectiveType, sources, destinations, costs,
-      totalSupply, totalDemand, isBalanced, balanceDiff,
-    });
-
-    toast({
-      title: t("Données enregistrées ✓", "تم حفظ البيانات ✓"),
-      description: t(
-        "La résolution (Vogel, Nord-Ouest, MODI) sera disponible dans la prochaine étape.",
-        "سيتوفر الحل (فوغل، الزاوية الشمالية الغربية، MODI) في المرحلة التالية."
-      ),
-    });
+    setLocation("/transport/solution");
   };
 
   // ── Sector label ─────────────────────────────────────────────────────────────
@@ -930,8 +919,8 @@ export default function TransportSolve() {
           <Info className="w-4 h-4 shrink-0" />
           <span>
             {t(
-              "Stage 1 sur 3 — La résolution sera disponible dans la prochaine version.",
-              "المرحلة 1 من 3 — سيتوفر الحل في الإصدار القادم."
+              "Stage 1 sur 3 — Définissez vos données, puis continuez vers la solution.",
+              "المرحلة 1 من 3 — حدد بياناتك، ثم تابع نحو الحل."
             )}
           </span>
         </div>
