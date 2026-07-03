@@ -32,10 +32,11 @@ const MODULES: Module[] = [
     icon: Truck,
     nameFr: "Problème de Transport",
     nameAr: "مسألة النقل",
-    descFr: "Optimisez les coûts de transport entre sources et destinations avec les méthodes de Vogel, Nord-Ouest et MODI.",
-    descAr: "تحسين تكاليف النقل بين مصادر ووجهات بطرائق فوغل، الزاوية الشمالية الغربية، وMODI.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    descFr: "Optimisez la distribution de ressources entre sources et destinations. Saisie de matrice de coûts, équilibrage automatique.",
+    descAr: "حسّن توزيع الموارد بين المصادر والوجهات. إدخال مصفوفة التكاليف والتوازن التلقائي.",
+    href: "/transport",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
   {
     id: "assignment",
@@ -83,7 +84,7 @@ const MODULES: Module[] = [
 const PLATFORM_STATS = [
   { valueFr: "6", valueAr: "٦", labelFr: "Modules planifiés", labelAr: "وحدات مخططة" },
   { valueFr: "4", valueAr: "٤", labelFr: "Secteurs d'activité", labelAr: "قطاعات نشاط" },
-  { valueFr: "1", valueAr: "١", labelFr: "Module disponible", labelAr: "وحدة متاحة" },
+  { valueFr: "2", valueAr: "٢", labelFr: "Modules disponibles", labelAr: "وحدتان متاحتان" },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
