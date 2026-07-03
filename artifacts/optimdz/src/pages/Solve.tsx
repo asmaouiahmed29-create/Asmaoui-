@@ -58,7 +58,7 @@ export default function Solve() {
     mutation: {
       onSuccess: (data, variablesInput) => {
         setInputAndResult(variablesInput.data, data);
-        setLocation("/results");
+        setLocation("/simplex/results");
       },
       onError: () => {
         toast({

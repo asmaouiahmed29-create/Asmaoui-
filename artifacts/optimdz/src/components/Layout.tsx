@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useScenarios } from "@/lib/ScenarioContext";
 import { Button } from "@/components/ui/button";
-import { Calculator, LayoutDashboard, History, GitCompare } from "lucide-react";
+import { Calculator, LayoutDashboard, History, GitCompare, ChevronLeft } from "lucide-react";
 
 export function Navbar() {
   const [location] = useLocation();
@@ -11,22 +11,40 @@ export function Navbar() {
   const { scenarios } = useScenarios();
 
   const navItems = [
-    { href: "/", label: t("Tableau de bord", "لوحة القيادة"), icon: LayoutDashboard },
-    { href: "/solve", label: t("Nouveau Problème", "مسألة جديدة"), icon: Calculator },
-    { href: "/history", label: t("Historique", "السجل"), icon: History },
-    { href: "/scenarios", label: t("Scénarios", "السيناريوهات"), icon: GitCompare, badge: scenarios.length || undefined },
+    { href: "/simplex",           label: t("Tableau de bord", "لوحة القيادة"),   icon: LayoutDashboard },
+    { href: "/simplex/solve",     label: t("Nouveau Problème", "مسألة جديدة"),   icon: Calculator },
+    { href: "/simplex/history",   label: t("Historique", "السجل"),               icon: History },
+    {
+      href: "/simplex/scenarios",
+      label: t("Scénarios", "السيناريوهات"),
+      icon: GitCompare,
+      badge: scenarios.length || undefined,
+    },
   ];
 
   return (
     <header className="border-b bg-background sticky top-0 z-50 shadow-sm">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight text-primary">
-          <div className="bg-primary text-primary-foreground p-1.5 rounded">
-            <Calculator className="w-5 h-5" />
-          </div>
-          OptimDZ
-        </Link>
-        
+
+        {/* Brand + back-to-portal link */}
+        <div className="flex items-center gap-4">
+          <Link href="/simplex" className="flex items-center gap-2 font-bold text-xl tracking-tight text-primary">
+            <div className="bg-primary text-primary-foreground p-1.5 rounded">
+              <Calculator className="w-5 h-5" />
+            </div>
+            OptimDZ
+          </Link>
+          {/* portal breadcrumb */}
+          <Link
+            href="/"
+            className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+          >
+            <ChevronLeft className="w-3 h-3" />
+            {t("Portail", "البوابة")}
+          </Link>
+        </div>
+
+        {/* Module nav */}
         <nav className="hidden md:flex items-center gap-6">
           {navItems.map((item) => {
             const isActive = location === item.href;
@@ -36,7 +54,9 @@ export function Navbar() {
                 key={item.href}
                 href={item.href}
                 className={`relative flex items-center gap-2 text-sm font-medium transition-colors ${
-                  isActive ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
+                  isActive
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground"
                 } h-16`}
               >
                 <Icon className="w-4 h-4" />
@@ -51,6 +71,7 @@ export function Navbar() {
           })}
         </nav>
 
+        {/* Language toggle */}
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -62,6 +83,7 @@ export function Navbar() {
             {language === "fr" ? "AR" : "FR"}
           </Button>
         </div>
+
       </div>
     </header>
   );

@@ -122,7 +122,7 @@ export default function ScenarioCompare() {
   // ── load scenario into solver ───────────────────────────────────────────────
   const handleLoad = (s: Scenario) => {
     setInputAndResult(s.input, s.result);
-    setLocation("/results");
+    setLocation("/simplex/results");
   };
 
   // ── empty state ─────────────────────────────────────────────────────────────
@@ -140,7 +140,7 @@ export default function ScenarioCompare() {
               "Résolvez un problème et sauvegardez-le pour commencer la comparaison."
             )}
           </p>
-          <Button onClick={() => setLocation("/solve")} className="mt-2">
+          <Button onClick={() => setLocation("/simplex/solve")} className="mt-2">
             <Play className="w-4 h-4 mr-2" />
             {t("حل مسألة جديدة", "Résoudre un nouveau problème")}
           </Button>
@@ -212,7 +212,7 @@ export default function ScenarioCompare() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setLocation("/solve")}>
+          <Button variant="outline" size="sm" onClick={() => setLocation("/simplex/solve")}>
             <Play className="w-4 h-4 mr-1.5" />
             {t("مسألة جديدة", "Nouveau problème")}
           </Button>

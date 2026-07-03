@@ -36,13 +36,13 @@ export default function Home() {
           </p>
           <div className="flex flex-wrap gap-4">
             <Button size="lg" variant="secondary" asChild>
-              <Link href="/solve">
+              <Link href="/simplex/solve">
                 {t("Nouveau Problème", "مسألة جديدة")}
                 <ArrowRight className={`w-4 h-4 ${language === 'ar' ? 'mr-2 rotate-180' : 'ml-2'}`} />
               </Link>
             </Button>
             <Button size="lg" variant="outline" className="bg-primary-foreground/10 border-primary-foreground/20 hover:bg-primary-foreground/20 text-primary-foreground" asChild>
-              <Link href="/history">
+              <Link href="/simplex/history">
                 {t("Voir l'historique", "عرض السجل")}
               </Link>
             </Button>
@@ -75,7 +75,7 @@ export default function Home() {
                 <Card 
                   key={template.sector} 
                   className="hover:border-primary/50 transition-colors cursor-pointer group"
-                  onClick={() => setLocation(`/solve?template=${template.sector}`)}
+                  onClick={() => setLocation(`/simplex/solve?template=${template.sector}`)}
                 >
                   <CardHeader className="flex flex-row items-center gap-4 pb-2">
                     <div className="p-2 bg-primary/10 rounded-lg text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
@@ -95,7 +95,7 @@ export default function Home() {
             })}
             <Card 
               className="hover:border-primary/50 transition-colors cursor-pointer group border-dashed border-2"
-              onClick={() => setLocation(`/solve`)}
+              onClick={() => setLocation(`/simplex/solve`)}
             >
               <CardHeader className="flex flex-row items-center gap-4 pb-2">
                 <div className="p-2 bg-muted rounded-lg text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
@@ -130,7 +130,7 @@ export default function Home() {
                   stats.recentProblems.map((prob) => (
                     <div key={prob.id} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                       <div className="space-y-1">
-                        <Link href={`/history`} className="font-medium hover:text-primary transition-colors">
+                        <Link href={`/simplex/history`} className="font-medium hover:text-primary transition-colors">
                           {prob.name}
                         </Link>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -164,7 +164,7 @@ export default function Home() {
               </div>
               {stats?.recentProblems && stats.recentProblems.length > 0 && (
                 <div className="p-4 border-t bg-muted/20 text-center">
-                  <Link href="/history" className="text-sm font-medium text-primary hover:underline">
+                  <Link href="/simplex/history" className="text-sm font-medium text-primary hover:underline">
                     {t("Voir tout l'historique", "عرض كل السجل")}
                   </Link>
                 </div>

@@ -50,7 +50,7 @@ export default function History() {
   const handleLoad = (problem: any) => {
     if (problem.problemData && problem.result) {
       setInputAndResult(problem.problemData, problem.result);
-      setLocation("/results");
+      setLocation("/simplex/results");
     } else {
       toast({
         variant: "destructive",

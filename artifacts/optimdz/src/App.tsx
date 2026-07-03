@@ -8,6 +8,7 @@ import { ProblemProvider } from "@/lib/ProblemContext";
 import { ScenarioProvider } from "@/lib/ScenarioContext";
 import { Layout } from "@/components/Layout";
 
+import PlatformHome from "@/pages/PlatformHome";
 import Home from "@/pages/Home";
 import History from "@/pages/History";
 import Solve from "@/pages/Solve";
@@ -18,16 +19,24 @@ const queryClient = new QueryClient();
 
 function Router() {
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/solve" component={Solve} />
-        <Route path="/results" component={Results} />
-        <Route path="/history" component={History} />
-        <Route path="/scenarios" component={ScenarioCompare} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <Switch>
+      {/* Platform landing — has its own nav, no Layout wrapper */}
+      <Route path="/" component={PlatformHome} />
+
+      {/* Simplex module — all routes share the Simplex Layout */}
+      <Route>
+        <Layout>
+          <Switch>
+            <Route path="/simplex" component={Home} />
+            <Route path="/simplex/solve" component={Solve} />
+            <Route path="/simplex/results" component={Results} />
+            <Route path="/simplex/history" component={History} />
+            <Route path="/simplex/scenarios" component={ScenarioCompare} />
+            <Route component={NotFound} />
+          </Switch>
+        </Layout>
+      </Route>
+    </Switch>
   );
 }
 

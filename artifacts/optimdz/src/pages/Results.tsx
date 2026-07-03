@@ -68,7 +68,7 @@ export default function Results() {
   });
 
   if (!input || !result) {
-    setLocation("/solve");
+    setLocation("/simplex/solve");
     return null;
   }
 
@@ -104,7 +104,7 @@ export default function Results() {
     <div className="container mx-auto px-4 py-8 max-w-6xl space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <Button variant="ghost" size="sm" onClick={() => setLocation("/solve")} className="-ml-3 mb-2">
+          <Button variant="ghost" size="sm" onClick={() => setLocation("/simplex/solve")} className="-ml-3 mb-2">
             <ArrowLeft className="w-4 h-4 mr-2" />
             {t("Retour à l'édition", "العودة إلى التعديل")}
           </Button>
