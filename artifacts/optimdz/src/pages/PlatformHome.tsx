@@ -45,8 +45,9 @@ const MODULES: Module[] = [
     nameAr: "مسألة التوزيع",
     descFr: "Affectez des ressources (employés, machines) à des tâches de manière optimale via la méthode Hongroise.",
     descAr: "توزيع الموارد (موظفون، آلات) على المهام بشكل مثالي باستخدام الطريقة الهنغارية.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    href: "/assignment",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
   {
     id: "pert",
@@ -84,7 +85,7 @@ const MODULES: Module[] = [
 const PLATFORM_STATS = [
   { valueFr: "6", valueAr: "٦", labelFr: "Modules planifiés", labelAr: "وحدات مخططة" },
   { valueFr: "4", valueAr: "٤", labelFr: "Secteurs d'activité", labelAr: "قطاعات نشاط" },
-  { valueFr: "2", valueAr: "٢", labelFr: "Modules disponibles", labelAr: "وحدتان متاحتان" },
+  { valueFr: "3", valueAr: "٣", labelFr: "Modules disponibles", labelAr: "ثلاث وحدات متاحة" },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────

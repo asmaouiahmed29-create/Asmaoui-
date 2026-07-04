@@ -8,8 +8,10 @@ import { ProblemProvider } from "@/lib/ProblemContext";
 import { ScenarioProvider } from "@/lib/ScenarioContext";
 import { TransportProvider } from "@/lib/TransportContext";
 import { TransportHistoryProvider } from "@/lib/TransportHistoryContext";
+import { AssignmentProvider } from "@/lib/AssignmentContext";
 import { Layout } from "@/components/Layout";
 import { TransportLayout } from "@/components/TransportLayout";
+import { AssignmentLayout } from "@/components/AssignmentLayout";
 
 import PlatformHome from "@/pages/PlatformHome";
 import Home from "@/pages/Home";
@@ -22,6 +24,10 @@ import TransportHome     from "@/pages/transportation/Home";
 import TransportSolve    from "@/pages/transportation/Solve";
 import TransportSolution from "@/pages/transportation/Solution";
 import TransportOptimize from "@/pages/transportation/Optimize";
+
+import AssignmentHome     from "@/pages/assignment/Home";
+import AssignmentSolve    from "@/pages/assignment/Solve";
+import AssignmentSolution from "@/pages/assignment/Solution";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +55,17 @@ function Router() {
               </TransportLayout>
             </TransportProvider>
           </TransportHistoryProvider>
+        ) : location.startsWith("/assignment") ? (
+          <AssignmentProvider>
+            <AssignmentLayout>
+              <Switch>
+                <Route path="/assignment"           component={AssignmentHome} />
+                <Route path="/assignment/solve"     component={AssignmentSolve} />
+                <Route path="/assignment/solution"  component={AssignmentSolution} />
+                <Route component={NotFound} />
+              </Switch>
+            </AssignmentLayout>
+          </AssignmentProvider>
         ) : (
           <Layout>
             <Switch>
