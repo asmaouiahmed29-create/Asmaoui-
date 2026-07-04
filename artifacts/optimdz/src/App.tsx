@@ -7,6 +7,7 @@ import { LanguageProvider } from "@/lib/LanguageContext";
 import { ProblemProvider } from "@/lib/ProblemContext";
 import { ScenarioProvider } from "@/lib/ScenarioContext";
 import { TransportProvider } from "@/lib/TransportContext";
+import { TransportHistoryProvider } from "@/lib/TransportHistoryContext";
 import { Layout } from "@/components/Layout";
 import { TransportLayout } from "@/components/TransportLayout";
 
@@ -20,6 +21,7 @@ import ScenarioCompare from "@/pages/ScenarioCompare";
 import TransportHome     from "@/pages/transportation/Home";
 import TransportSolve    from "@/pages/transportation/Solve";
 import TransportSolution from "@/pages/transportation/Solution";
+import TransportOptimize from "@/pages/transportation/Optimize";
 
 const queryClient = new QueryClient();
 
@@ -34,16 +36,19 @@ function Router() {
       {/* All module routes share a catch-all route; layout is chosen by path prefix */}
       <Route>
         {location.startsWith("/transport") ? (
-          <TransportProvider>
-            <TransportLayout>
-              <Switch>
-                <Route path="/transport"          component={TransportHome} />
-                <Route path="/transport/solve"    component={TransportSolve} />
-                <Route path="/transport/solution" component={TransportSolution} />
-                <Route component={NotFound} />
-              </Switch>
-            </TransportLayout>
-          </TransportProvider>
+          <TransportHistoryProvider>
+            <TransportProvider>
+              <TransportLayout>
+                <Switch>
+                  <Route path="/transport"           component={TransportHome} />
+                  <Route path="/transport/solve"     component={TransportSolve} />
+                  <Route path="/transport/solution"  component={TransportSolution} />
+                  <Route path="/transport/optimize"  component={TransportOptimize} />
+                  <Route component={NotFound} />
+                </Switch>
+              </TransportLayout>
+            </TransportProvider>
+          </TransportHistoryProvider>
         ) : (
           <Layout>
             <Switch>

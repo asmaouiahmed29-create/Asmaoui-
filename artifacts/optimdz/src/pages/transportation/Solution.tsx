@@ -1142,16 +1142,17 @@ export default function TransportSolution() {
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Lock className="w-4 h-4 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-green-600" />
             <span>
-              {t("Stage 2 sur 3 — Optimisation MODI disponible prochainement.", "المرحلة 2 من 3 — تحسين MODI قريباً.")}
+              {t("Stage 2 sur 3 — Méthode sélectionnée :", "المرحلة 2 من 3 — الطريقة المختارة:")}
+              {" "}
+              <span className="font-semibold text-foreground">{METHOD_META[activeMethod].shortFr}</span>
             </span>
           </div>
           <Button
             size="lg"
-            disabled
-            className="w-full sm:w-auto px-8 gap-2 cursor-not-allowed opacity-60"
-            title={t("Disponible dans la prochaine version", "متاح في الإصدار القادم")}
+            onClick={() => setLocation(`/transport/optimize?method=${activeMethod}`)}
+            className="w-full sm:w-auto px-8 gap-2"
           >
             <Zap className="w-5 h-5" />
             {t("Optimiser avec MODI", "التحسين بـ MODI")}
