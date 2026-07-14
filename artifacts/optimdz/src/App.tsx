@@ -9,6 +9,7 @@ import { ScenarioProvider } from "@/lib/ScenarioContext";
 import { TransportProvider } from "@/lib/TransportContext";
 import { TransportHistoryProvider } from "@/lib/TransportHistoryContext";
 import { AssignmentProvider } from "@/lib/AssignmentContext";
+import { AssignmentHistoryProvider } from "@/lib/AssignmentHistoryContext";
 import { Layout } from "@/components/Layout";
 import { TransportLayout } from "@/components/TransportLayout";
 import { AssignmentLayout } from "@/components/AssignmentLayout";
@@ -56,16 +57,18 @@ function Router() {
             </TransportProvider>
           </TransportHistoryProvider>
         ) : location.startsWith("/assignment") ? (
-          <AssignmentProvider>
-            <AssignmentLayout>
-              <Switch>
-                <Route path="/assignment"           component={AssignmentHome} />
-                <Route path="/assignment/solve"     component={AssignmentSolve} />
-                <Route path="/assignment/solution"  component={AssignmentSolution} />
-                <Route component={NotFound} />
-              </Switch>
-            </AssignmentLayout>
-          </AssignmentProvider>
+          <AssignmentHistoryProvider>
+            <AssignmentProvider>
+              <AssignmentLayout>
+                <Switch>
+                  <Route path="/assignment"           component={AssignmentHome} />
+                  <Route path="/assignment/solve"     component={AssignmentSolve} />
+                  <Route path="/assignment/solution"  component={AssignmentSolution} />
+                  <Route component={NotFound} />
+                </Switch>
+              </AssignmentLayout>
+            </AssignmentProvider>
+          </AssignmentHistoryProvider>
         ) : (
           <Layout>
             <Switch>

@@ -2,7 +2,7 @@ import { useLanguage } from "@/lib/LanguageContext";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, ArrowRight, Info, CheckCircle2, BarChart3, Lock } from "lucide-react";
+import { Users, ArrowRight, Info, CheckCircle2, BarChart3, Zap } from "lucide-react";
 
 export default function AssignmentHome() {
   const { t, language } = useLanguage();
@@ -38,18 +38,18 @@ export default function AssignmentHome() {
       icon: <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />,
     },
     {
-      fr: "Méthode Hongroise (bientôt)",
-      ar: "الطريقة الهنغارية (قريباً)",
-      descFr: "Résolution optimale garantie — algorithme exact de complexité O(n³). Résultats pas-à-pas.",
-      descAr: "حل أمثل مضمون — خوارزمية دقيقة بتعقيد O(n³). نتائج خطوة بخطوة.",
-      icon: <Lock className="w-5 h-5 text-muted-foreground shrink-0" />,
+      fr: "Méthode Hongroise",
+      ar: "الطريقة الهنغارية",
+      descFr: "Résolution optimale garantie — algorithme exact de complexité O(n³). Résultats pas-à-pas, avec analyse et export PDF.",
+      descAr: "حل أمثل مضمون — خوارزمية دقيقة بتعقيد O(n³). نتائج خطوة بخطوة، مع تحليل وتصدير PDF.",
+      icon: <Zap className="w-5 h-5 text-primary shrink-0" />,
     },
   ];
 
   const steps = [
     { n: 1, fr: "Choisir le secteur", ar: "اختيار القطاع", active: true },
     { n: 2, fr: "Saisir les données", ar: "إدخال البيانات",  active: true },
-    { n: 3, fr: "Solution optimale",  ar: "الحل الأمثل",     active: false },
+    { n: 3, fr: "Solution optimale",  ar: "الحل الأمثل",     active: true },
   ];
 
   return (
@@ -97,7 +97,7 @@ export default function AssignmentHome() {
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
                   s.active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 }`}>
-                  {s.active ? s.n : <Lock className="w-3.5 h-3.5" />}
+                  {s.n}
                 </div>
                 <span className={`text-sm font-medium ${s.active ? "text-foreground" : "text-muted-foreground"}`}>
                   {isAr ? s.ar : s.fr}
@@ -140,8 +140,8 @@ export default function AssignmentHome() {
         <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
         <p>
           {t(
-            "Stage 1 disponible : saisie des données et configuration du problème. La résolution par la méthode Hongroise (Stage 2) sera disponible prochainement.",
-            "المرحلة 1 متاحة: إدخال البيانات وتهيئة المسألة. سيتوفر الحل بالطريقة الهنغارية (المرحلة 2) قريباً."
+            "Module complet disponible : saisie des données, puis résolution pas-à-pas par la méthode Hongroise avec analyse et export PDF.",
+            "الوحدة متاحة بالكامل: إدخال البيانات، ثم الحل خطوة بخطوة بالطريقة الهنغارية مع تحليل وتصدير PDF."
           )}
         </p>
       </div>
