@@ -4,12 +4,19 @@ Bilingual (Arabic/French) full-stack web app for Algerian business managers cove
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+Two workflows are configured in `.replit` and start automatically via the "Project" run button:
+
+- **`artifacts/optimdz: web`** — Vite dev server on port 21757 (`PORT=21757 BASE_PATH=/ pnpm --filter @workspace/optimdz run dev`)
+- **`artifacts/api-server: API Server`** — Express API on port 8080 (`PORT=8080 pnpm --filter @workspace/api-server run dev`)
+
+The post-merge script (`scripts/post-merge.sh`) runs `pnpm install --frozen-lockfile` and `pnpm --filter db push` automatically after each merge, keeping dependencies and the DB schema in sync.
+
+Other useful commands:
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `DATABASE_URL` — provided automatically by Replit's built-in PostgreSQL
 
 ## Stack
 
