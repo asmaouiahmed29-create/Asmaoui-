@@ -229,3 +229,207 @@ export function fmt(n: number): string {
   if (Number.isInteger(n)) return n.toString();
   return parseFloat(n.toFixed(2)).toString();
 }
+
+// ── Crashing (Project Compression) ───────────────────────────────────────────
+
+export interface CrashStep {
+  iteration: number;
+  activityId: string;         // may be "A+B" for multi-activity parallel crash
+  activityName: string;
+  crashedBy: number;          // always 1 unit per step
+  costSlope: number;          // cost per unit for chosen activity (or sum for multi)
+  addedDirectCost: number;    // costSlope × crashedBy
+  totalDirectCost: number;    // cumulative direct cost after this step
+  newDuration: number;        // project duration after this step
+  criticalPath: string[];
+  overheadCost?: number;      // dailyOverhead × newDuration
+  totalCost?: number;         // totalDirectCost + overheadCost
+}
+
+export interface CrashResult {
+  originalDuration: number;
+  originalDirectCost: number;
+  originalOverheadCost?: number;
+  originalTotalCost?: number;
+  targetDuration: number;
+  achievedDuration: number;
+  isTargetAchieved: boolean;
+  cannotCrashFurther: boolean;
+  steps: CrashStep[];
+  minCostPoint?: { duration: number; totalCost: number; stepIdx: number };
+}
+
+export function computeCrashing(
+  activities: Activity[],
+  targetDuration: number,
+  dailyOverhead?: number,
+): CrashResult {
+  if (activities.length === 0 || !activities.every(
+    (a) => a.normalCost !== undefined && a.crashDuration !== undefined && a.crashCost !== undefined
+  )) {
+    throw new Error("All activities must have normalCost, crashDuration, crashCost");
+  }
+
+  // Working state
+  const curDur    = new Map<string, number>();
+  const minDur    = new Map<string, number>();
+  const costSlope = new Map<string, number>();
+  let totalDirectCost = 0;
+
+  for (const a of activities) {
+    const nd  = a.duration ?? 0;
+    const cd  = a.crashDuration!;
+    const nc  = a.normalCost!;
+    const cc  = a.crashCost!;
+    curDur.set(a.id, nd);
+    minDur.set(a.id, cd);
+    const slope = nd > cd && cc > nc ? (cc - nc) / (nd - cd) : Infinity;
+    costSlope.set(a.id, slope);
+    totalDirectCost += nc;
+  }
+
+  const mkList = () => activities.map((a) => ({ ...a, duration: curDur.get(a.id)! }));
+
+  const initResult    = computePertCpm(mkList(), "CPM");
+  const originalDur   = initResult.projectDuration;
+
+  const noOverhead    = dailyOverhead === undefined;
+  const origOverhead  = noOverhead ? undefined : dailyOverhead * originalDur;
+  const origTotal     = noOverhead ? undefined : totalDirectCost + origOverhead!;
+
+  if (originalDur <= targetDuration) {
+    return {
+      originalDuration: originalDur, originalDirectCost: totalDirectCost,
+      originalOverheadCost: origOverhead, originalTotalCost: origTotal,
+      targetDuration, achievedDuration: originalDur,
+      isTargetAchieved: true, cannotCrashFurther: false, steps: [],
+    };
+  }
+
+  const steps: CrashStep[] = [];
+  let accumulated = totalDirectCost;
+  let cannotCrash = false;
+  const MAX_ITER = 300;
+
+  for (let i = 0; i < MAX_ITER; i++) {
+    const cpm = computePertCpm(mkList(), "CPM");
+    if (cpm.projectDuration <= targetDuration) break;
+
+    const critIds = new Set(cpm.activities.filter((r) => r.isCritical).map((r) => r.id));
+
+    // Build successor map within critical subgraph
+    const critSucc = new Map<string, string[]>();
+    for (const id of critIds) critSucc.set(id, []);
+    for (const a of activities) {
+      if (!critIds.has(a.id)) continue;
+      for (const p of a.predecessors.filter((p) => critIds.has(p)))
+        critSucc.get(p)!.push(a.id);
+    }
+
+    // Enumerate all critical paths via DFS
+    const critSources = [...critIds].filter(
+      (id) => !activities.find((a) => a.id === id)!.predecessors.some((p) => critIds.has(p))
+    );
+    const allPaths: string[][] = [];
+    const dfs = (id: string, path: string[]) => {
+      const next = [...path, id];
+      const succs = critSucc.get(id) ?? [];
+      if (succs.length === 0) allPaths.push(next);
+      else succs.forEach((s) => dfs(s, next));
+    };
+    for (const src of critSources) dfs(src, []);
+    if (allPaths.length === 0) { cannotCrash = true; break; }
+
+    // Activities that appear in EVERY critical path (shared ⟹ single crash reduces all paths)
+    const sharedIds = allPaths[0].filter((id) => allPaths.every((p) => p.includes(id)));
+
+    const isCrashable = (id: string) =>
+      (curDur.get(id) ?? 0) > (minDur.get(id) ?? 0) &&
+      (costSlope.get(id) ?? Infinity) < Infinity;
+
+    const cheapest = (ids: string[]) =>
+      [...ids].filter(isCrashable).sort(
+        (a, b) => (costSlope.get(a) ?? Infinity) - (costSlope.get(b) ?? Infinity)
+      );
+
+    const sharedCrashable = cheapest(sharedIds);
+
+    let chosenIds: string[];
+
+    if (sharedCrashable.length > 0) {
+      // Pick cheapest shared critical activity → reduces ALL paths by 1
+      chosenIds = [sharedCrashable[0]];
+    } else {
+      // Multiple parallel paths with no shared crashable activity.
+      // Pick cheapest coverage: one crashable activity per parallel path.
+      const covered = new Set<number>();
+      chosenIds = [];
+      const allCrashable = cheapest([...critIds]);
+      if (allCrashable.length === 0) { cannotCrash = true; break; }
+
+      for (const id of allCrashable) {
+        const covers = allPaths.reduce<number[]>(
+          (acc, path, pi) => { if (path.includes(id)) acc.push(pi); return acc; }, []
+        );
+        if (covers.some((pi) => !covered.has(pi))) {
+          chosenIds.push(id);
+          covers.forEach((pi) => covered.add(pi));
+        }
+        if (covered.size === allPaths.length) break;
+      }
+      if (chosenIds.length === 0) { cannotCrash = true; break; }
+    }
+
+    // Crash each chosen activity by 1 unit
+    let stepCost = 0;
+    for (const id of chosenIds) {
+      curDur.set(id, curDur.get(id)! - 1);
+      stepCost += costSlope.get(id)!;
+    }
+    accumulated += stepCost;
+
+    const newCpm      = computePertCpm(mkList(), "CPM");
+    const newDur      = newCpm.projectDuration;
+    const overhead    = noOverhead ? undefined : dailyOverhead * newDur;
+    const total       = noOverhead ? undefined : accumulated + overhead!;
+
+    steps.push({
+      iteration: steps.length + 1,
+      activityId:       chosenIds.join("+"),
+      activityName:     chosenIds.map((id) => activities.find((a) => a.id === id)?.name ?? id).join(" + "),
+      crashedBy:        1,
+      costSlope:        stepCost,
+      addedDirectCost:  stepCost,
+      totalDirectCost:  accumulated,
+      newDuration:      newDur,
+      criticalPath:     newCpm.criticalPath,
+      overheadCost:     overhead,
+      totalCost:        total,
+    });
+  }
+
+  const achieved = steps.length > 0 ? steps[steps.length - 1].newDuration : originalDur;
+
+  // Find minimum total cost point (only meaningful when overhead provided)
+  let minCostPoint: CrashResult["minCostPoint"];
+  if (!noOverhead) {
+    const pts = [
+      { duration: originalDur, totalCost: origTotal!, stepIdx: 0 },
+      ...steps.map((s, si) => ({ duration: s.newDuration, totalCost: s.totalCost!, stepIdx: si + 1 })),
+    ];
+    minCostPoint = pts.reduce((min, p) => p.totalCost < min.totalCost ? p : min);
+  }
+
+  return {
+    originalDuration: originalDur,
+    originalDirectCost: totalDirectCost,
+    originalOverheadCost: origOverhead,
+    originalTotalCost: origTotal,
+    targetDuration,
+    achievedDuration: achieved,
+    isTargetAchieved: achieved <= targetDuration,
+    cannotCrashFurther: cannotCrash || (achieved > targetDuration),
+    steps,
+    minCostPoint,
+  };
+}
