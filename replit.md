@@ -30,6 +30,10 @@ Other useful commands:
 
 ## Where things live
 
+- `artifacts/optimdz/src/lib/pertCpmAlgorithm.ts` — PERT/CPM: `detectCycles`, `computePertCpm`, `normalCDF`, `fmt`
+- `artifacts/optimdz/src/pages/pert-cpm/PertCpm.tsx` — Single-page PERT/CPM module (sector selection → form → results, no sub-routes)
+- `artifacts/optimdz/src/pages/pert-cpm/NetworkDiagram.tsx` — SVG Activity-on-Node diagram with level-based layout
+- `artifacts/optimdz/src/components/PertLayout.tsx` — Layout + navbar for PERT/CPM module
 - `artifacts/optimdz/src/lib/transportAlgorithms.ts` — NWC, LCM (Coût Min), VAM algorithms + `BalancedMatrix` type
 - `artifacts/optimdz/src/lib/modiAlgorithm.ts` — Full MODI optimization: degeneracy fix, BFS loop finding, u/v potentials, θ transfer
 - `artifacts/optimdz/src/lib/TransportHistoryContext.tsx` — localStorage transport history (key: `optimdz_transport_problems`)

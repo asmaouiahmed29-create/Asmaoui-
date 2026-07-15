@@ -56,8 +56,9 @@ const MODULES: Module[] = [
     nameAr: "بيرت / المسار الحرج",
     descFr: "Planifiez et optimisez vos projets complexes. Identifiez le chemin critique et les marges de chaque tâche.",
     descAr: "تخطيط وتحسين المشاريع المعقدة. تحديد المسار الحرج وهوامش كل مهمة.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    href: "/pert-cpm",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
   {
     id: "finance",
@@ -85,7 +86,7 @@ const MODULES: Module[] = [
 const PLATFORM_STATS = [
   { valueFr: "6", valueAr: "٦", labelFr: "Modules planifiés", labelAr: "وحدات مخططة" },
   { valueFr: "4", valueAr: "٤", labelFr: "Secteurs d'activité", labelAr: "قطاعات نشاط" },
-  { valueFr: "3", valueAr: "٣", labelFr: "Modules disponibles", labelAr: "ثلاث وحدات متاحة" },
+  { valueFr: "4", valueAr: "٤", labelFr: "Modules disponibles", labelAr: "أربع وحدات متاحة" },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────

@@ -30,6 +30,9 @@ import AssignmentHome     from "@/pages/assignment/Home";
 import AssignmentSolve    from "@/pages/assignment/Solve";
 import AssignmentSolution from "@/pages/assignment/Solution";
 
+import PertCpm from "@/pages/pert-cpm/PertCpm";
+import { PertLayout } from "@/components/PertLayout";
+
 const queryClient = new QueryClient();
 
 function Router() {
@@ -69,6 +72,13 @@ function Router() {
               </AssignmentLayout>
             </AssignmentProvider>
           </AssignmentHistoryProvider>
+        ) : location.startsWith("/pert-cpm") ? (
+          <PertLayout>
+            <Switch>
+              <Route path="/pert-cpm" component={PertCpm} />
+              <Route component={NotFound} />
+            </Switch>
+          </PertLayout>
         ) : (
           <Layout>
             <Switch>
