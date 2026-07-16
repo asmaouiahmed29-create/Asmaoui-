@@ -1,1 +1,2 @@
 - [PERT/CPM module](pert-cpm-module.md) — Stage 3 complete: crashing, analysis, suggestions, report, PDF, save; industry template has crashing data.
+- [Financial Analysis module](financial-analysis-module.md) — Break-even/CVP at /financial-analysis; same layout/PDF/save pattern as PERT/CPM.
