@@ -264,28 +264,41 @@ export function computeCrashing(
   targetDuration: number,
   dailyOverhead?: number,
 ): CrashResult {
-  if (activities.length === 0 || !activities.every(
-    (a) => a.normalCost !== undefined && a.crashDuration !== undefined && a.crashCost !== undefined
-  )) {
-    throw new Error("All activities must have normalCost, crashDuration, crashCost");
+  if (activities.length === 0) {
+    throw new Error("No activities provided");
   }
 
-  // Working state
+  // Working state — activities without full crash data are treated as non-crashable
   const curDur    = new Map<string, number>();
   const minDur    = new Map<string, number>();
   const costSlope = new Map<string, number>();
   let totalDirectCost = 0;
 
   for (const a of activities) {
-    const nd  = a.duration ?? 0;
-    const cd  = a.crashDuration!;
-    const nc  = a.normalCost!;
-    const cc  = a.crashCost!;
+    const nd = a.duration ?? 0;
     curDur.set(a.id, nd);
-    minDur.set(a.id, cd);
-    const slope = nd > cd && cc > nc ? (cc - nc) / (nd - cd) : Infinity;
-    costSlope.set(a.id, slope);
-    totalDirectCost += nc;
+
+    const hasFullData =
+      a.normalCost !== undefined &&
+      a.crashDuration !== undefined &&
+      a.crashCost !== undefined;
+
+    if (hasFullData) {
+      const cd = a.crashDuration!;
+      const nc = a.normalCost!;
+      const cc = a.crashCost!;
+      minDur.set(a.id, cd);
+      // Slope is valid only when crash duration is strictly less and crash cost is strictly more
+      const slope = nd > cd && cc > nc ? (cc - nc) / (nd - cd) : Infinity;
+      costSlope.set(a.id, slope);
+      totalDirectCost += nc;
+    } else {
+      // No crash data → cannot be crashed; duration stays fixed
+      minDur.set(a.id, nd);
+      costSlope.set(a.id, Infinity);
+      // Still count normal cost if provided
+      if (a.normalCost !== undefined) totalDirectCost += a.normalCost;
+    }
   }
 
   const mkList = () => activities.map((a) => ({ ...a, duration: curDur.get(a.id)! }));

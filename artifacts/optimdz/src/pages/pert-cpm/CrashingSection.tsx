@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Zap, Star, TrendingDown, AlertTriangle } from "lucide-react";
+import { Zap, Star, TrendingDown, AlertTriangle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ActivityInput {
@@ -155,8 +155,20 @@ export function CrashingSection({ pertResult, activities, mode, crashResult, set
   const [error, setError]               = useState<string | null>(null);
   const [isRunning, setIsRunning]       = useState(false);
 
-  const hasCrashData = activities.every(
-    (a) => a.normalCost !== undefined && a.crashDuration !== undefined && a.crashCost !== undefined
+  // Activity has full valid crash data when all three fields are present
+  const hasValidCrash = (a: ActivityInput) =>
+    a.normalCost !== undefined &&
+    a.crashDuration !== undefined &&
+    a.crashCost !== undefined;
+
+  // Show section when at least one critical-path activity has valid crash data
+  const criticalIds = new Set(pertResult.criticalPath);
+  const critActivitiesWithData = activities.filter(
+    (a) => criticalIds.has(a.id) && hasValidCrash(a)
+  );
+  // Critical activities missing crash data — show a warning
+  const critActivitiesMissingData = activities.filter(
+    (a) => criticalIds.has(a.id) && !hasValidCrash(a)
   );
 
   function handleCrash() {
@@ -189,7 +201,8 @@ export function CrashingSection({ pertResult, activities, mode, crashResult, set
     }
   }
 
-  if (!hasCrashData) return null;
+  // Don't render the section unless at least one critical-path activity has crash data
+  if (critActivitiesWithData.length === 0) return null;
 
   const hasOverhead = !!(crashResult?.steps[0]?.totalCost !== undefined);
 
@@ -214,6 +227,31 @@ export function CrashingSection({ pertResult, activities, mode, crashResult, set
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+
+          {/* Info: activities that CAN be crashed */}
+          <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
+            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            <span>
+              {t(
+                `${critActivitiesWithData.length} activité(s) critique(s) avec données de crashing : ${critActivitiesWithData.map((a) => a.id).join(", ")}.`,
+                `${critActivitiesWithData.length} نشاط/أنشطة حرجة بيانات التسريع متوفرة: ${critActivitiesWithData.map((a) => a.id).join("، ")}.`
+              )}
+            </span>
+          </div>
+
+          {/* Warning: critical activities WITHOUT crash data */}
+          {critActivitiesMissingData.length > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>
+                {t(
+                  `Activités critiques sans données de crashing : ${critActivitiesMissingData.map((a) => `${a.id} (${a.name || a.id})`).join(", ")} — elles ne pourront pas être accélérées. Si elles bloquent la compression, la durée cible sera inaccessible.`,
+                  `أنشطة حرجة بدون بيانات تسريع: ${critActivitiesMissingData.map((a) => `${a.id} (${a.name || a.id})`).join("، ")} — لن يمكن تسريعها. إن كانت عائقاً أمام الضغط، سيكون الهدف غير قابل للتحقيق.`
+                )}
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1.5">
               <Label>{t("Durée cible (semaines)", "المدة المستهدفة (أسابيع)")}</Label>

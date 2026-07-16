@@ -436,23 +436,24 @@ export default function PertCpm() {
               </div>
             )}
 
-            {/* Crashing columns toggle */}
-            {activities.some((a) => a.normalCost !== undefined) && (
-              <div className="flex items-center gap-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-2.5">
-                <Zap className="w-4 h-4 text-primary shrink-0" />
-                <span className="text-sm font-medium flex-1">
-                  {t("Données d'accélération disponibles", "بيانات التسريع متاحة")}
-                </span>
-                <Button
-                  type="button" variant="outline" size="sm"
-                  onClick={() => setShowCrashing(!showCrashing)}
-                >
-                  {showCrashing
-                    ? t("Masquer colonnes crashing", "إخفاء أعمدة التسريع")
-                    : t("Afficher colonnes crashing", "إظهار أعمدة التسريع")}
-                </Button>
-              </div>
-            )}
+            {/* Crashing columns toggle — always visible so users can enter optional crash data */}
+            <div className="flex items-center gap-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-2.5">
+              <Zap className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-sm font-medium flex-1">
+                {t(
+                  "Accélération (Crashing) — colonnes optionnelles : Coût normal, Durée accélérée, Coût accéléré",
+                  "التسريع (Crashing) — أعمدة اختيارية: التكلفة العادية، مدة التسريع، تكلفة التسريع"
+                )}
+              </span>
+              <Button
+                type="button" variant="outline" size="sm"
+                onClick={() => setShowCrashing(!showCrashing)}
+              >
+                {showCrashing
+                  ? t("Masquer", "إخفاء")
+                  : t("Afficher", "إظهار")}
+              </Button>
+            </div>
 
             <div className="overflow-x-auto rounded-lg border">
               <table className="w-full text-sm">
