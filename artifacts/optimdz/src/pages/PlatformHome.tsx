@@ -1,6 +1,6 @@
 import { useLanguage } from "@/lib/LanguageContext";
 import { Link } from "wouter";
-import { Calculator, Truck, Users, Network, TrendingUp, BarChart3, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Calculator, Truck, Users, Network, TrendingUp, BarChart3, Briefcase, ArrowRight, CheckCircle2 } from "lucide-react";
 
 // ── Module definitions ────────────────────────────────────────────────────────
 interface Module {
@@ -68,6 +68,17 @@ const MODULES: Module[] = [
     descFr: "Seuil de rentabilité, marge de sécurité, levier opérationnel et analyse CVP adaptée aux entreprises algériennes.",
     descAr: "نقطة التعادل، هامش الأمان، الرافعة التشغيلية وتحليل CVP مُكيَّف مع المؤسسات الجزائرية.",
     href: "/financial-analysis",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
+  },
+  {
+    id: "project-feasibility",
+    icon: Briefcase,
+    nameFr: "Faisabilité & Évaluation de Projet",
+    nameAr: "جدوى وتقييم المشاريع",
+    descFr: "Évaluez la viabilité d'un nouveau projet avant de vous engager : seuil de rentabilité projet, marge de sécurité et recommandations Go / No-Go.",
+    descAr: "قيّم جدوى مشروع جديد قبل الالتزام: نقطة تعادل المشروع، هامش الأمان، وتوصية Go/No-Go مبنية على البيانات.",
+    href: "/project-feasibility",
     active: true,
     badge: { fr: "Disponible", ar: "متاح" },
   },

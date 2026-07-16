@@ -34,6 +34,8 @@ import PertCpm from "@/pages/pert-cpm/PertCpm";
 import { PertLayout } from "@/components/PertLayout";
 import FinancialAnalysis from "@/pages/financial-analysis/FinancialAnalysis";
 import { FinancialLayout } from "@/components/FinancialLayout";
+import ProjectFeasibility from "@/pages/project-feasibility/ProjectFeasibility";
+import { ProjectFeasibilityLayout } from "@/components/ProjectFeasibilityLayout";
 
 const queryClient = new QueryClient();
 
@@ -89,6 +91,14 @@ function Router() {
               <Route component={NotFound} />
             </Switch>
           </FinancialLayout>
+        ) : location.startsWith("/project-feasibility") ? (
+          <ProjectFeasibilityLayout>
+            <Switch>
+              <Route path="/project-feasibility"                  component={ProjectFeasibility} />
+              <Route path="/project-feasibility/breakeven"        component={ProjectFeasibility} />
+              <Route component={NotFound} />
+            </Switch>
+          </ProjectFeasibilityLayout>
         ) : (
           <Layout>
             <Switch>
