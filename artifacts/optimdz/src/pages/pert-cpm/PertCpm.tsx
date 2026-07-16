@@ -3,8 +3,10 @@ import { useLanguage } from "@/lib/LanguageContext";
 import {
   detectCycles, computePertCpm, normalCDF, fmt,
 } from "@/lib/pertCpmAlgorithm";
-import type { Activity, PertCpmResult } from "@/lib/pertCpmAlgorithm";
+import type { Activity, PertCpmResult, CrashResult } from "@/lib/pertCpmAlgorithm";
 import { NetworkDiagram } from "./NetworkDiagram";
+import { CrashingSection } from "./CrashingSection";
+import { PertAnalysisReport } from "./PertAnalysisReport";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +19,7 @@ import {
 import {
   Network, Calculator, Plus, Trash2, AlertTriangle,
   CheckCircle2, ShoppingBag, Factory, Leaf, Monitor, PencilRuler,
-  ArrowRight, RefreshCw, TrendingUp,
+  ArrowRight, RefreshCw, TrendingUp, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,10 @@ interface ActivityInput {
   mostLikely: number;  // PERT M
   pessimistic: number; // PERT P
   predecessors: string[];
+  // Optional crashing fields
+  normalCost?: number;
+  crashDuration?: number;
+  crashCost?: number;
 }
 
 // ── Sector template data ──────────────────────────────────────────────────────
@@ -78,14 +84,14 @@ const TEMPLATES: SectorTemplate[] = [
     projectNameFr: "Unité de Production SONELGAZ — Sétif",
     projectNameAr: "وحدة إنتاج سونلغاز — سطيف",
     activities: [
-      { id:"A", name:"Étude de faisabilité",    duration:3,  optimistic:2, mostLikely:3,  pessimistic:5,  predecessors:[] },
-      { id:"B", name:"Construction bâtiment",   duration:12, optimistic:8, mostLikely:12, pessimistic:18, predecessors:["A"] },
-      { id:"C", name:"Commande équipements",    duration:8,  optimistic:5, mostLikely:8,  pessimistic:12, predecessors:["A"] },
-      { id:"D", name:"Installation machines",   duration:6,  optimistic:4, mostLikely:6,  pessimistic:9,  predecessors:["B","C"] },
-      { id:"E", name:"Raccordement réseau",      duration:3,  optimistic:2, mostLikely:3,  pessimistic:5,  predecessors:["D"] },
-      { id:"F", name:"Tests & mise au point",   duration:3,  optimistic:2, mostLikely:3,  pessimistic:4,  predecessors:["E"] },
-      { id:"G", name:"Formation opérateurs",    duration:3,  optimistic:2, mostLikely:3,  pessimistic:4,  predecessors:["F"] },
-      { id:"H", name:"Démarrage production",    duration:2,  optimistic:1, mostLikely:2,  pessimistic:3,  predecessors:["G"] },
+      { id:"A", name:"Étude de faisabilité",    duration:3,  optimistic:2, mostLikely:3,  pessimistic:5,  predecessors:[],        normalCost:500_000,   crashDuration:2, crashCost:800_000   },
+      { id:"B", name:"Construction bâtiment",   duration:12, optimistic:8, mostLikely:12, pessimistic:18, predecessors:["A"],     normalCost:8_000_000, crashDuration:9, crashCost:11_000_000 },
+      { id:"C", name:"Commande équipements",    duration:8,  optimistic:5, mostLikely:8,  pessimistic:12, predecessors:["A"],     normalCost:3_000_000, crashDuration:6, crashCost:4_000_000  },
+      { id:"D", name:"Installation machines",   duration:6,  optimistic:4, mostLikely:6,  pessimistic:9,  predecessors:["B","C"], normalCost:2_000_000, crashDuration:4, crashCost:2_800_000  },
+      { id:"E", name:"Raccordement réseau",      duration:3,  optimistic:2, mostLikely:3,  pessimistic:5,  predecessors:["D"],     normalCost:600_000,   crashDuration:2, crashCost:900_000    },
+      { id:"F", name:"Tests & mise au point",   duration:3,  optimistic:2, mostLikely:3,  pessimistic:4,  predecessors:["E"],     normalCost:400_000,   crashDuration:2, crashCost:700_000    },
+      { id:"G", name:"Formation opérateurs",    duration:3,  optimistic:2, mostLikely:3,  pessimistic:4,  predecessors:["F"],     normalCost:300_000,   crashDuration:2, crashCost:600_000    },
+      { id:"H", name:"Démarrage production",    duration:2,  optimistic:1, mostLikely:2,  pessimistic:3,  predecessors:["G"],     normalCost:200_000,   crashDuration:1, crashCost:500_000    },
     ],
   },
   {
@@ -161,6 +167,10 @@ export default function PertCpm() {
   const [targetDur, setTargetDur]   = useState("");
   const resultsRef = useRef<HTMLDivElement>(null);
 
+  // ── Crashing state ──────────────────────────────────────────────────────────
+  const [showCrashing, setShowCrashing]   = useState(false);
+  const [crashResult, setCrashResult]     = useState<CrashResult | null>(null);
+
   // ── Real-time cycle detection ───────────────────────────────────────────────
   const [cycleIds, setCycleIds] = useState<string[]>([]);
   useEffect(() => {
@@ -184,6 +194,8 @@ export default function PertCpm() {
     setSelectedSector(key);
     setResult(null);
     setResultStale(false);
+    setCrashResult(null);
+    setShowCrashing(false);
     if (key === "custom") {
       setProjectName("");
       setActivities(CUSTOM_DEFAULT);
@@ -231,11 +243,15 @@ export default function PertCpm() {
 
   // ── Calculate ────────────────────────────────────────────────────────────────
   const handleCalculate = () => {
+    setCrashResult(null);
     const algActs: Activity[] = activities.map((a) => ({
       id: a.id, name: a.name,
       duration: a.duration,
       optimistic: a.optimistic, mostLikely: a.mostLikely, pessimistic: a.pessimistic,
       predecessors: a.predecessors,
+      normalCost: a.normalCost,
+      crashDuration: a.crashDuration,
+      crashCost: a.crashCost,
     }));
     const res = computePertCpm(algActs, mode);
     setResult(res);
@@ -420,6 +436,24 @@ export default function PertCpm() {
               </div>
             )}
 
+            {/* Crashing columns toggle */}
+            {activities.some((a) => a.normalCost !== undefined) && (
+              <div className="flex items-center gap-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-2.5">
+                <Zap className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-sm font-medium flex-1">
+                  {t("Données d'accélération disponibles", "بيانات التسريع متاحة")}
+                </span>
+                <Button
+                  type="button" variant="outline" size="sm"
+                  onClick={() => setShowCrashing(!showCrashing)}
+                >
+                  {showCrashing
+                    ? t("Masquer colonnes crashing", "إخفاء أعمدة التسريع")
+                    : t("Afficher colonnes crashing", "إظهار أعمدة التسريع")}
+                </Button>
+              </div>
+            )}
+
             <div className="overflow-x-auto rounded-lg border">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
@@ -437,6 +471,19 @@ export default function PertCpm() {
                         <th className="px-3 py-2 font-medium text-center w-20">O</th>
                         <th className="px-3 py-2 font-medium text-center w-20">M</th>
                         <th className="px-3 py-2 font-medium text-center w-20">P</th>
+                      </>
+                    )}
+                    {showCrashing && (
+                      <>
+                        <th className="px-3 py-2 font-medium text-center w-28 text-orange-700">
+                          {t("Coût normal (DA)", "التكلفة العادية")}
+                        </th>
+                        <th className="px-3 py-2 font-medium text-center w-24 text-orange-700">
+                          {t("Dur. acc. (sem.)", "مدة التسريع")}
+                        </th>
+                        <th className="px-3 py-2 font-medium text-center w-28 text-orange-700">
+                          {t("Coût acc. (DA)", "تكلفة التسريع")}
+                        </th>
                       </>
                     )}
                     <th className="px-3 py-2 font-medium text-start min-w-[180px]">
@@ -494,6 +541,39 @@ export default function PertCpm() {
                             <Input type="number" min="0" step="any" value={act.pessimistic}
                               onChange={(e) => updateField(idx, "pessimistic", parseFloat(e.target.value) || 0)}
                               className="h-8 text-sm text-center" />
+                          </td>
+                        </>
+                      )}
+
+                      {/* Crashing data fields */}
+                      {showCrashing && (
+                        <>
+                          <td className="px-3 py-2">
+                            <Input
+                              type="number" min="0" step="1"
+                              value={act.normalCost ?? ""}
+                              onChange={(e) => updateField(idx, "normalCost", e.target.value !== "" ? parseFloat(e.target.value) : undefined)}
+                              className="h-8 text-sm text-center w-24"
+                              placeholder="—"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input
+                              type="number" min="0" step="any"
+                              value={act.crashDuration ?? ""}
+                              onChange={(e) => updateField(idx, "crashDuration", e.target.value !== "" ? parseFloat(e.target.value) : undefined)}
+                              className="h-8 text-sm text-center"
+                              placeholder="—"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input
+                              type="number" min="0" step="1"
+                              value={act.crashCost ?? ""}
+                              onChange={(e) => updateField(idx, "crashCost", e.target.value !== "" ? parseFloat(e.target.value) : undefined)}
+                              className="h-8 text-sm text-center w-24"
+                              placeholder="—"
+                            />
                           </td>
                         </>
                       )}
@@ -877,6 +957,27 @@ export default function PertCpm() {
               </Card>
             </div>
           )}
+
+          {/* ── Crashing analysis ────────────────────────────────────────────── */}
+          {activities.some((a) => a.normalCost !== undefined) && (
+            <CrashingSection
+              pertResult={result}
+              activities={activities}
+              mode={mode}
+              crashResult={crashResult}
+              setCrashResult={setCrashResult}
+            />
+          )}
+
+          {/* ── Situational Analysis + Suggestions + Report + Save + PDF ─────── */}
+          <PertAnalysisReport
+            result={result}
+            crashResult={crashResult}
+            projectName={projectName}
+            sector={selectedSector}
+            mode={mode}
+          />
+
         </div>
       )}
     </div>

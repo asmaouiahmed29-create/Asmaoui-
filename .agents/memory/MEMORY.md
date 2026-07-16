@@ -1,0 +1,1 @@
+- [PERT/CPM module](pert-cpm-module.md) — Stage 3 complete: crashing, analysis, suggestions, report, PDF, save; industry template has crashing data.
