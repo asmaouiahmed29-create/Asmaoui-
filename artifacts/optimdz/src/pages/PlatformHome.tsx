@@ -1,6 +1,6 @@
 import { useLanguage } from "@/lib/LanguageContext";
 import { Link } from "wouter";
-import { Calculator, Truck, Users, Network, TrendingUp, BarChart3, Briefcase, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Calculator, Truck, Users, Network, BarChart3, Briefcase, ArrowRight, CheckCircle2 } from "lucide-react";
 
 // ── Module definitions ────────────────────────────────────────────────────────
 interface Module {
@@ -57,17 +57,6 @@ const MODULES: Module[] = [
     descFr: "Planifiez et optimisez vos projets complexes. Identifiez le chemin critique et les marges de chaque tâche.",
     descAr: "تخطيط وتحسين المشاريع المعقدة. تحديد المسار الحرج وهوامش كل مهمة.",
     href: "/pert-cpm",
-    active: true,
-    badge: { fr: "Disponible", ar: "متاح" },
-  },
-  {
-    id: "finance",
-    icon: TrendingUp,
-    nameFr: "Analyse Financière",
-    nameAr: "التحليل المالي",
-    descFr: "Seuil de rentabilité, marge de sécurité, levier opérationnel et analyse CVP adaptée aux entreprises algériennes.",
-    descAr: "نقطة التعادل، هامش الأمان، الرافعة التشغيلية وتحليل CVP مُكيَّف مع المؤسسات الجزائرية.",
-    href: "/financial-analysis",
     active: true,
     badge: { fr: "Disponible", ar: "متاح" },
   },

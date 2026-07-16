@@ -32,8 +32,6 @@ import AssignmentSolution from "@/pages/assignment/Solution";
 
 import PertCpm from "@/pages/pert-cpm/PertCpm";
 import { PertLayout } from "@/components/PertLayout";
-import FinancialAnalysis from "@/pages/financial-analysis/FinancialAnalysis";
-import { FinancialLayout } from "@/components/FinancialLayout";
 import ProjectFeasibility from "@/pages/project-feasibility/ProjectFeasibility";
 import { ProjectFeasibilityLayout } from "@/components/ProjectFeasibilityLayout";
 
@@ -83,14 +81,6 @@ function Router() {
               <Route component={NotFound} />
             </Switch>
           </PertLayout>
-        ) : location.startsWith("/financial-analysis") ? (
-          <FinancialLayout>
-            <Switch>
-              <Route path="/financial-analysis"           component={FinancialAnalysis} />
-              <Route path="/financial-analysis/breakeven" component={FinancialAnalysis} />
-              <Route component={NotFound} />
-            </Switch>
-          </FinancialLayout>
         ) : location.startsWith("/project-feasibility") ? (
           <ProjectFeasibilityLayout>
             <Switch>
