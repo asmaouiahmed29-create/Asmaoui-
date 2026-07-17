@@ -35,6 +35,7 @@ import { PertLayout } from "@/components/PertLayout";
 import ProjectFeasibilityHome from "@/pages/project-feasibility/ProjectFeasibilityHome";
 import ProjectFeasibility from "@/pages/project-feasibility/ProjectFeasibility";
 import InvestmentAppraisal from "@/pages/project-feasibility/InvestmentAppraisal";
+import SensitivityAnalysis from "@/pages/project-feasibility/SensitivityAnalysis";
 import { ProjectFeasibilityLayout } from "@/components/ProjectFeasibilityLayout";
 
 const queryClient = new QueryClient();
@@ -89,6 +90,7 @@ function Router() {
               <Route path="/project-feasibility"                        component={ProjectFeasibilityHome} />
               <Route path="/project-feasibility/breakeven"             component={ProjectFeasibility} />
               <Route path="/project-feasibility/investment-appraisal"  component={InvestmentAppraisal} />
+              <Route path="/project-feasibility/sensitivity-analysis" component={SensitivityAnalysis} />
               <Route component={NotFound} />
             </Switch>
           </ProjectFeasibilityLayout>

@@ -59,8 +59,9 @@ const TOOLS: Tool[] = [
       "Évaluez l'impact des variations de prix, de coûts et de volumes sur la rentabilité du projet. Identifiez les paramètres critiques.",
     descAr:
       "قيّم تأثير تغيرات السعر والتكاليف والأحجام على ربحية المشروع. حدد المتغيرات الحرجة.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    href: "/project-feasibility/sensitivity-analysis",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
   {
     id: "alternatives",
@@ -79,7 +80,7 @@ const TOOLS: Tool[] = [
 // ── Module stats ──────────────────────────────────────────────────────────────
 const MODULE_STATS = [
   { valueFr: "4", valueAr: "٤", labelFr: "Outils planifiés", labelAr: "أدوات مخططة" },
-  { valueFr: "2", valueAr: "٢", labelFr: "Outils disponibles", labelAr: "أداتان متاحتان" },
+  { valueFr: "3", valueAr: "٣", labelFr: "Outils disponibles", labelAr: "٣ أدوات متاحة" },
   { valueFr: "Go/No-Go", valueAr: "Go/No-Go", labelFr: "Décision basée sur les données", labelAr: "قرار مبني على البيانات" },
 ];
 
