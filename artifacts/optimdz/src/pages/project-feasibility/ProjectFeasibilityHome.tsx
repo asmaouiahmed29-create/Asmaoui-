@@ -43,11 +43,12 @@ const TOOLS: Tool[] = [
     nameFr: "Évaluation de la Rentabilité (VAN / TRI)",
     nameAr: "تقييم الجدوى الاستثمارية (NPV / IRR)",
     descFr:
-      "Calculez la Valeur Actuelle Nette et le Taux de Rentabilité Interne pour évaluer la viabilité à long terme de l'investissement.",
+      "Calculez la VAN, le TRI, les délais de récupération et l'Indice de Rentabilité pour évaluer un investissement avant de vous engager.",
     descAr:
-      "احسب صافي القيمة الحالية ومعدل العائد الداخلي لتقييم الجدوى طويلة الأمد للاستثمار.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+      "احسب NPV وIRR وفترتَي الاسترداد ومؤشر الربحية لتقييم استثمار جديد قبل الالتزام به.",
+    href: "/project-feasibility/investment-appraisal",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
   {
     id: "sensitivity",
@@ -78,7 +79,7 @@ const TOOLS: Tool[] = [
 // ── Module stats ──────────────────────────────────────────────────────────────
 const MODULE_STATS = [
   { valueFr: "4", valueAr: "٤", labelFr: "Outils planifiés", labelAr: "أدوات مخططة" },
-  { valueFr: "1", valueAr: "١", labelFr: "Outil disponible", labelAr: "أداة متاحة" },
+  { valueFr: "2", valueAr: "٢", labelFr: "Outils disponibles", labelAr: "أداتان متاحتان" },
   { valueFr: "Go/No-Go", valueAr: "Go/No-Go", labelFr: "Décision basée sur les données", labelAr: "قرار مبني على البيانات" },
 ];
 

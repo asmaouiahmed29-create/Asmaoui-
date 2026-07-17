@@ -2,14 +2,19 @@ import React from "react";
 import { Link, useLocation } from "wouter";
 import { useLanguage } from "@/lib/LanguageContext";
 import { Button } from "@/components/ui/button";
-import { Briefcase, ChevronLeft, ChevronRight, TrendingUp } from "lucide-react";
+import { Briefcase, ChevronLeft, ChevronRight, TrendingUp, BarChart2 } from "lucide-react";
 
 // ── Tool breadcrumb map ───────────────────────────────────────────────────────
 const TOOL_LABELS: Record<string, { fr: string; ar: string; icon: React.ElementType }> = {
   "/project-feasibility/breakeven": {
     fr: "Seuil de Rentabilité",
-    ar: "تحليل نقطة التعادل",
+    ar: "نقطة التعادل",
     icon: TrendingUp,
+  },
+  "/project-feasibility/investment-appraisal": {
+    fr: "Évaluation (VAN / TRI)",
+    ar: "الجدوى الاستثمارية",
+    icon: BarChart2,
   },
 };
 
