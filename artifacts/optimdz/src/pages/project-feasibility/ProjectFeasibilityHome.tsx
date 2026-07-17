@@ -72,15 +72,16 @@ const TOOLS: Tool[] = [
       "Comparez plusieurs scénarios ou alternatives d'investissement côte à côte pour choisir la meilleure option.",
     descAr:
       "قارن عدة سيناريوهات أو بدائل استثمارية جنباً إلى جنب لاختيار الخيار الأمثل.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    href: "/project-feasibility/comparison",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
 ];
 
 // ── Module stats ──────────────────────────────────────────────────────────────
 const MODULE_STATS = [
   { valueFr: "4", valueAr: "٤", labelFr: "Outils planifiés", labelAr: "أدوات مخططة" },
-  { valueFr: "3", valueAr: "٣", labelFr: "Outils disponibles", labelAr: "٣ أدوات متاحة" },
+  { valueFr: "4", valueAr: "٤", labelFr: "Outils disponibles", labelAr: "٤ أدوات متاحة" },
   { valueFr: "Go/No-Go", valueAr: "Go/No-Go", labelFr: "Décision basée sur les données", labelAr: "قرار مبني على البيانات" },
 ];
 

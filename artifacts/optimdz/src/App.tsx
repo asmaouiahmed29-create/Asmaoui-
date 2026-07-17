@@ -36,6 +36,7 @@ import ProjectFeasibilityHome from "@/pages/project-feasibility/ProjectFeasibili
 import ProjectFeasibility from "@/pages/project-feasibility/ProjectFeasibility";
 import InvestmentAppraisal from "@/pages/project-feasibility/InvestmentAppraisal";
 import SensitivityAnalysis from "@/pages/project-feasibility/SensitivityAnalysis";
+import InvestmentComparison from "@/pages/project-feasibility/InvestmentComparison";
 import { ProjectFeasibilityLayout } from "@/components/ProjectFeasibilityLayout";
 
 const queryClient = new QueryClient();
@@ -91,6 +92,7 @@ function Router() {
               <Route path="/project-feasibility/breakeven"             component={ProjectFeasibility} />
               <Route path="/project-feasibility/investment-appraisal"  component={InvestmentAppraisal} />
               <Route path="/project-feasibility/sensitivity-analysis" component={SensitivityAnalysis} />
+              <Route path="/project-feasibility/comparison"          component={InvestmentComparison} />
               <Route component={NotFound} />
             </Switch>
           </ProjectFeasibilityLayout>

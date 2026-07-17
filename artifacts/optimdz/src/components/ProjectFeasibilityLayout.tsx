@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "wouter";
 import { useLanguage } from "@/lib/LanguageContext";
 import { Button } from "@/components/ui/button";
-import { Briefcase, ChevronLeft, ChevronRight, TrendingUp, BarChart2, LineChart } from "lucide-react";
+import { Briefcase, ChevronLeft, ChevronRight, TrendingUp, BarChart2, LineChart, GitCompare } from "lucide-react";
 
 // ── Tool breadcrumb map ───────────────────────────────────────────────────────
 const TOOL_LABELS: Record<string, { fr: string; ar: string; icon: React.ElementType }> = {
@@ -20,6 +20,11 @@ const TOOL_LABELS: Record<string, { fr: string; ar: string; icon: React.ElementT
     fr: "Analyse de Sensibilité",
     ar: "تحليل الحساسية",
     icon: LineChart,
+  },
+  "/project-feasibility/comparison": {
+    fr: "Comparaison des Alternatives",
+    ar: "مقارنة البدائل",
+    icon: GitCompare,
   },
 };
 
