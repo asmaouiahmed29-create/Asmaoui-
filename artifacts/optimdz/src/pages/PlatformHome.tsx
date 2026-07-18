@@ -1,6 +1,6 @@
 import { useLanguage } from "@/lib/LanguageContext";
 import { Link } from "wouter";
-import { Calculator, Truck, Users, Network, BarChart3, Briefcase, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Calculator, Truck, Users, Network, BarChart3, Briefcase, Brain, ArrowRight, CheckCircle2 } from "lucide-react";
 
 // ── Module definitions ────────────────────────────────────────────────────────
 interface Module {
@@ -82,13 +82,24 @@ const MODULES: Module[] = [
     active: true,
     badge: { fr: "Disponible", ar: "متاح" },
   },
+  {
+    id: "decision-assistant",
+    icon: Brain,
+    nameFr: "Assistant de Décision Intelligent",
+    nameAr: "مساعد القرار الذكي",
+    descFr: "Vous ne savez pas quel outil utiliser ? Le Routeur Intelligent vous pose quelques questions et vous oriente vers le bon module en moins d'une minute.",
+    descAr: "لا تعرف أي أداة تستخدم؟ يطرح الموجّه الذكي أسئلة موجّهة ويدلّك على الوحدة الصحيحة في أقل من دقيقة.",
+    href: "/decision-assistant",
+    active: true,
+    badge: { fr: "Nouveau", ar: "جديد" },
+  },
 ];
 
 // ── Platform stats (static for now) ─────────────────────────────────────────
 const PLATFORM_STATS = [
-  { valueFr: "6", valueAr: "٦", labelFr: "Modules planifiés", labelAr: "وحدات مخططة" },
+  { valueFr: "7", valueAr: "٧", labelFr: "Modules planifiés", labelAr: "وحدات مخططة" },
   { valueFr: "4", valueAr: "٤", labelFr: "Secteurs d'activité", labelAr: "قطاعات نشاط" },
-  { valueFr: "5", valueAr: "٥", labelFr: "Modules disponibles", labelAr: "خمس وحدات متاحة" },
+  { valueFr: "7", valueAr: "٧", labelFr: "Modules disponibles", labelAr: "سبع وحدات متاحة" },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
