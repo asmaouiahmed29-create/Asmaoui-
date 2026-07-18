@@ -109,7 +109,12 @@ export function computeKpiTracking(params: KpiTrackingParams): KpiTrackingResult
   if (inputs.length === 0) throw new Error("Au moins une période est requise.");
 
   // ── Per-period results ───────────────────────────────────────────────────
-  const periods: PeriodResult[] = inputs.map((inp, i) => {
+  // Use a for-loop (not .map) so we can safely reference previously computed
+  // entries; a const assigned from .map() would be in the TDZ inside the callback.
+  const periods: PeriodResult[] = [];
+  for (let i = 0; i < inputs.length; i++) {
+    const inp = inputs[i];
+
     const netProfit = inp.profitOverride !== undefined
       ? inp.profitOverride
       : inp.revenue - inp.totalCosts;
@@ -130,14 +135,14 @@ export function computeKpiTracking(params: KpiTrackingParams): KpiTrackingResult
       ? ((netProfit / inp.targetProfit) - 1) * 100
       : undefined;
 
-    const prev = i > 0 ? periods[i - 1] : null;
-    const revenueGrowthPct  = prev ? growthRate(inp.revenue, prev.revenue) : undefined;
-    const profitGrowthPct   = prev ? growthRate(netProfit, prev.netProfit) : undefined;
-    const unitsGrowthPct    = (prev && inp.unitsSold !== undefined && prev.unitsSold !== undefined)
-      ? growthRate(inp.unitsSold, prev.unitsSold) : undefined;
-    const costsGrowthPct = prev ? growthRate(inp.totalCosts, prev.totalCosts) : undefined;
+    const prevPeriod = i > 0 ? periods[i - 1] : null;
+    const revenueGrowthPct  = prevPeriod ? growthRate(inp.revenue, prevPeriod.revenue) : undefined;
+    const profitGrowthPct   = prevPeriod ? growthRate(netProfit, prevPeriod.netProfit) : undefined;
+    const unitsGrowthPct    = (prevPeriod && inp.unitsSold !== undefined && prevPeriod.unitsSold !== undefined)
+      ? growthRate(inp.unitsSold, prevPeriod.unitsSold) : undefined;
+    const costsGrowthPct    = prevPeriod ? growthRate(inp.totalCosts, prevPeriod.totalCosts) : undefined;
 
-    return {
+    periods.push({
       label: inp.label,
       revenue: inp.revenue,
       totalCosts: inp.totalCosts,
@@ -154,8 +159,8 @@ export function computeKpiTracking(params: KpiTrackingParams): KpiTrackingResult
       profitGrowthPct,
       unitsGrowthPct,
       costsGrowthPct,
-    };
-  });
+    });
+  }
 
   // ── Summary ──────────────────────────────────────────────────────────────
   const last = periods[periods.length - 1];
