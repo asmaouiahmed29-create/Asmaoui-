@@ -43,6 +43,7 @@ import ManualKpiTracking  from "@/pages/kpi-dashboard/ManualKpiTracking";
 import { KpiDashboardLayout } from "@/components/KpiDashboardLayout";
 import DecisionAssistantHome from "@/pages/decision-assistant/DecisionAssistantHome";
 import SmartRouter from "@/pages/decision-assistant/SmartRouter";
+import BusinessAdvisor from "@/pages/decision-assistant/BusinessAdvisor";
 import { DecisionAssistantLayout } from "@/components/DecisionAssistantLayout";
 
 const queryClient = new QueryClient();
@@ -113,8 +114,9 @@ function Router() {
         ) : location.startsWith("/decision-assistant") ? (
           <DecisionAssistantLayout>
             <Switch>
-              <Route path="/decision-assistant"         component={DecisionAssistantHome} />
+              <Route path="/decision-assistant"          component={DecisionAssistantHome} />
               <Route path="/decision-assistant/router"  component={SmartRouter} />
+              <Route path="/decision-assistant/advisor" component={BusinessAdvisor} />
               <Route component={NotFound} />
             </Switch>
           </DecisionAssistantLayout>

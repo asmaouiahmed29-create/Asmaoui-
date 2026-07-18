@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { useLanguage } from "@/lib/LanguageContext";
-import { ArrowRight, CheckCircle2, Route, Layers, Brain } from "lucide-react";
+import { ArrowRight, CheckCircle2, Route, Lightbulb, Brain } from "lucide-react";
+import type React from "react";
 
 // ── Tool definitions ──────────────────────────────────────────────────────────
 interface Tool {
@@ -30,23 +31,24 @@ const TOOLS: Tool[] = [
     badge: { fr: "Disponible", ar: "متاح" },
   },
   {
-    id: "matrix",
-    icon: Layers,
-    nameFr: "Analyse Multi-Critères",
-    nameAr: "التحليل متعدد المعايير",
+    id: "advisor",
+    icon: Lightbulb,
+    nameFr: "Conseiller d'Affaires Complet",
+    nameAr: "المستشار الشامل للأعمال",
     descFr:
-      "Comparez plusieurs alternatives selon plusieurs critères pondérés (AHP simplifié). Idéal pour les décisions complexes impliquant qualité, coût, délai et risque simultanément.",
+      "Synthèse globale et honnête sur la santé de votre activité et de vos projets : l'outil lit vos données sauvegardées (KPI, Faisabilité) et produit un jugement croisé avec des preuves explicites.",
     descAr:
-      "قارن عدة بدائل وفق معايير مرجّحة متعددة (AHP مبسّط). مثالي للقرارات المعقدة التي تشمل الجودة والتكلفة والوقت والمخاطرة معاً.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+      "توليف شامل وصادق لصحة نشاطك ومشاريعك: تقرأ الأداة بياناتك المحفوظة (المؤشرات، الجدوى) وتُصدر حكماً متقاطعاً بأدلة صريحة.",
+    href: "/decision-assistant/advisor",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
 ];
 
 // ── Module stats ──────────────────────────────────────────────────────────────
 const MODULE_STATS = [
-  { valueFr: "2",  valueAr: "٢",  labelFr: "Outils planifiés",   labelAr: "أدوات مخططة" },
-  { valueFr: "1",  valueAr: "١",  labelFr: "Outil disponible",   labelAr: "أداة متاحة" },
+  { valueFr: "2",  valueAr: "٢",  labelFr: "Outils disponibles", labelAr: "أدوات متاحة" },
+  { valueFr: "0",  valueAr: "٠",  labelFr: "En développement",   labelAr: "قيد التطوير" },
   { valueFr: "9",  valueAr: "٩",  labelFr: "Outils référencés",  labelAr: "أدوات مرجعية" },
 ];
 

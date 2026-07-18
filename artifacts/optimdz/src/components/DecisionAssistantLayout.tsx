@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "wouter";
 import { useLanguage } from "@/lib/LanguageContext";
 import { Button } from "@/components/ui/button";
-import { Brain, ChevronLeft, ChevronRight, Route, LayoutGrid } from "lucide-react";
+import { Brain, ChevronLeft, ChevronRight, Route, Lightbulb } from "lucide-react";
 
 // ── Tool breadcrumb map ───────────────────────────────────────────────────────
 const TOOL_LABELS: Record<string, { fr: string; ar: string; icon: React.ElementType }> = {
@@ -10,6 +10,11 @@ const TOOL_LABELS: Record<string, { fr: string; ar: string; icon: React.ElementT
     fr: "Routeur Intelligent",
     ar: "الموجّه الذكي",
     icon: Route,
+  },
+  "/decision-assistant/advisor": {
+    fr: "Conseiller d'Affaires Complet",
+    ar: "المستشار الشامل للأعمال",
+    icon: Lightbulb,
   },
 };
 
