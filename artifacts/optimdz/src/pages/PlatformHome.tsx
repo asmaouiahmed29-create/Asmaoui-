@@ -1,6 +1,6 @@
 import { useLanguage } from "@/lib/LanguageContext";
 import { Link } from "wouter";
-import { Calculator, Truck, Users, Network, BarChart3, Briefcase, Brain, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Calculator, Truck, Users, Network, BarChart3, Briefcase, Brain, ArrowRight, CheckCircle2, Sparkles, MessageSquareMore } from "lucide-react";
 
 // ── Module definitions ────────────────────────────────────────────────────────
 interface Module {
@@ -158,6 +158,68 @@ export default function PlatformHome() {
           <div className="absolute -right-24 -bottom-24 opacity-10 pointer-events-none">
             <BarChart3 className="w-96 h-96" />
           </div>
+        </section>
+
+        {/* ── Smart Assistant Banner ───────────────────────────────────────── */}
+        <section>
+          <Link href="/decision-assistant/router">
+            <div
+              className={[
+                "group relative rounded-2xl overflow-hidden cursor-pointer",
+                "bg-gradient-to-br from-primary/8 via-primary/5 to-primary/10",
+                "border-2 border-primary/25 hover:border-primary/50",
+                "shadow-sm hover:shadow-lg",
+                "transition-all duration-300 hover:-translate-y-0.5",
+                "p-6 md:p-8",
+              ].join(" ")}
+            >
+              {/* Subtle background glow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+              <div className={`relative z-10 flex flex-col md:flex-row items-start md:items-center gap-5 md:gap-8 ${isAr ? "md:flex-row-reverse" : ""}`}>
+
+                {/* Icon cluster */}
+                <div className="shrink-0 relative">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/12 border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:border-primary transition-all duration-300">
+                    <Brain className="w-8 h-8 text-primary group-hover:text-primary-foreground transition-colors duration-300" />
+                  </div>
+                  <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-amber-400 border-2 border-background flex items-center justify-center shadow-sm">
+                    <Sparkles className="w-3 h-3 text-white" />
+                  </div>
+                </div>
+
+                {/* Text block */}
+                <div className="flex-1 min-w-0">
+                  {/* Label pill */}
+                  <div className={`inline-flex items-center gap-1.5 bg-primary/10 text-primary text-[11px] font-bold px-3 py-1 rounded-full mb-3 tracking-wide uppercase ${isAr ? "flex-row-reverse" : ""}`}>
+                    <MessageSquareMore className="w-3 h-3" />
+                    {t("Recommandé pour commencer", "موصى به للبدء")}
+                  </div>
+                  <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2 leading-snug">
+                    {t(
+                      "Vous ne savez pas quel outil choisir ?",
+                      "لا تعرف أي أداة تناسب مشكلتك؟"
+                    )}
+                  </h2>
+                  <p className="text-muted-foreground text-sm md:text-base leading-relaxed max-w-xl">
+                    {t(
+                      "Notre Assistant Intelligent vous pose quelques questions ciblées et vous oriente vers le bon outil en moins d'une minute — sans connaissance préalable en optimisation.",
+                      "يطرح مساعدنا الذكي بضعة أسئلة محددة ويرشدك إلى الأداة المناسبة في أقل من دقيقة — دون الحاجة لمعرفة مسبقة بالأساليب الكمية."
+                    )}
+                  </p>
+                </div>
+
+                {/* CTA button */}
+                <div className={`shrink-0 ${isAr ? "md:mr-auto" : "md:ml-auto"}`}>
+                  <div className={`inline-flex items-center gap-2.5 bg-primary text-primary-foreground font-semibold px-5 py-3 rounded-xl shadow-sm group-hover:shadow-md group-hover:bg-primary/90 transition-all duration-200 whitespace-nowrap text-sm md:text-base ${isAr ? "flex-row-reverse" : ""}`}>
+                    {t("Lancer l'assistant", "تشغيل المساعد")}
+                    <ArrowRight className={`w-4 h-4 transition-transform duration-200 group-hover:translate-x-1 ${isAr ? "rotate-180 group-hover:-translate-x-1 group-hover:translate-x-0" : ""}`} />
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </Link>
         </section>
 
         {/* ── Modules ──────────────────────────────────────────────────────── */}
