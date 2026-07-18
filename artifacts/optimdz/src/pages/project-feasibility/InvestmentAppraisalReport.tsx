@@ -253,7 +253,7 @@ export function InvestmentAppraisalReport({ result, projectName, sector }: Props
           totalPV:             result.totalPV,
         },
       };
-      const res = await fetch("/api-server/api/problems", {
+      const res = await fetch("/api/problems", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

@@ -300,7 +300,7 @@ export function SensitivityAnalysisReport({ result, projectName, sector }: Props
           }, {}),
         },
       };
-      const res = await fetch("/api-server/api/problems", {
+      const res = await fetch("/api/problems", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

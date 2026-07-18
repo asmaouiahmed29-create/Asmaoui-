@@ -520,7 +520,7 @@ export default function BusinessAdvisor() {
   async function fetchData() {
     setLoading(true); setFetchError(null);
     try {
-      const res = await fetch("/api-server/api/problems?limit=100");
+      const res = await fetch("/api/problems?limit=100");
       // Guard against proxy rewriting a 500 into an HTML page
       const contentType = res.headers.get("content-type") ?? "";
       if (!res.ok || !contentType.includes("application/json")) {
