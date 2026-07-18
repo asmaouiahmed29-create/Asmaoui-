@@ -1,3 +1,4 @@
 - [PERT/CPM module](pert-cpm-module.md) — Stage 3 complete: crashing, analysis, suggestions, report, PDF, save; industry template has crashing data.
 - [Financial Analysis module](financial-analysis-module.md) — Break-even/CVP at /financial-analysis; same layout/PDF/save pattern as PERT/CPM.
 - [Project Feasibility module](project-feasibility-module.md) — Mini-dashboard at /project-feasibility; 2 active tools: break-even (/breakeven) and investment appraisal (/investment-appraisal).
+- [KPI Dashboard module](kpi-dashboard-module.md) — Mini-dashboard at /kpi-dashboard; 1 active tool: Manual KPI Tracking (/kpi-dashboard/tracking); 1 coming-soon: Connectors.

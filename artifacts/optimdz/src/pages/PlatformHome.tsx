@@ -78,8 +78,9 @@ const MODULES: Module[] = [
     nameAr: "لوحة مؤشرات الأداء",
     descFr: "Suivez et visualisez les indicateurs clés de performance de votre entreprise en temps réel.",
     descAr: "تتبع وعرض مؤشرات الأداء الرئيسية لمؤسستك في الوقت الفعلي.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    href: "/kpi-dashboard",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
 ];
 
@@ -87,7 +88,7 @@ const MODULES: Module[] = [
 const PLATFORM_STATS = [
   { valueFr: "6", valueAr: "٦", labelFr: "Modules planifiés", labelAr: "وحدات مخططة" },
   { valueFr: "4", valueAr: "٤", labelFr: "Secteurs d'activité", labelAr: "قطاعات نشاط" },
-  { valueFr: "4", valueAr: "٤", labelFr: "Modules disponibles", labelAr: "أربع وحدات متاحة" },
+  { valueFr: "5", valueAr: "٥", labelFr: "Modules disponibles", labelAr: "خمس وحدات متاحة" },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────

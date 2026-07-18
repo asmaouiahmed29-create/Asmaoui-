@@ -38,6 +38,9 @@ import InvestmentAppraisal from "@/pages/project-feasibility/InvestmentAppraisal
 import SensitivityAnalysis from "@/pages/project-feasibility/SensitivityAnalysis";
 import InvestmentComparison from "@/pages/project-feasibility/InvestmentComparison";
 import { ProjectFeasibilityLayout } from "@/components/ProjectFeasibilityLayout";
+import KpiDashboardHome   from "@/pages/kpi-dashboard/KpiDashboardHome";
+import ManualKpiTracking  from "@/pages/kpi-dashboard/ManualKpiTracking";
+import { KpiDashboardLayout } from "@/components/KpiDashboardLayout";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +99,14 @@ function Router() {
               <Route component={NotFound} />
             </Switch>
           </ProjectFeasibilityLayout>
+        ) : location.startsWith("/kpi-dashboard") ? (
+          <KpiDashboardLayout>
+            <Switch>
+              <Route path="/kpi-dashboard"          component={KpiDashboardHome} />
+              <Route path="/kpi-dashboard/tracking" component={ManualKpiTracking} />
+              <Route component={NotFound} />
+            </Switch>
+          </KpiDashboardLayout>
         ) : (
           <Layout>
             <Switch>
