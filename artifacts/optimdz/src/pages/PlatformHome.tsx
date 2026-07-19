@@ -1,6 +1,6 @@
 import { useLanguage } from "@/lib/LanguageContext";
 import { Link } from "wouter";
-import { Calculator, Truck, Users, Network, BarChart3, Briefcase, Brain, ArrowRight, CheckCircle2, Sparkles, MessageSquareMore } from "lucide-react";
+import { Calculator, Truck, Users, Network, BarChart3, Briefcase, Brain, ArrowRight, CheckCircle2, Sparkles, MessageSquareMore, Scale } from "lucide-react";
 
 // ── Module definitions ────────────────────────────────────────────────────────
 interface Module {
@@ -90,6 +90,17 @@ const MODULES: Module[] = [
     descFr: "Vous ne savez pas quel outil utiliser ? Le Routeur Intelligent vous pose quelques questions et vous oriente vers le bon module en moins d'une minute.",
     descAr: "لا تعرف أي أداة تستخدم؟ يطرح الموجّه الذكي أسئلة موجّهة ويدلّك على الوحدة الصحيحة في أقل من دقيقة.",
     href: "/decision-assistant",
+    active: true,
+    badge: { fr: "Nouveau", ar: "جديد" },
+  },
+  {
+    id: "variance-analysis",
+    icon: Scale,
+    nameFr: "Analyse des Écarts",
+    nameAr: "تحليل الانحرافات",
+    descFr: "Calculez et interprétez les écarts entre données standards et réelles — prix, quantité et total — pour les revenus, matières premières ou main-d'œuvre.",
+    descAr: "احسب وافسّر الانحرافات بين البيانات المعيارية والفعلية — السعر والكمية والإجمالي — للإيرادات أو المواد أو العمالة.",
+    href: "/variance-analysis",
     active: true,
     badge: { fr: "Nouveau", ar: "جديد" },
   },

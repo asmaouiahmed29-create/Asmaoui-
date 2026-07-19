@@ -45,6 +45,8 @@ import DecisionAssistantHome from "@/pages/decision-assistant/DecisionAssistantH
 import SmartRouter from "@/pages/decision-assistant/SmartRouter";
 import BusinessAdvisor from "@/pages/decision-assistant/BusinessAdvisor";
 import { DecisionAssistantLayout } from "@/components/DecisionAssistantLayout";
+import VarianceAnalysis from "@/pages/variance-analysis/VarianceAnalysis";
+import { VarianceLayout } from "@/components/VarianceLayout";
 
 const queryClient = new QueryClient();
 
@@ -120,6 +122,13 @@ function Router() {
               <Route component={NotFound} />
             </Switch>
           </DecisionAssistantLayout>
+        ) : location.startsWith("/variance-analysis") ? (
+          <VarianceLayout>
+            <Switch>
+              <Route path="/variance-analysis" component={VarianceAnalysis} />
+              <Route component={NotFound} />
+            </Switch>
+          </VarianceLayout>
         ) : (
           <Layout>
             <Switch>
