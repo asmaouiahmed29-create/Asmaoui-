@@ -1,35 +1,45 @@
 ---
 name: Variance Analysis module
-description: Full PERT/CPM-pattern template at /variance-analysis — sector selection, multi-row table, compute, report, save, PDF
+description: Full details on the Variance Analysis module at /variance-analysis in OptimDZ
 ---
 
-## Route & Layout
-- Route: `/variance-analysis` → `VarianceAnalysis` (default export) wrapped in `VarianceLayout`
-- Layout: `src/components/VarianceLayout.tsx` — navbar with Scale icon, portal breadcrumb, language toggle
+## Location
+`artifacts/optimdz/src/pages/variance-analysis/`
+- `VarianceAnalysis.tsx` — main form + sector selection
+- `VarianceAnalysisReport.tsx` — results, analysis, suggestions, save, PDF
 
-## Files
-- `src/pages/variance-analysis/VarianceAnalysis.tsx` — main page (sector select + form + solve)
-- `src/pages/variance-analysis/VarianceAnalysisReport.tsx` — results component (table + analysis + recommendations + save + PDF)
-- `src/lib/generateVariancePDF.ts` — 4-page PDF generator (cover → results table → analysis → stamp)
-- `src/components/VariancePDFExportDialog.tsx` — PDF export dialog with manager/institution fields
+## Objectives (4 modes)
+- `"revenue"` — Écarts sur Revenus (favorable when positive)
+- `"materials"` — Écarts sur Matières (favorable when negative)
+- `"labor"` — Écarts sur Main-d'œuvre (favorable when negative)
+- `"overhead"` — Écarts sur Charges Indirectes (favorable when negative) — **added**
 
-## Sector templates (4 + custom)
-| Sector | Objective | Elements |
-|---|---|---|
-| Commerce | revenue | 3 products (Électroménager, Textile, Accessoires) |
-| Industrie | materials | 4 materials (Acier, Plastique, Carton, Peinture) |
-| Agriculture | materials | 4 inputs (Fertilisants, Semences, Phytosanitaires, Eau) |
-| Services | labor | 4 roles (Développeurs, Testeurs, Chef projet, Consultants) |
+## Sector templates (5)
+- Commerce → revenue
+- Industrie → materials
+- Agriculture → materials
+- Services → labor
+- **Énergie → overhead** (Complexe Industriel Annaba, 4 cost centers)
 
-## 3 Objectives
-- `revenue`: Price variance = (Actual − Std) × Actual Qty · favorable when **positive**
-- `materials`: Price variance = (Actual − Std) × Actual Qty · favorable when **negative**
-- `labor`: Rate variance = (Actual − Std) × Actual Hours · favorable when **negative**
+## Overhead mode specifics
+**Why:** 3-way additive variance decomposition (classic French contrôle de gestion):
+- `VarianceRow.extra1` = Coût standard unitaire d'imputation (5th input column)
+- `priceVariance` = Écart/Budget = CR − CB×(Nr/Nh)
+- `var3` = Écart/Activité = CB×(Nr/Nh) − Nr×CS
+- `qtyVariance` = Écart/Rendement = (Nr−Nh)×CS
+- Total = priceVariance + var3 + qtyVariance = CR − Nh×CS ✓ (always additive)
 
-**How to apply:** Objective drives column labels, formula footnote, favorable/unfavorable coloring, and recommendations.
+**dominantFactor** for overhead: 4-way ("price" | "qty" | "var3" | "equal")  
+(PDF export maps "var3" → "equal" since VariancePDFOptions only has "price"|"qty"|"equal")
+
+## Type extensions (generateVariancePDF.ts)
+- `VarianceObjective`: now includes "overhead"
+- `VarianceRowResult`: optional `extra1?` and `var3?` fields
+- `VarianceTotals`: optional `var3?` field
+- `objLabels()`: overhead entry with `var3Fr/var3Ar` labels
+
+## PDF
+`artifacts/optimdz/src/lib/generateVariancePDF.ts` — buildResultsPage handles overhead with 10-column table (vs 8-column for others).
 
 ## Save pattern
-POST `/api/problems` with `{ name, sector, objectiveType:"minimize", status:"optimal", optimalValue: totals.totalVariance, problemData: { objective, rows }, result: { rows, totals, dominantFactor } }`
-
-## PDF pattern (generateVariancePDF.ts)
-Same html2canvas + jsPDF pattern as generateKpiPDF.ts. 4 pages: cover → results table + bar chart → analysis + recommendations → digital stamp.
+POST /api/problems — same as other modes; `objective` in problemData distinguishes the 4 modes.

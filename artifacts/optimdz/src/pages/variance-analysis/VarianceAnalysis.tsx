@@ -7,14 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Scale, Calculator, Plus, Trash2, ArrowRight, RefreshCw,
-  ShoppingBag, Factory, Leaf, Monitor, PencilRuler,
+  ShoppingBag, Factory, Leaf, Monitor, PencilRuler, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VarianceAnalysisReport } from "./VarianceAnalysisReport";
 import type { VarianceObjective, VarianceRowResult, VarianceTotals } from "@/lib/generateVariancePDF";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type SectorKey = "commerce" | "industry" | "agriculture" | "services" | "custom";
+type SectorKey = "commerce" | "industry" | "agriculture" | "services" | "energy" | "custom";
 
 interface VarianceRow {
   id: string;
@@ -23,6 +23,7 @@ interface VarianceRow {
   actualPrice: number;
   standardQty: number;
   actualQty: number;
+  extra1?: number; // overhead: coutStdUnitaire
 }
 
 // ── Objective config ──────────────────────────────────────────────────────────
@@ -56,10 +57,17 @@ const OBJECTIVES: ObjOption[] = [
     descFr: "Taux horaire et heures travaillées",
     descAr: "الأجر الساعي وساعات العمل",
   },
+  {
+    value: "overhead",
+    nameFr: "Charges Indirectes",
+    nameAr: "انحراف التكاليف غير المباشرة",
+    descFr: "Budget, activité (volume) et rendement",
+    descAr: "الميزانية، النشاط (الحجم)، والمردودية",
+  },
 ];
 
 // ── Column labels per objective ───────────────────────────────────────────────
-function getColLabels(obj: VarianceObjective, isAr: boolean) {
+function getColLabels(obj: VarianceObjective, _isAr: boolean) {
   if (obj === "labor") {
     return {
       priceFr: "Taux standard (DA/h)", priceAr: "الأجر المعياري (د.ج/س)",
@@ -67,6 +75,17 @@ function getColLabels(obj: VarianceObjective, isAr: boolean) {
       qtyFr: "Heures standard",         qtyAr: "ساعات معيارية",
       actQtyFr: "Heures réelles",       actQtyAr: "ساعات فعلية",
       elemFr: "Élément (ex: عملية التجميع)", elemAr: "العنصر (مثال: عملية التجميع)",
+      extra1Fr: undefined as string | undefined, extra1Ar: undefined as string | undefined,
+    };
+  }
+  if (obj === "overhead") {
+    return {
+      priceFr: "Charges budgétées (DA)", priceAr: "التكاليف المدرجة (د.ج)",
+      actPriceFr: "Charges réelles (DA)", actPriceAr: "التكاليف الفعلية (د.ج)",
+      qtyFr: "Activité standard (Nh)",   qtyAr: "النشاط المعياري (Nh)",
+      actQtyFr: "Activité réelle (Nr)",  actQtyAr: "النشاط الفعلي (Nr)",
+      extra1Fr: "Coût std. unitaire (DA/Nh)", extra1Ar: "التكلفة الوحدوية المعيارية (د.ج/Nh)",
+      elemFr: "Élément (ex: مركز التحليل)", elemAr: "العنصر (مثال: مركز التحليل)",
     };
   }
   return {
@@ -75,6 +94,7 @@ function getColLabels(obj: VarianceObjective, isAr: boolean) {
     qtyFr: "Quantité standard",         qtyAr: "الكمية المعيارية",
     actQtyFr: "Quantité réelle",        actQtyAr: "الكمية الفعلية",
     elemFr: "Élément",                  elemAr: "العنصر",
+    extra1Fr: undefined as string | undefined, extra1Ar: undefined as string | undefined,
   };
 }
 
@@ -93,6 +113,23 @@ interface SectorTemplate {
 }
 
 const TEMPLATES: SectorTemplate[] = [
+  {
+    id: "energy",
+    icon: Zap,
+    nameFr: "Énergie",
+    nameAr: "الطاقة",
+    descFr: "Charges indirectes — complexe industriel",
+    descAr: "تكاليف غير مباشرة — مجمع صناعي",
+    objective: "overhead",
+    projectNameFr: "Charges indirectes — Complexe Industriel Annaba",
+    projectNameAr: "التكاليف غير المباشرة — المجمع الصناعي عنابة",
+    rows: [
+      { id: "A", element: "Maintenance industrielle / الصيانة",  standardPrice: 2500000, actualPrice: 2750000, standardQty: 1000, actualQty: 1050, extra1: 2200 },
+      { id: "B", element: "Énergie électrique / الطاقة الكهربائية", standardPrice: 1800000, actualPrice: 1940000, standardQty: 1000, actualQty: 1050, extra1: 1600 },
+      { id: "C", element: "Administration générale / الإدارة العامة", standardPrice: 1200000, actualPrice: 1280000, standardQty: 1000, actualQty: 1050, extra1: 1100 },
+      { id: "D", element: "Contrôle qualité / مراقبة الجودة",     standardPrice: 850000,  actualPrice: 920000,  standardQty: 1000, actualQty: 1050, extra1: 780 },
+    ],
+  },
   {
     id: "commerce",
     icon: ShoppingBag,
@@ -177,7 +214,35 @@ function defaultRows(): VarianceRow[] {
 }
 
 // ── Computation ───────────────────────────────────────────────────────────────
-function computeRows(rows: VarianceRow[]): VarianceRowResult[] {
+function computeRows(rows: VarianceRow[], objective: VarianceObjective): VarianceRowResult[] {
+  if (objective === "overhead") {
+    return rows.map(r => {
+      const Nh = r.standardQty;      // heures/activité standard
+      const Nr = r.actualQty;        // heures/activité réelle
+      const CB = r.standardPrice;    // charges budgétées
+      const CR = r.actualPrice;      // charges réelles
+      const CS = r.extra1 ?? 0;      // coût standard unitaire
+
+      const budgetAdjusted = Nh > 0 ? CB * (Nr / Nh) : 0;
+      const ecartBudget    = CR - budgetAdjusted;           // É/Budget
+      const ecartActivite  = budgetAdjusted - Nr * CS;     // É/Activité
+      const ecartRendement = (Nr - Nh) * CS;               // É/Rendement
+
+      return {
+        id: r.id,
+        element: r.element || r.id,
+        standardPrice: CB,
+        standardQty: Nh,
+        actualPrice: CR,
+        actualQty: Nr,
+        extra1: CS,
+        priceVariance: ecartBudget,
+        var3: ecartActivite,
+        qtyVariance: ecartRendement,
+        totalVariance: ecartBudget + ecartActivite + ecartRendement,
+      };
+    });
+  }
   return rows.map(r => {
     const pv = (r.actualPrice - r.standardPrice) * r.actualQty;
     const qv = (r.actualQty - r.standardQty) * r.standardPrice;
@@ -196,9 +261,11 @@ function computeRows(rows: VarianceRow[]): VarianceRowResult[] {
 }
 
 function computeTotals(results: VarianceRowResult[]): VarianceTotals {
+  const hasVar3 = results.some(r => r.var3 !== undefined);
   return {
     priceVariance: results.reduce((s, r) => s + r.priceVariance, 0),
     qtyVariance:   results.reduce((s, r) => s + r.qtyVariance,   0),
+    ...(hasVar3 ? { var3: results.reduce((s, r) => s + (r.var3 ?? 0), 0) } : {}),
     totalVariance: results.reduce((s, r) => s + r.totalVariance,  0),
   };
 }
@@ -262,7 +329,7 @@ export default function VarianceAnalysis() {
 
   // ── Solve ───────────────────────────────────────────────────────────────────
   function handleSolve() {
-    const res = computeRows(rows);
+    const res = computeRows(rows, objective);
     const tot = computeTotals(res);
     setResults(res);
     setTotals(tot);
@@ -295,8 +362,8 @@ export default function VarianceAnalysis() {
         </div>
         <p className="text-muted-foreground ps-14">
           {t(
-            "Calculez les écarts standards vs réels pour les revenus, les matières premières ou la main-d'œuvre.",
-            "احسب الانحرافات بين المعياري والفعلي للإيرادات أو المواد الأولية أو اليد العاملة."
+            "Calculez les écarts standards vs réels pour les revenus, les matières premières, la main-d'œuvre ou les charges indirectes.",
+            "احسب الانحرافات بين المعياري والفعلي للإيرادات أو المواد الأولية أو اليد العاملة أو التكاليف غير المباشرة."
           )}
         </p>
       </div>
@@ -452,6 +519,13 @@ export default function VarianceAnalysis() {
                       <div className="text-[10px] uppercase tracking-wide font-bold invisible">{t("Réel", "فعلي")}</div>
                       <div className="text-xs normal-case">{isAr ? cols.actQtyAr : cols.actQtyFr}</div>
                     </th>
+                    {/* Overhead extra: coût std unitaire */}
+                    {objective === "overhead" && (
+                      <th className="px-2 py-2 font-medium text-center min-w-[140px] border-s border-violet-300/60 text-violet-700">
+                        <div className="text-[10px] uppercase tracking-wide font-bold">{t("Imputation", "التحميل")}</div>
+                        <div className="text-xs normal-case">{isAr ? cols.extra1Ar : cols.extra1Fr}</div>
+                      </th>
+                    )}
                     <th className="w-10" />
                   </tr>
                 </thead>
@@ -475,7 +549,7 @@ export default function VarianceAnalysis() {
                         />
                       </td>
 
-                      {/* Standard price */}
+                      {/* Standard price / Charges budgétées */}
                       <td className="px-2 py-2 border-s border-primary/10">
                         <Input
                           type="number" min="0" step="any"
@@ -486,7 +560,7 @@ export default function VarianceAnalysis() {
                         />
                       </td>
 
-                      {/* Standard qty */}
+                      {/* Standard qty / Activité standard (Nh) */}
                       <td className="px-2 py-2">
                         <Input
                           type="number" min="0" step="any"
@@ -497,7 +571,7 @@ export default function VarianceAnalysis() {
                         />
                       </td>
 
-                      {/* Actual price */}
+                      {/* Actual price / Charges réelles */}
                       <td className="px-2 py-2 border-s border-amber-200">
                         <Input
                           type="number" min="0" step="any"
@@ -508,7 +582,7 @@ export default function VarianceAnalysis() {
                         />
                       </td>
 
-                      {/* Actual qty */}
+                      {/* Actual qty / Activité réelle (Nr) */}
                       <td className="px-2 py-2">
                         <Input
                           type="number" min="0" step="any"
@@ -518,6 +592,19 @@ export default function VarianceAnalysis() {
                           placeholder="0"
                         />
                       </td>
+
+                      {/* Overhead only: coût standard unitaire */}
+                      {objective === "overhead" && (
+                        <td className="px-2 py-2 border-s border-violet-200">
+                          <Input
+                            type="number" min="0" step="any"
+                            value={row.extra1 ?? ""}
+                            onChange={e => updateRow(idx, "extra1", parseFloat(e.target.value) || 0)}
+                            className="h-8 text-sm text-center w-32 border-violet-300/50 focus-visible:ring-violet-400/50"
+                            placeholder="0"
+                          />
+                        </td>
+                      )}
 
                       {/* Delete */}
                       <td className="px-3 py-2">
@@ -541,6 +628,11 @@ export default function VarianceAnalysis() {
                 ? t(
                     "Écart/Taux = (Taux réel − Taux std.) × H. réelles · Écart/Rendement = (H. réelles − H. std.) × Taux std.",
                     "انحراف الأجر = (الأجر الفعلي − المعياري) × الساعات الفعلية · انحراف المردودية = (الساعات الفعلية − المعيارية) × الأجر المعياري"
+                  )
+                : objective === "overhead"
+                ? t(
+                    "É/Budget = Ch. réelles − Ch. budg.(Nr/Nh) · É/Activité = Ch. budg.(Nr/Nh) − Nr×C.std · É/Rendement = (Nr−Nh)×C.std",
+                    "انحراف الميزانية = التكاليف الفعلية − الميزانية المرنة(Nr/Nh) · انحراف النشاط = الميزانية المرنة − Nr×التكلفة المعيارية · انحراف المردودية = (Nr−Nh)×التكلفة المعيارية"
                   )
                 : t(
                     "Écart/Prix = (Prix réel − Prix std.) × Qté réelle · Écart/Volume = (Qté réelle − Qté std.) × Prix std.",

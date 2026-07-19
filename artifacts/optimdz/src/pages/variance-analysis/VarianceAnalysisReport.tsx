@@ -45,10 +45,12 @@ interface ObjCfg {
   nameFr: string; nameAr: string;
   priceVarFr: string; priceVarAr: string;
   qtyVarFr: string;   qtyVarAr: string;
+  var3VarFr?: string; var3VarAr?: string;
   stdPriceFr: string; stdPriceAr: string;
   actPriceFr: string; actPriceAr: string;
   stdQtyFr: string;   stdQtyAr: string;
   actQtyFr: string;   actQtyAr: string;
+  extra1Fr?: string;  extra1Ar?: string;
   favorableWhen: "positive" | "negative";
 }
 
@@ -83,6 +85,18 @@ const OBJ_CFG: Record<VarianceObjective, ObjCfg> = {
     actQtyFr: "H. réelles",        actQtyAr: "ساعات فعلية",
     favorableWhen: "negative",
   },
+  overhead: {
+    nameFr: "Charges Indirectes",      nameAr: "التكاليف غير المباشرة",
+    priceVarFr: "Écart/Budget",        priceVarAr: "انحراف الميزانية",
+    var3VarFr: "Écart/Activité",       var3VarAr: "انحراف النشاط",
+    qtyVarFr: "Écart/Rendement",       qtyVarAr: "انحراف المردودية",
+    stdPriceFr: "Ch. budgétées",       stdPriceAr: "تكاليف مدرجة",
+    actPriceFr: "Ch. réelles",         actPriceAr: "تكاليف فعلية",
+    stdQtyFr: "Nh (std)",              stdQtyAr: "النشاط المعياري (Nh)",
+    actQtyFr: "Nr (réel)",             actQtyAr: "النشاط الفعلي (Nr)",
+    extra1Fr: "C. std. unitaire",      extra1Ar: "التكلفة الوحدوية المعيارية",
+    favorableWhen: "negative",
+  },
 };
 
 // ── Variance icon + color helper ──────────────────────────────────────────────
@@ -105,11 +119,23 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // ── Dominant variance factor ─────────────────────────────────────────────
-  const absPriceTotal = Math.abs(totals.priceVariance);
-  const absQtyTotal   = Math.abs(totals.qtyVariance);
-  const dominantFactor: "price" | "qty" | "equal" =
-    absPriceTotal > absQtyTotal * 1.1 ? "price" :
-    absQtyTotal > absPriceTotal * 1.1 ? "qty" : "equal";
+  const isOverhead     = objective === "overhead";
+  const absPriceTotal  = Math.abs(totals.priceVariance);
+  const absQtyTotal    = Math.abs(totals.qtyVariance);
+  const absVar3Total   = Math.abs(totals.var3 ?? 0);
+
+  const dominantFactor: "price" | "qty" | "var3" | "equal" = (() => {
+    if (!isOverhead) {
+      return absPriceTotal > absQtyTotal * 1.1 ? "price" :
+             absQtyTotal > absPriceTotal * 1.1 ? "qty" : "equal";
+    }
+    const mx = Math.max(absPriceTotal, absQtyTotal, absVar3Total);
+    if (mx === 0) return "equal";
+    if (absPriceTotal === mx && absPriceTotal > absQtyTotal * 1.1 && absPriceTotal > absVar3Total * 1.1) return "price";
+    if (absQtyTotal   === mx && absQtyTotal   > absPriceTotal * 1.1 && absQtyTotal   > absVar3Total * 1.1) return "qty";
+    if (absVar3Total  === mx && absVar3Total  > absPriceTotal * 1.1 && absVar3Total  > absQtyTotal * 1.1) return "var3";
+    return "equal";
+  })();
 
   const favWhen = cfg.favorableWhen;
 
@@ -127,17 +153,27 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
       ),
     },
     {
-      icon: dominantFactor === "price" ? "🏷️" : dominantFactor === "qty" ? "📦" : "⚖️",
+      icon: dominantFactor === "price" ? "🏷️" : dominantFactor === "qty" ? "⏱️" : dominantFactor === "var3" ? "📈" : "⚖️",
       color: "bg-secondary/10 border-secondary/30",
       text: dominantFactor === "price"
         ? t(
-            `L'écart est principalement piloté par le ${cfg.priceVarFr} (${fDA(totals.priceVariance, "fr")}) — c'est le levier prioritaire à actionner.`,
-            `الانحراف مدفوع بشكل رئيسي بـ ${cfg.priceVarAr} (${fDA(totals.priceVariance, "ar")}) — وهو الرافعة الأولى للتحكم.`
+            `L'écart est principalement piloté par ${isOverhead ? "l'" : "le "}${cfg.priceVarFr} (${fDA(totals.priceVariance, "fr")}) — ${isOverhead ? "les dépenses réelles dépassent le budget flexible : révision des contrats et des coûts fixes s'impose." : "c'est le levier prioritaire à actionner."}`,
+            `الانحراف مدفوع بشكل رئيسي بـ ${cfg.priceVarAr} (${fDA(totals.priceVariance, "ar")}) — ${isOverhead ? "النفقات الفعلية تتجاوز الميزانية المرنة: مراجعة العقود والتكاليف الثابتة أمر لا مفر منه." : "وهو الرافعة الأولى للتحكم."}`
           )
         : dominantFactor === "qty"
         ? t(
-            `L'écart est principalement piloté par le ${cfg.qtyVarFr} (${fDA(totals.qtyVariance, "fr")}) — la maîtrise des volumes ou de l'efficience est prioritaire.`,
-            `الانحراف مدفوع بشكل رئيسي بـ ${cfg.qtyVarAr} (${fDA(totals.qtyVariance, "ar")}) — التحكم في الكميات أو الكفاءة هو الأولوية.`
+            `L'écart est principalement piloté par ${isOverhead ? "l'" : "le "}${cfg.qtyVarFr} (${fDA(totals.qtyVariance, "fr")}) — ${isOverhead ? "les heures réelles diffèrent des heures standard : inefficience opérationnelle à traiter en priorité." : "la maîtrise des volumes ou de l'efficience est prioritaire."}`,
+            `الانحراف مدفوع بشكل رئيسي بـ ${cfg.qtyVarAr} (${fDA(totals.qtyVariance, "ar")}) — ${isOverhead ? "ساعات العمل الفعلية تختلف عن المعيارية: قصور تشغيلي يستوجب معالجة فورية." : "التحكم في الكميات أو الكفاءة هو الأولوية."}`
+          )
+        : dominantFactor === "var3"
+        ? t(
+            `L'écart est principalement piloté par l'${cfg.var3VarFr} (${fDA(totals.var3 ?? 0, "fr")}) — le niveau d'activité réel diffère significativement du niveau standard : revoir le taux d'imputation des charges indirectes.`,
+            `الانحراف مدفوع بشكل رئيسي بـ ${cfg.var3VarAr} (${fDA(totals.var3 ?? 0, "ar")}) — مستوى النشاط الفعلي يختلف بشكل ملحوظ عن المعياري: مراجعة معدل تحميل التكاليف غير المباشرة ضرورية.`
+          )
+        : isOverhead
+        ? t(
+            `Les trois composantes (${cfg.priceVarFr}: ${fDA(totals.priceVariance, "fr")} / ${cfg.var3VarFr}: ${fDA(totals.var3 ?? 0, "fr")} / ${cfg.qtyVarFr}: ${fDA(totals.qtyVariance, "fr")}) contribuent de manière équilibrée — une action simultanée sur les trois axes est recommandée.`,
+            `المكوّنات الثلاثة (${cfg.priceVarAr}: ${fDA(totals.priceVariance, "ar")} / ${cfg.var3VarAr}: ${fDA(totals.var3 ?? 0, "ar")} / ${cfg.qtyVarAr}: ${fDA(totals.qtyVariance, "ar")}) تساهم بالتساوي — يُنصح بالتحرك على المحاور الثلاثة معاً.`
           )
         : t(
             `Les deux composantes contribuent équitablement à l'écart total (${cfg.priceVarFr}: ${fDA(totals.priceVariance, "fr")} / ${cfg.qtyVarFr}: ${fDA(totals.qtyVariance, "fr")}) — une action simultanée sur les deux axes est recommandée.`,
@@ -145,6 +181,21 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
           ),
     },
     ...(() => {
+      if (isOverhead && (totals.var3 ?? 0) !== 0) {
+        const var3Unfav = (totals.var3 ?? 0) > 0;
+        return [{
+          icon: var3Unfav ? "📉" : "📈",
+          color: var3Unfav ? "bg-orange-50 border-orange-300" : "bg-teal-50 border-teal-300",
+          text: t(
+            var3Unfav
+              ? `L'${cfg.var3VarFr} est défavorable (${fDA(totals.var3 ?? 0, "fr")}) : le budget flexible dépasse le coût absorbé sur la base des heures réelles — le taux d'imputation ne couvre pas les charges engagées.`
+              : `L'${cfg.var3VarFr} est favorable (${fDA(totals.var3 ?? 0, "fr")}) : le coût absorbé dépasse le budget flexible — bonne absorption des charges indirectes au niveau d'activité réel.`,
+            var3Unfav
+              ? `${cfg.var3VarAr} غير مُلائم (${fDA(totals.var3 ?? 0, "ar")}): الميزانية المرنة تتجاوز التكلفة المحمَّلة بناءً على الساعات الفعلية — معدل التحميل لا يستوعب التكاليف المتكبَّدة.`
+              : `${cfg.var3VarAr} مُلائم (${fDA(totals.var3 ?? 0, "ar")}): التكلفة المحمَّلة تتجاوز الميزانية المرنة — استيعاب جيد للتكاليف غير المباشرة عند مستوى النشاط الفعلي.`
+          ),
+        }];
+      }
       const unfavorableRows = rows.filter(r => {
         const f = favWhen === "positive" ? r.totalVariance < 0 : r.totalVariance > 0;
         return f && r.totalVariance !== 0;
@@ -165,84 +216,139 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
   interface Sug { icon: string; title: string; desc: string; color: string; borderColor: string; }
   const suggestions: Sug[] = [];
 
-  if (dominantFactor === "price" || dominantFactor === "equal") {
-    const priceUnfav = favWhen === "positive" ? totals.priceVariance < 0 : totals.priceVariance > 0;
-    suggestions.push({
-      icon: priceUnfav ? "🔴" : "🟢",
-      color: priceUnfav ? "bg-red-50" : "bg-green-50",
-      borderColor: priceUnfav ? "border-l-red-500" : "border-l-green-500",
-      title: objective === "revenue"
-        ? t("Politique de prix à réviser", "مراجعة سياسة الأسعار")
-        : objective === "labor"
-        ? t("Maîtrise des taux salariaux", "التحكم في الأجور")
-        : t("Renégocier les prix fournisseurs", "إعادة التفاوض مع الموردين"),
-      desc: objective === "revenue"
-        ? t(
-            priceUnfav
-              ? "Le prix réel est inférieur au standard — envisagez de réviser la grille tarifaire, les remises accordées ou la segmentation client."
-              : "Le prix réel surpasse le standard — valorisez cette performance dans votre stratégie commerciale.",
-            priceUnfav
-              ? "السعر الفعلي أقل من المعياري — راجع جدول الأسعار والخصومات الممنوحة وتصنيف العملاء."
-              : "السعر الفعلي يتجاوز المعياري — استثمر هذا الأداء في استراتيجيتك التجارية."
-          )
-        : objective === "labor"
-        ? t(
-            priceUnfav
-              ? "Le taux réel dépasse le standard — analysez les heures supplémentaires, primes et reclassifications qui gonflent la masse salariale."
-              : "Le taux réel est inférieur au standard — économie salariale réalisée, consolidez-la par une politique RH adaptée.",
-            priceUnfav
-              ? "الأجر الفعلي أعلى من المعياري — حلّل الساعات الإضافية والعلاوات التي تُضخّم كتلة الرواتب."
-              : "الأجر الفعلي أقل من المعياري — وفر في الرواتب، رسّخه بسياسة موارد بشرية ملائمة."
-          )
-        : t(
-            priceUnfav
-              ? "Le coût d'achat réel dépasse le standard — renégociez les contrats fournisseurs, cherchez des alternatives ou achetez en volume."
-              : "Le coût d'achat réel est inférieur au standard — bonne gestion des achats, maintenez les partenariats favorables.",
-            priceUnfav
-              ? "تكلفة الشراء الفعلية تتجاوز المعيارية — أعد التفاوض مع الموردين أو ابحث عن بدائل أو اشتر بالجملة."
-              : "تكلفة الشراء الفعلية أقل من المعيارية — إدارة مشتريات جيدة، حافظ على الشراكات الإيجابية."
-          ),
-    });
-  }
+  if (isOverhead) {
+    // Overhead-specific suggestions for each of the 3 variance components
+    const budgetUnfav = totals.priceVariance > 0;
+    if (dominantFactor === "price" || dominantFactor === "equal") {
+      suggestions.push({
+        icon: budgetUnfav ? "🔴" : "🟢",
+        color: budgetUnfav ? "bg-red-50" : "bg-green-50",
+        borderColor: budgetUnfav ? "border-l-red-500" : "border-l-green-500",
+        title: t("Dépassement budgétaire des charges indirectes", "تجاوز ميزانية التكاليف غير المباشرة"),
+        desc: t(
+          budgetUnfav
+            ? "Les charges réelles dépassent le budget flexible (ajusté à l'activité réelle). Auditez les centres de coût concernés : prestataires externes, maintenance non planifiée, consommations énergétiques hors norme."
+            : "Les charges réelles sont inférieures au budget flexible — maîtrise budgétaire effective. Capitalisez sur les leviers d'optimisation identifiés pour les prochaines périodes.",
+          budgetUnfav
+            ? "التكاليف الفعلية تتجاوز الميزانية المرنة (المعدَّلة للنشاط الفعلي). دقّق مراكز التكلفة المعنية: مقاولو الباطن، الصيانة غير المخططة، الاستهلاكات الطاقوية الخارجة عن القياس."
+            : "التكاليف الفعلية أقل من الميزانية المرنة — ضبط ميزاني فعّال. استثمر في الرافعات التحسينية المُحدَّدة للفترات القادمة."
+        ),
+      });
+    }
+    const actUnfav = (totals.var3 ?? 0) > 0;
+    if (dominantFactor === "var3" || dominantFactor === "equal") {
+      suggestions.push({
+        icon: actUnfav ? "🔴" : "🟢",
+        color: actUnfav ? "bg-red-50" : "bg-green-50",
+        borderColor: actUnfav ? "border-l-red-500" : "border-l-green-500",
+        title: t("Écart d'activité : réviser le taux d'imputation", "انحراف النشاط: مراجعة معدل التحميل"),
+        desc: t(
+          actUnfav
+            ? "Le budget flexible dépasse le coût absorbé : le taux d'imputation standard est sous-estimé ou le niveau d'activité planifié est trop optimiste. Révisez le taux standard et examinez la capacité réelle des centres d'analyse."
+            : "Le coût absorbé dépasse le budget flexible : sur-absorption des charges indirectes. L'activité réelle dépasse les prévisions — évaluez si le taux standard doit être révisé à la hausse.",
+          actUnfav
+            ? "الميزانية المرنة تتجاوز التكلفة المحمَّلة: معدل التحميل المعياري مُقدَّر بأقل من قيمته أو مستوى النشاط المخطط متفائل جداً. راجع المعدل المعياري وافحص الطاقة الفعلية لمراكز التحليل."
+            : "التكلفة المحمَّلة تتجاوز الميزانية المرنة: استيعاب زائد للتكاليف غير المباشرة. النشاط الفعلي يتجاوز التوقعات — قيّم ما إذا كان المعدل المعياري يستحق المراجعة التصاعدية."
+        ),
+      });
+    }
+    const rendUnfav = totals.qtyVariance > 0;
+    if (dominantFactor === "qty" || dominantFactor === "equal") {
+      suggestions.push({
+        icon: rendUnfav ? "🔴" : "🟢",
+        color: rendUnfav ? "bg-red-50" : "bg-green-50",
+        borderColor: rendUnfav ? "border-l-red-500" : "border-l-green-500",
+        title: t("Inefficience opérationnelle : heures consommées", "قصور تشغيلي: الساعات المستهلكة"),
+        desc: t(
+          rendUnfav
+            ? "Les heures réelles dépassent les heures standard — inefficience mesurable : pannes machines, temps d'attente, reprise de travaux défectueux. Mettez en place un suivi des temps d'arrêt et des indicateurs OEE (Overall Equipment Effectiveness)."
+            : "Les heures réelles sont inférieures aux heures standard — gain de productivité réalisé. Documentez les bonnes pratiques opérationnelles et envisagez de réviser les standards à la baisse.",
+          rendUnfav
+            ? "ساعات العمل الفعلية تتجاوز المعيارية — قصور قابل للقياس: أعطال الآلات، أوقات الانتظار، إعادة الأعمال المعيبة. أنشئ متابعة لأوقات التوقف ومؤشرات الفعالية الإجمالية للمعدات (OEE)."
+            : "ساعات العمل الفعلية أقل من المعيارية — تحقيق مكاسب إنتاجية. وثّق الممارسات التشغيلية الجيدة وفكّر في مراجعة المعايير نزولاً."
+        ),
+      });
+    }
+  } else {
+    if (dominantFactor === "price" || dominantFactor === "equal") {
+      const priceUnfav = favWhen === "positive" ? totals.priceVariance < 0 : totals.priceVariance > 0;
+      suggestions.push({
+        icon: priceUnfav ? "🔴" : "🟢",
+        color: priceUnfav ? "bg-red-50" : "bg-green-50",
+        borderColor: priceUnfav ? "border-l-red-500" : "border-l-green-500",
+        title: objective === "revenue"
+          ? t("Politique de prix à réviser", "مراجعة سياسة الأسعار")
+          : objective === "labor"
+          ? t("Maîtrise des taux salariaux", "التحكم في الأجور")
+          : t("Renégocier les prix fournisseurs", "إعادة التفاوض مع الموردين"),
+        desc: objective === "revenue"
+          ? t(
+              priceUnfav
+                ? "Le prix réel est inférieur au standard — envisagez de réviser la grille tarifaire, les remises accordées ou la segmentation client."
+                : "Le prix réel surpasse le standard — valorisez cette performance dans votre stratégie commerciale.",
+              priceUnfav
+                ? "السعر الفعلي أقل من المعياري — راجع جدول الأسعار والخصومات الممنوحة وتصنيف العملاء."
+                : "السعر الفعلي يتجاوز المعياري — استثمر هذا الأداء في استراتيجيتك التجارية."
+            )
+          : objective === "labor"
+          ? t(
+              priceUnfav
+                ? "Le taux réel dépasse le standard — analysez les heures supplémentaires, primes et reclassifications qui gonflent la masse salariale."
+                : "Le taux réel est inférieur au standard — économie salariale réalisée, consolidez-la par une politique RH adaptée.",
+              priceUnfav
+                ? "الأجر الفعلي أعلى من المعياري — حلّل الساعات الإضافية والعلاوات التي تُضخّم كتلة الرواتب."
+                : "الأجر الفعلي أقل من المعياري — وفر في الرواتب، رسّخه بسياسة موارد بشرية ملائمة."
+            )
+          : t(
+              priceUnfav
+                ? "Le coût d'achat réel dépasse le standard — renégociez les contrats fournisseurs, cherchez des alternatives ou achetez en volume."
+                : "Le coût d'achat réel est inférieur au standard — bonne gestion des achats, maintenez les partenariats favorables.",
+              priceUnfav
+                ? "تكلفة الشراء الفعلية تتجاوز المعيارية — أعد التفاوض مع الموردين أو ابحث عن بدائل أو اشتر بالجملة."
+                : "تكلفة الشراء الفعلية أقل من المعيارية — إدارة مشتريات جيدة، حافظ على الشراكات الإيجابية."
+            ),
+      });
+    }
 
-  if (dominantFactor === "qty" || dominantFactor === "equal") {
-    const qtyUnfav = favWhen === "positive" ? totals.qtyVariance < 0 : totals.qtyVariance > 0;
-    suggestions.push({
-      icon: qtyUnfav ? "🔴" : "🟢",
-      color: qtyUnfav ? "bg-red-50" : "bg-green-50",
-      borderColor: qtyUnfav ? "border-l-red-500" : "border-l-green-500",
-      title: objective === "revenue"
-        ? t("Effort commercial à renforcer", "تعزيز الجهد التجاري")
-        : objective === "labor"
-        ? t("Productivité de la main-d'œuvre", "إنتاجية اليد العاملة")
-        : t("Gestion des consommations matières", "إدارة استهلاك المواد"),
-      desc: objective === "revenue"
-        ? t(
-            qtyUnfav
-              ? "Le volume vendu est inférieur aux prévisions — renforcez l'équipe commerciale, révisez les objectifs et analysez les retours clients."
-              : "Le volume vendu dépasse les prévisions — excellente performance commerciale, analysez les facteurs de succès pour les répliquer.",
-            qtyUnfav
-              ? "حجم المبيعات أقل من التوقعات — عزّز فريق المبيعات وراجع الأهداف وحلّل ملاحظات العملاء."
-              : "حجم المبيعات يتجاوز التوقعات — أداء تجاري ممتاز، حلّل عوامل النجاح لتكرارها."
-          )
-        : objective === "labor"
-        ? t(
-            qtyUnfav
-              ? "Les heures réelles dépassent le standard — analysez les arrêts, pannes, absences et inefficiences pour réduire le temps de cycle."
-              : "Les heures réelles sont inférieures au standard — productivité supérieure aux attentes, identifiez les meilleures pratiques.",
-            qtyUnfav
-              ? "ساعات العمل الفعلية تتجاوز المعيارية — حلّل التوقفات والأعطال والغيابات لتقليل زمن الدورة."
-              : "ساعات العمل الفعلية أقل من المعيارية — إنتاجية تفوق التوقعات، حدّد الممارسات الجيدة."
-          )
-        : t(
-            qtyUnfav
-              ? "La consommation réelle dépasse le standard — contrôlez les rebuts, fuites, erreurs de dosage et inefficiences de production."
-              : "La consommation réelle est inférieure au standard — efficience matière positive, capitalisez sur les procédés efficaces.",
-            qtyUnfav
-              ? "الاستهلاك الفعلي يتجاوز المعيار — تحكّم في الهدر والتسرب وأخطاء الجرعات وقصور الإنتاج."
-              : "الاستهلاك الفعلي أقل من المعيار — كفاءة جيدة في المواد، استثمر في العمليات الفعّالة."
-          ),
-    });
+    if (dominantFactor === "qty" || dominantFactor === "equal") {
+      const qtyUnfav = favWhen === "positive" ? totals.qtyVariance < 0 : totals.qtyVariance > 0;
+      suggestions.push({
+        icon: qtyUnfav ? "🔴" : "🟢",
+        color: qtyUnfav ? "bg-red-50" : "bg-green-50",
+        borderColor: qtyUnfav ? "border-l-red-500" : "border-l-green-500",
+        title: objective === "revenue"
+          ? t("Effort commercial à renforcer", "تعزيز الجهد التجاري")
+          : objective === "labor"
+          ? t("Productivité de la main-d'œuvre", "إنتاجية اليد العاملة")
+          : t("Gestion des consommations matières", "إدارة استهلاك المواد"),
+        desc: objective === "revenue"
+          ? t(
+              qtyUnfav
+                ? "Le volume vendu est inférieur aux prévisions — renforcez l'équipe commerciale, révisez les objectifs et analysez les retours clients."
+                : "Le volume vendu dépasse les prévisions — excellente performance commerciale, analysez les facteurs de succès pour les répliquer.",
+              qtyUnfav
+                ? "حجم المبيعات أقل من التوقعات — عزّز فريق المبيعات وراجع الأهداف وحلّل ملاحظات العملاء."
+                : "حجم المبيعات يتجاوز التوقعات — أداء تجاري ممتاز، حلّل عوامل النجاح لتكرارها."
+            )
+          : objective === "labor"
+          ? t(
+              qtyUnfav
+                ? "Les heures réelles dépassent le standard — analysez les arrêts, pannes, absences et inefficiences pour réduire le temps de cycle."
+                : "Les heures réelles sont inférieures au standard — productivité supérieure aux attentes, identifiez les meilleures pratiques.",
+              qtyUnfav
+                ? "ساعات العمل الفعلية تتجاوز المعيارية — حلّل التوقفات والأعطال والغيابات لتقليل زمن الدورة."
+                : "ساعات العمل الفعلية أقل من المعيارية — إنتاجية تفوق التوقعات، حدّد الممارسات الجيدة."
+            )
+          : t(
+              qtyUnfav
+                ? "La consommation réelle dépasse le standard — contrôlez les rebuts, fuites, erreurs de dosage et inefficiences de production."
+                : "La consommation réelle est inférieure au standard — efficience matière positive, capitalisez sur les procédés efficaces.",
+              qtyUnfav
+                ? "الاستهلاك الفعلي يتجاوز المعيار — تحكّم في الهدر والتسرب وأخطاء الجرعات وقصور الإنتاج."
+                : "الاستهلاك الفعلي أقل من المعيار — كفاءة جيدة في المواد، استثمر في العمليات الفعّالة."
+            ),
+      });
+    }
   }
 
   // Always add action plan suggestion
@@ -260,8 +366,12 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
             "يتجاوز الأداء المعايير بشكل عام. راجع الميزانيات التوقعية تصاعدياً ووثّق الممارسات الجيدة لتحقيق الاستمرارية."
           )
         : t(
-            "Établissez un plan d'action SMART : identifiez les responsables, fixez des échéances et des indicateurs de suivi pour chacun des écarts défavorables identifiés.",
-            "ضع خطة عمل SMART: حدّد المسؤولين والمواعيد ومؤشرات المتابعة لكل انحراف غير مُلائم تم تحديده."
+            isOverhead
+              ? "Établissez un plan d'action SMART par centre d'analyse : désignez un responsable de centre, fixez des objectifs d'absorption et de rendement, et mettez en place un reporting mensuel des charges indirectes."
+              : "Établissez un plan d'action SMART : identifiez les responsables, fixez des échéances et des indicateurs de suivi pour chacun des écarts défavorables identifiés.",
+            isOverhead
+              ? "ضع خطة عمل SMART لكل مركز تحليل: عيّن مسؤولاً لكل مركز، وحدّد أهدافاً للاستيعاب والمردودية، وأنشئ تقريراً شهرياً للتكاليف غير المباشرة."
+              : "ضع خطة عمل SMART: حدّد المسؤولين والمواعيد ومؤشرات المتابعة لكل انحراف غير مُلائم تم تحديده."
           ),
     });
   }
@@ -311,12 +421,13 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
     <div className="space-y-6">
 
       {/* ── KPI summary cards ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
+      <div className={cn("grid gap-4", isOverhead ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-1 sm:grid-cols-3")}>
+        {([
           { label: isAr ? cfg.priceVarAr : cfg.priceVarFr, value: totals.priceVariance, style: priceStyle },
+          ...(isOverhead ? [{ label: isAr ? (cfg.var3VarAr ?? "") : (cfg.var3VarFr ?? ""), value: totals.var3 ?? 0, style: useVarianceStyle(totals.var3 ?? 0, favWhen) }] : []),
           { label: isAr ? cfg.qtyVarAr   : cfg.qtyVarFr,   value: totals.qtyVariance,   style: qtyStyle   },
           { label: t("Écart Total", "الانحراف الإجمالي"),   value: totals.totalVariance, style: totStyle   },
-        ].map(({ label, value, style }) => {
+        ] as { label: string; value: number; style: ReturnType<typeof useVarianceStyle> }[]).map(({ label, value, style }) => {
           const { Icon } = style;
           return (
             <Card key={label} className={cn("border-2", style.bgBorder)}>
@@ -373,9 +484,19 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
                   <TableHead className="text-center font-semibold">
                     {isAr ? cfg.actQtyAr : cfg.actQtyFr}
                   </TableHead>
+                  {isOverhead && (
+                    <TableHead className="text-center font-semibold text-violet-700">
+                      {isAr ? (cfg.extra1Ar ?? "") : (cfg.extra1Fr ?? "")}
+                    </TableHead>
+                  )}
                   <TableHead className="text-center font-semibold">
                     {isAr ? cfg.priceVarAr : cfg.priceVarFr}
                   </TableHead>
+                  {isOverhead && (
+                    <TableHead className="text-center font-semibold">
+                      {isAr ? (cfg.var3VarAr ?? "") : (cfg.var3VarFr ?? "")}
+                    </TableHead>
+                  )}
                   <TableHead className="text-center font-semibold">
                     {isAr ? cfg.qtyVarAr : cfg.qtyVarFr}
                   </TableHead>
@@ -388,6 +509,7 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
                 {rows.map((r) => {
                   const rowFav  = useVarianceStyle(r.totalVariance, favWhen);
                   const pvFav   = useVarianceStyle(r.priceVariance, favWhen);
+                  const v3Fav   = useVarianceStyle(r.var3 ?? 0,      favWhen);
                   const qvFav   = useVarianceStyle(r.qtyVariance,   favWhen);
                   return (
                     <TableRow key={r.id}>
@@ -396,9 +518,17 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
                       <TableCell className="text-center text-muted-foreground font-mono text-sm">{fNum(r.actualPrice)}</TableCell>
                       <TableCell className="text-center text-muted-foreground font-mono text-sm">{fNum(r.standardQty)}</TableCell>
                       <TableCell className="text-center text-muted-foreground font-mono text-sm">{fNum(r.actualQty)}</TableCell>
+                      {isOverhead && (
+                        <TableCell className="text-center text-violet-700 font-mono text-sm font-medium">{fNum(r.extra1 ?? 0)}</TableCell>
+                      )}
                       <TableCell className={cn("text-center font-mono font-semibold text-sm", pvFav.color)}>
                         {fDA(r.priceVariance, language)}
                       </TableCell>
+                      {isOverhead && (
+                        <TableCell className={cn("text-center font-mono font-semibold text-sm", v3Fav.color)}>
+                          {fDA(r.var3 ?? 0, language)}
+                        </TableCell>
+                      )}
                       <TableCell className={cn("text-center font-mono font-semibold text-sm", qvFav.color)}>
                         {fDA(r.qtyVariance, language)}
                       </TableCell>
@@ -414,10 +544,15 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
                   <TableCell className="font-bold text-primary">
                     {t("TOTAL", "الإجمالي")}
                   </TableCell>
-                  <TableCell colSpan={4} />
+                  <TableCell colSpan={isOverhead ? 5 : 4} />
                   <TableCell className={cn("text-center font-mono font-bold", priceStyle.color)}>
                     {fDA(totals.priceVariance, language)}
                   </TableCell>
+                  {isOverhead && (
+                    <TableCell className={cn("text-center font-mono font-bold", useVarianceStyle(totals.var3 ?? 0, favWhen).color)}>
+                      {fDA(totals.var3 ?? 0, language)}
+                    </TableCell>
+                  )}
                   <TableCell className={cn("text-center font-mono font-bold", qtyStyle.color)}>
                     {fDA(totals.qtyVariance, language)}
                   </TableCell>
@@ -507,12 +642,17 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
           <CardContent className="space-y-4">
             {/* KPI grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { label: isAr ? cfg.priceVarAr : cfg.priceVarFr, value: fDA(totals.priceVariance, language) },
-                { label: isAr ? cfg.qtyVarAr   : cfg.qtyVarFr,   value: fDA(totals.qtyVariance, language) },
-                { label: t("Écart Total",    "الانحراف الإجمالي"),  value: fDA(totals.totalVariance, language) },
-                { label: t("Facteur dominant", "العامل المسيطر"),    value: dominantFactor === "price" ? (isAr ? cfg.priceVarAr : cfg.priceVarFr) : dominantFactor === "qty" ? (isAr ? cfg.qtyVarAr : cfg.qtyVarFr) : t("Équilibré", "متوازن") },
-              ].map(kpi => (
+              {([
+                { label: isAr ? cfg.priceVarAr : cfg.priceVarFr,          value: fDA(totals.priceVariance, language) },
+                ...(isOverhead ? [{ label: isAr ? (cfg.var3VarAr ?? "") : (cfg.var3VarFr ?? ""), value: fDA(totals.var3 ?? 0, language) }] : []),
+                { label: isAr ? cfg.qtyVarAr   : cfg.qtyVarFr,            value: fDA(totals.qtyVariance, language) },
+                { label: t("Écart Total",    "الانحراف الإجمالي"),          value: fDA(totals.totalVariance, language) },
+                { label: t("Facteur dominant", "العامل المسيطر"),
+                  value: dominantFactor === "price" ? (isAr ? cfg.priceVarAr : cfg.priceVarFr)
+                       : dominantFactor === "qty"   ? (isAr ? cfg.qtyVarAr   : cfg.qtyVarFr)
+                       : dominantFactor === "var3"  ? (isAr ? (cfg.var3VarAr ?? "") : (cfg.var3VarFr ?? ""))
+                       : t("Équilibré", "متوازن") },
+              ] as { label: string; value: string }[]).map(kpi => (
                 <div key={kpi.label} className="rounded-lg border border-border p-3">
                   <p className="text-xs text-muted-foreground">{kpi.label}</p>
                   <p className="text-sm font-bold mt-0.5 truncate">{kpi.value}</p>
@@ -553,7 +693,7 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
         objective={objective}
         rows={rows}
         totals={totals}
-        dominantFactor={dominantFactor}
+        dominantFactor={dominantFactor === "var3" ? "equal" : dominantFactor}
         analysisLines={analysisLines.map(l => l.text)}
         suggestions={suggestions.map(s => ({ icon: s.icon, title: s.title, desc: s.desc }))}
       />

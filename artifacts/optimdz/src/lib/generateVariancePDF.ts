@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-export type VarianceObjective = "revenue" | "materials" | "labor";
+export type VarianceObjective = "revenue" | "materials" | "labor" | "overhead";
 
 export interface VarianceRowResult {
   id: string;
@@ -11,14 +11,17 @@ export interface VarianceRowResult {
   standardQty: number;
   actualPrice: number;
   actualQty: number;
+  extra1?: number; // overhead: coutStdUnitaire
   priceVariance: number;
   qtyVariance: number;
+  var3?: number;   // overhead: Écart/Activité
   totalVariance: number;
 }
 
 export interface VarianceTotals {
   priceVariance: number;
   qtyVariance: number;
+  var3?: number;   // overhead: Écart/Activité
   totalVariance: number;
 }
 
@@ -111,9 +114,10 @@ function secTitle(fr: string, ar: string) {
 // ── Objective labels ──────────────────────────────────────────────────────────
 function objLabels(obj: VarianceObjective) {
   const map = {
-    revenue:   { fr: "Écarts sur Revenus",          ar: "انحرافات الإيرادات",       priceFr: "Écart/Prix",    priceAr: "انحراف السعر",   qtyFr: "Écart/Volume", qtyAr: "انحراف الحجم",        fav: "positive" as const },
-    materials: { fr: "Écarts sur Matières",          ar: "انحرافات المواد الأولية",   priceFr: "Écart/Prix",    priceAr: "انحراف السعر",   qtyFr: "Écart/Qté",    qtyAr: "انحراف الكمية",       fav: "negative" as const },
-    labor:     { fr: "Écarts sur Main-d'œuvre",      ar: "انحرافات اليد العاملة",     priceFr: "Écart/Taux",    priceAr: "انحراف الأجر",   qtyFr: "Écart/Rend.", qtyAr: "انحراف المردودية",    fav: "negative" as const },
+    revenue:   { fr: "Écarts sur Revenus",              ar: "انحرافات الإيرادات",            priceFr: "Écart/Prix",    priceAr: "انحراف السعر",      qtyFr: "Écart/Volume",   qtyAr: "انحراف الحجم",         var3Fr: undefined as string|undefined, var3Ar: undefined as string|undefined, fav: "positive" as const },
+    materials: { fr: "Écarts sur Matières",              ar: "انحرافات المواد الأولية",        priceFr: "Écart/Prix",    priceAr: "انحراف السعر",      qtyFr: "Écart/Qté",      qtyAr: "انحراف الكمية",        var3Fr: undefined as string|undefined, var3Ar: undefined as string|undefined, fav: "negative" as const },
+    labor:     { fr: "Écarts sur Main-d'œuvre",          ar: "انحرافات اليد العاملة",          priceFr: "Écart/Taux",    priceAr: "انحراف الأجر",      qtyFr: "Écart/Rend.",    qtyAr: "انحراف المردودية",     var3Fr: undefined as string|undefined, var3Ar: undefined as string|undefined, fav: "negative" as const },
+    overhead:  { fr: "Écarts sur Charges Indirectes",   ar: "انحرافات التكاليف غير المباشرة", priceFr: "Écart/Budget",  priceAr: "انحراف الميزانية", qtyFr: "Écart/Rendement", qtyAr: "انحراف المردودية",    var3Fr: "Écart/Activité", var3Ar: "انحراف النشاط",        fav: "negative" as const },
   };
   return map[obj];
 }
@@ -127,11 +131,17 @@ function buildCover(
   const tot = opts.totals;
   const favColor = (n: number) => favorableColor(n, lbl.fav);
 
-  const kpis = [
-    { label: "انحراف السعر / Écart Prix",   value: fDA(tot.priceVariance),    color: favColor(tot.priceVariance) },
-    { label: "انحراف الكمية / Écart Qté",    value: fDA(tot.qtyVariance),      color: favColor(tot.qtyVariance) },
-    { label: "الانحراف الإجمالي / Écart Total", value: fDA(tot.totalVariance), color: favColor(tot.totalVariance) },
-    { label: "عدد العناصر / Nb. éléments",   value: String(opts.rows.length),  color: C.primary },
+  const isOverhead = opts.objective === "overhead";
+  const kpis = isOverhead ? [
+    { label: `${lbl.priceAr} / ${lbl.priceFr}`, value: fDA(tot.priceVariance),  color: favColor(tot.priceVariance) },
+    { label: `${lbl.var3Ar} / ${lbl.var3Fr}`,    value: fDA(tot.var3 ?? 0),      color: favColor(tot.var3 ?? 0) },
+    { label: `${lbl.qtyAr} / ${lbl.qtyFr}`,      value: fDA(tot.qtyVariance),   color: favColor(tot.qtyVariance) },
+    { label: "الانحراف الإجمالي / Écart Total",  value: fDA(tot.totalVariance), color: favColor(tot.totalVariance) },
+  ] : [
+    { label: "انحراف السعر / Écart Prix",        value: fDA(tot.priceVariance),  color: favColor(tot.priceVariance) },
+    { label: "انحراف الكمية / Écart Qté",         value: fDA(tot.qtyVariance),   color: favColor(tot.qtyVariance) },
+    { label: "الانحراف الإجمالي / Écart Total",  value: fDA(tot.totalVariance), color: favColor(tot.totalVariance) },
+    { label: "عدد العناصر / Nb. éléments",        value: String(opts.rows.length), color: C.primary },
   ];
 
   return `
@@ -189,6 +199,7 @@ function buildResultsPage(opts: VariancePDFOptions, totalPages: number) {
   const lbl = objLabels(opts.objective);
   const fav = lbl.fav;
   const fc = (n: number) => favorableColor(n, fav);
+  const isOverhead = opts.objective === "overhead";
 
   // Variance table rows
   const tableRows = opts.rows.map((r, i) => {
@@ -199,6 +210,22 @@ function buildResultsPage(opts: VariancePDFOptions, totalPages: number) {
       const txt   = n === 0 ? "محايد" : good ? "✓" : "✗";
       return `<span style="color:${color};font-weight:700;">${txt}</span>`;
     };
+    if (isOverhead) {
+      return `<tr style="background:${bg};">
+        <td style="padding:5px 6px;border-bottom:1px solid ${C.border};font-size:9.5px;font-weight:600;">${r.element}</td>
+        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:8.5px;font-family:monospace;">${fNum(r.standardPrice)}</td>
+        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:8.5px;font-family:monospace;">${fNum(r.actualPrice)}</td>
+        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:8.5px;font-family:monospace;">${fNum(r.standardQty)}</td>
+        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:8.5px;font-family:monospace;">${fNum(r.actualQty)}</td>
+        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:8.5px;font-family:monospace;">${fNum(r.extra1 ?? 0)}</td>
+        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:9px;font-family:monospace;font-weight:700;color:${fc(r.priceVariance)};">${fDA(r.priceVariance)}</td>
+        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:9px;font-family:monospace;font-weight:700;color:${fc(r.var3 ?? 0)};">${fDA(r.var3 ?? 0)}</td>
+        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:9px;font-family:monospace;font-weight:700;color:${fc(r.qtyVariance)};">${fDA(r.qtyVariance)}</td>
+        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:9px;font-family:monospace;font-weight:800;color:${fc(r.totalVariance)};">
+          ${fDA(r.totalVariance)} ${favBadge(r.totalVariance)}
+        </td>
+      </tr>`;
+    }
     return `<tr style="background:${bg};">
       <td style="padding:5px 8px;border-bottom:1px solid ${C.border};font-size:10px;font-weight:600;">${r.element}</td>
       <td style="padding:5px 6px;border-bottom:1px solid ${C.border};text-align:right;font-size:9px;font-family:monospace;">${fNum(r.standardPrice)}</td>
@@ -215,12 +242,20 @@ function buildResultsPage(opts: VariancePDFOptions, totalPages: number) {
 
   // Totals row
   const tot = opts.totals;
-  const totalsRow = `<tr style="background:${C.primaryLight};">
-    <td colspan="5" style="padding:6px 8px;font-size:10.5px;font-weight:800;color:${C.primary};">الإجمالي / TOTAL</td>
-    <td style="padding:6px 6px;text-align:right;font-size:10px;font-family:monospace;font-weight:800;color:${fc(tot.priceVariance)};">${fDA(tot.priceVariance)}</td>
-    <td style="padding:6px 6px;text-align:right;font-size:10px;font-family:monospace;font-weight:800;color:${fc(tot.qtyVariance)};">${fDA(tot.qtyVariance)}</td>
-    <td style="padding:6px 6px;text-align:right;font-size:10px;font-family:monospace;font-weight:800;color:${fc(tot.totalVariance)};">${fDA(tot.totalVariance)}</td>
-  </tr>`;
+  const totalsRow = isOverhead
+    ? `<tr style="background:${C.primaryLight};">
+        <td colspan="6" style="padding:6px 8px;font-size:10.5px;font-weight:800;color:${C.primary};">الإجمالي / TOTAL</td>
+        <td style="padding:6px 5px;text-align:right;font-size:9.5px;font-family:monospace;font-weight:800;color:${fc(tot.priceVariance)};">${fDA(tot.priceVariance)}</td>
+        <td style="padding:6px 5px;text-align:right;font-size:9.5px;font-family:monospace;font-weight:800;color:${fc(tot.var3 ?? 0)};">${fDA(tot.var3 ?? 0)}</td>
+        <td style="padding:6px 5px;text-align:right;font-size:9.5px;font-family:monospace;font-weight:800;color:${fc(tot.qtyVariance)};">${fDA(tot.qtyVariance)}</td>
+        <td style="padding:6px 5px;text-align:right;font-size:9.5px;font-family:monospace;font-weight:800;color:${fc(tot.totalVariance)};">${fDA(tot.totalVariance)}</td>
+      </tr>`
+    : `<tr style="background:${C.primaryLight};">
+        <td colspan="5" style="padding:6px 8px;font-size:10.5px;font-weight:800;color:${C.primary};">الإجمالي / TOTAL</td>
+        <td style="padding:6px 6px;text-align:right;font-size:10px;font-family:monospace;font-weight:800;color:${fc(tot.priceVariance)};">${fDA(tot.priceVariance)}</td>
+        <td style="padding:6px 6px;text-align:right;font-size:10px;font-family:monospace;font-weight:800;color:${fc(tot.qtyVariance)};">${fDA(tot.qtyVariance)}</td>
+        <td style="padding:6px 6px;text-align:right;font-size:10px;font-family:monospace;font-weight:800;color:${fc(tot.totalVariance)};">${fDA(tot.totalVariance)}</td>
+      </tr>`;
 
   // Bar chart: total variance per element
   const maxAbs = Math.max(...opts.rows.map(r => Math.abs(r.totalVariance)), 1);
@@ -237,6 +272,24 @@ function buildResultsPage(opts: VariancePDFOptions, totalPages: number) {
     </div>`;
   }).join("");
 
+  const overheadHeaders = isOverhead ? `
+    <th style="padding:6px 5px;text-align:right;font-size:8px;">Ch. budg.</th>
+    <th style="padding:6px 5px;text-align:right;font-size:8px;">Ch. réel.</th>
+    <th style="padding:6px 5px;text-align:right;font-size:8px;">Nh</th>
+    <th style="padding:6px 5px;text-align:right;font-size:8px;">Nr</th>
+    <th style="padding:6px 5px;text-align:right;font-size:8px;">C. std.</th>
+    <th style="padding:6px 5px;text-align:right;font-size:8px;">${lbl.priceFr}</th>
+    <th style="padding:6px 5px;text-align:right;font-size:8px;">${lbl.var3Fr}</th>
+    <th style="padding:6px 5px;text-align:right;font-size:8px;">${lbl.qtyFr}</th>
+    <th style="padding:6px 5px;text-align:right;font-size:8px;">Total</th>` : `
+    <th style="padding:6px 6px;text-align:right;font-size:9px;">P. std</th>
+    <th style="padding:6px 6px;text-align:right;font-size:9px;">P. réel</th>
+    <th style="padding:6px 6px;text-align:right;font-size:9px;">Q. std</th>
+    <th style="padding:6px 6px;text-align:right;font-size:9px;">Q. réelle</th>
+    <th style="padding:6px 6px;text-align:right;font-size:9px;">${lbl.priceFr}</th>
+    <th style="padding:6px 6px;text-align:right;font-size:9px;">${lbl.qtyFr}</th>
+    <th style="padding:6px 6px;text-align:right;font-size:9px;">Total</th>`;
+
   const content = `
     ${secTitle("Tableau Détaillé des Écarts", "جدول الانحرافات التفصيلي")}
     <div style="overflow:auto;margin-bottom:16px;">
@@ -244,13 +297,7 @@ function buildResultsPage(opts: VariancePDFOptions, totalPages: number) {
         <thead>
           <tr style="background:${C.primary};color:${C.white};">
             <th style="padding:6px 8px;text-align:left;font-size:9px;">Élément / العنصر</th>
-            <th style="padding:6px 6px;text-align:right;font-size:9px;">P. std</th>
-            <th style="padding:6px 6px;text-align:right;font-size:9px;">P. réel</th>
-            <th style="padding:6px 6px;text-align:right;font-size:9px;">Q. std</th>
-            <th style="padding:6px 6px;text-align:right;font-size:9px;">Q. réelle</th>
-            <th style="padding:6px 6px;text-align:right;font-size:9px;">${lbl.priceFr}</th>
-            <th style="padding:6px 6px;text-align:right;font-size:9px;">${lbl.qtyFr}</th>
-            <th style="padding:6px 6px;text-align:right;font-size:9px;">Total</th>
+            ${overheadHeaders}
           </tr>
         </thead>
         <tbody>${tableRows}${totalsRow}</tbody>
