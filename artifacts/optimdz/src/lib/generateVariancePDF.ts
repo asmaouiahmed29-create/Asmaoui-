@@ -11,10 +11,12 @@ export interface VarianceRowResult {
   standardQty: number;
   actualPrice: number;
   actualQty: number;
-  extra1?: number; // overhead: coutStdUnitaire
+  extra1?: number; // overhead: coutStdUnitaire (CS)
+  extra2?: number; // overhead: charges fixes (CF)
   priceVariance: number;
   qtyVariance: number;
   var3?: number;   // overhead: Écart/Activité
+  var4?: number;   // overhead: Écart/Sous-activité = CF*(1−Nr/Nh)
   totalVariance: number;
 }
 
@@ -22,6 +24,7 @@ export interface VarianceTotals {
   priceVariance: number;
   qtyVariance: number;
   var3?: number;   // overhead: Écart/Activité
+  var4?: number;   // overhead: Écart/Sous-activité
   totalVariance: number;
 }
 
@@ -114,10 +117,10 @@ function secTitle(fr: string, ar: string) {
 // ── Objective labels ──────────────────────────────────────────────────────────
 function objLabels(obj: VarianceObjective) {
   const map = {
-    revenue:   { fr: "Écarts sur Revenus",              ar: "انحرافات الإيرادات",            priceFr: "Écart/Prix",    priceAr: "انحراف السعر",      qtyFr: "Écart/Volume",   qtyAr: "انحراف الحجم",         var3Fr: undefined as string|undefined, var3Ar: undefined as string|undefined, fav: "positive" as const },
-    materials: { fr: "Écarts sur Matières",              ar: "انحرافات المواد الأولية",        priceFr: "Écart/Prix",    priceAr: "انحراف السعر",      qtyFr: "Écart/Qté",      qtyAr: "انحراف الكمية",        var3Fr: undefined as string|undefined, var3Ar: undefined as string|undefined, fav: "negative" as const },
-    labor:     { fr: "Écarts sur Main-d'œuvre",          ar: "انحرافات اليد العاملة",          priceFr: "Écart/Taux",    priceAr: "انحراف الأجر",      qtyFr: "Écart/Rend.",    qtyAr: "انحراف المردودية",     var3Fr: undefined as string|undefined, var3Ar: undefined as string|undefined, fav: "negative" as const },
-    overhead:  { fr: "Écarts sur Charges Indirectes",   ar: "انحرافات التكاليف غير المباشرة", priceFr: "Écart/Budget",  priceAr: "انحراف الميزانية", qtyFr: "Écart/Rendement", qtyAr: "انحراف المردودية",    var3Fr: "Écart/Activité", var3Ar: "انحراف النشاط",        fav: "negative" as const },
+    revenue:   { fr: "Écarts sur Revenus",              ar: "انحرافات الإيرادات",            priceFr: "Écart/Prix",    priceAr: "انحراف السعر",      qtyFr: "Écart/Volume",   qtyAr: "انحراف الحجم",         var3Fr: undefined as string|undefined, var3Ar: undefined as string|undefined, var4Fr: undefined as string|undefined, var4Ar: undefined as string|undefined, fav: "positive" as const },
+    materials: { fr: "Écarts sur Matières",              ar: "انحرافات المواد الأولية",        priceFr: "Écart/Prix",    priceAr: "انحراف السعر",      qtyFr: "Écart/Qté",      qtyAr: "انحراف الكمية",        var3Fr: undefined as string|undefined, var3Ar: undefined as string|undefined, var4Fr: undefined as string|undefined, var4Ar: undefined as string|undefined, fav: "negative" as const },
+    labor:     { fr: "Écarts sur Main-d'œuvre",          ar: "انحرافات اليد العاملة",          priceFr: "Écart/Taux",    priceAr: "انحراف الأجر",      qtyFr: "Écart/Rend.",    qtyAr: "انحراف المردودية",     var3Fr: undefined as string|undefined, var3Ar: undefined as string|undefined, var4Fr: undefined as string|undefined, var4Ar: undefined as string|undefined, fav: "negative" as const },
+    overhead:  { fr: "Écarts sur Charges Indirectes",   ar: "انحرافات التكاليف غير المباشرة", priceFr: "Écart/Budget",  priceAr: "انحراف الميزانية", qtyFr: "Écart/Rendement", qtyAr: "انحراف المردودية",    var3Fr: "Écart/Activité", var3Ar: "انحراف النشاط",  var4Fr: "É/Sous-activité", var4Ar: "انحراف قصور النشاط", fav: "negative" as const },
   };
   return map[obj];
 }
@@ -133,10 +136,11 @@ function buildCover(
 
   const isOverhead = opts.objective === "overhead";
   const kpis = isOverhead ? [
-    { label: `${lbl.priceAr} / ${lbl.priceFr}`, value: fDA(tot.priceVariance),  color: favColor(tot.priceVariance) },
-    { label: `${lbl.var3Ar} / ${lbl.var3Fr}`,    value: fDA(tot.var3 ?? 0),      color: favColor(tot.var3 ?? 0) },
-    { label: `${lbl.qtyAr} / ${lbl.qtyFr}`,      value: fDA(tot.qtyVariance),   color: favColor(tot.qtyVariance) },
-    { label: "الانحراف الإجمالي / Écart Total",  value: fDA(tot.totalVariance), color: favColor(tot.totalVariance) },
+    { label: `${lbl.priceAr} / ${lbl.priceFr}`,    value: fDA(tot.priceVariance),  color: favColor(tot.priceVariance) },
+    { label: `${lbl.var4Ar} / ${lbl.var4Fr}`,        value: fDA(tot.var4 ?? 0),      color: favColor(tot.var4 ?? 0) },
+    { label: `${lbl.var3Ar} / ${lbl.var3Fr}`,         value: fDA(tot.var3 ?? 0),      color: favColor(tot.var3 ?? 0) },
+    { label: `${lbl.qtyAr} / ${lbl.qtyFr}`,           value: fDA(tot.qtyVariance),   color: favColor(tot.qtyVariance) },
+    { label: "الانحراف الإجمالي / Écart Total",       value: fDA(tot.totalVariance), color: favColor(tot.totalVariance) },
   ] : [
     { label: "انحراف السعر / Écart Prix",        value: fDA(tot.priceVariance),  color: favColor(tot.priceVariance) },
     { label: "انحراف الكمية / Écart Qté",         value: fDA(tot.qtyVariance),   color: favColor(tot.qtyVariance) },
@@ -212,16 +216,18 @@ function buildResultsPage(opts: VariancePDFOptions, totalPages: number) {
     };
     if (isOverhead) {
       return `<tr style="background:${bg};">
-        <td style="padding:5px 6px;border-bottom:1px solid ${C.border};font-size:9.5px;font-weight:600;">${r.element}</td>
-        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:8.5px;font-family:monospace;">${fNum(r.standardPrice)}</td>
-        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:8.5px;font-family:monospace;">${fNum(r.actualPrice)}</td>
-        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:8.5px;font-family:monospace;">${fNum(r.standardQty)}</td>
-        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:8.5px;font-family:monospace;">${fNum(r.actualQty)}</td>
-        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:8.5px;font-family:monospace;">${fNum(r.extra1 ?? 0)}</td>
-        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:9px;font-family:monospace;font-weight:700;color:${fc(r.priceVariance)};">${fDA(r.priceVariance)}</td>
-        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:9px;font-family:monospace;font-weight:700;color:${fc(r.var3 ?? 0)};">${fDA(r.var3 ?? 0)}</td>
-        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:9px;font-family:monospace;font-weight:700;color:${fc(r.qtyVariance)};">${fDA(r.qtyVariance)}</td>
-        <td style="padding:5px 5px;border-bottom:1px solid ${C.border};text-align:right;font-size:9px;font-family:monospace;font-weight:800;color:${fc(r.totalVariance)};">
+        <td style="padding:4px 5px;border-bottom:1px solid ${C.border};font-size:8.5px;font-weight:600;">${r.element}</td>
+        <td style="padding:4px 4px;border-bottom:1px solid ${C.border};text-align:right;font-size:8px;font-family:monospace;">${fNum(r.standardPrice)}</td>
+        <td style="padding:4px 4px;border-bottom:1px solid ${C.border};text-align:right;font-size:8px;font-family:monospace;">${fNum(r.actualPrice)}</td>
+        <td style="padding:4px 4px;border-bottom:1px solid ${C.border};text-align:right;font-size:8px;font-family:monospace;">${fNum(r.standardQty)}</td>
+        <td style="padding:4px 4px;border-bottom:1px solid ${C.border};text-align:right;font-size:8px;font-family:monospace;">${fNum(r.actualQty)}</td>
+        <td style="padding:4px 4px;border-bottom:1px solid ${C.border};text-align:right;font-size:8px;font-family:monospace;">${fNum(r.extra1 ?? 0)}</td>
+        <td style="padding:4px 4px;border-bottom:1px solid ${C.border};text-align:right;font-size:8px;font-family:monospace;color:#5c35c9;">${fNum(r.extra2 ?? 0)}</td>
+        <td style="padding:4px 4px;border-bottom:1px solid ${C.border};text-align:right;font-size:8px;font-family:monospace;font-weight:700;color:${fc(r.priceVariance)};">${fDA(r.priceVariance)}</td>
+        <td style="padding:4px 4px;border-bottom:1px solid ${C.border};text-align:right;font-size:8px;font-family:monospace;font-weight:700;color:${fc(r.var4 ?? 0)};">${fDA(r.var4 ?? 0)}</td>
+        <td style="padding:4px 4px;border-bottom:1px solid ${C.border};text-align:right;font-size:8px;font-family:monospace;font-weight:700;color:${fc(r.var3 ?? 0)};">${fDA(r.var3 ?? 0)}</td>
+        <td style="padding:4px 4px;border-bottom:1px solid ${C.border};text-align:right;font-size:8px;font-family:monospace;font-weight:700;color:${fc(r.qtyVariance)};">${fDA(r.qtyVariance)}</td>
+        <td style="padding:4px 4px;border-bottom:1px solid ${C.border};text-align:right;font-size:8px;font-family:monospace;font-weight:800;color:${fc(r.totalVariance)};">
           ${fDA(r.totalVariance)} ${favBadge(r.totalVariance)}
         </td>
       </tr>`;
@@ -244,11 +250,12 @@ function buildResultsPage(opts: VariancePDFOptions, totalPages: number) {
   const tot = opts.totals;
   const totalsRow = isOverhead
     ? `<tr style="background:${C.primaryLight};">
-        <td colspan="6" style="padding:6px 8px;font-size:10.5px;font-weight:800;color:${C.primary};">الإجمالي / TOTAL</td>
-        <td style="padding:6px 5px;text-align:right;font-size:9.5px;font-family:monospace;font-weight:800;color:${fc(tot.priceVariance)};">${fDA(tot.priceVariance)}</td>
-        <td style="padding:6px 5px;text-align:right;font-size:9.5px;font-family:monospace;font-weight:800;color:${fc(tot.var3 ?? 0)};">${fDA(tot.var3 ?? 0)}</td>
-        <td style="padding:6px 5px;text-align:right;font-size:9.5px;font-family:monospace;font-weight:800;color:${fc(tot.qtyVariance)};">${fDA(tot.qtyVariance)}</td>
-        <td style="padding:6px 5px;text-align:right;font-size:9.5px;font-family:monospace;font-weight:800;color:${fc(tot.totalVariance)};">${fDA(tot.totalVariance)}</td>
+        <td colspan="7" style="padding:5px 7px;font-size:10px;font-weight:800;color:${C.primary};">الإجمالي / TOTAL</td>
+        <td style="padding:5px 4px;text-align:right;font-size:9px;font-family:monospace;font-weight:800;color:${fc(tot.priceVariance)};">${fDA(tot.priceVariance)}</td>
+        <td style="padding:5px 4px;text-align:right;font-size:9px;font-family:monospace;font-weight:800;color:${fc(tot.var4 ?? 0)};">${fDA(tot.var4 ?? 0)}</td>
+        <td style="padding:5px 4px;text-align:right;font-size:9px;font-family:monospace;font-weight:800;color:${fc(tot.var3 ?? 0)};">${fDA(tot.var3 ?? 0)}</td>
+        <td style="padding:5px 4px;text-align:right;font-size:9px;font-family:monospace;font-weight:800;color:${fc(tot.qtyVariance)};">${fDA(tot.qtyVariance)}</td>
+        <td style="padding:5px 4px;text-align:right;font-size:9px;font-family:monospace;font-weight:800;color:${fc(tot.totalVariance)};">${fDA(tot.totalVariance)}</td>
       </tr>`
     : `<tr style="background:${C.primaryLight};">
         <td colspan="5" style="padding:6px 8px;font-size:10.5px;font-weight:800;color:${C.primary};">الإجمالي / TOTAL</td>
@@ -273,15 +280,17 @@ function buildResultsPage(opts: VariancePDFOptions, totalPages: number) {
   }).join("");
 
   const overheadHeaders = isOverhead ? `
-    <th style="padding:6px 5px;text-align:right;font-size:8px;">Ch. budg.</th>
-    <th style="padding:6px 5px;text-align:right;font-size:8px;">Ch. réel.</th>
-    <th style="padding:6px 5px;text-align:right;font-size:8px;">Nh</th>
-    <th style="padding:6px 5px;text-align:right;font-size:8px;">Nr</th>
-    <th style="padding:6px 5px;text-align:right;font-size:8px;">C. std.</th>
-    <th style="padding:6px 5px;text-align:right;font-size:8px;">${lbl.priceFr}</th>
-    <th style="padding:6px 5px;text-align:right;font-size:8px;">${lbl.var3Fr}</th>
-    <th style="padding:6px 5px;text-align:right;font-size:8px;">${lbl.qtyFr}</th>
-    <th style="padding:6px 5px;text-align:right;font-size:8px;">Total</th>` : `
+    <th style="padding:5px 4px;text-align:right;font-size:7.5px;">CB</th>
+    <th style="padding:5px 4px;text-align:right;font-size:7.5px;">CR</th>
+    <th style="padding:5px 4px;text-align:right;font-size:7.5px;">Nh</th>
+    <th style="padding:5px 4px;text-align:right;font-size:7.5px;">Nr</th>
+    <th style="padding:5px 4px;text-align:right;font-size:7.5px;">CS</th>
+    <th style="padding:5px 4px;text-align:right;font-size:7.5px;color:#5c35c9;">CF</th>
+    <th style="padding:5px 4px;text-align:right;font-size:7.5px;">${lbl.priceFr}</th>
+    <th style="padding:5px 4px;text-align:right;font-size:7.5px;">${lbl.var4Fr}</th>
+    <th style="padding:5px 4px;text-align:right;font-size:7.5px;">${lbl.var3Fr}</th>
+    <th style="padding:5px 4px;text-align:right;font-size:7.5px;">${lbl.qtyFr}</th>
+    <th style="padding:5px 4px;text-align:right;font-size:7.5px;">Total</th>` : `
     <th style="padding:6px 6px;text-align:right;font-size:9px;">P. std</th>
     <th style="padding:6px 6px;text-align:right;font-size:9px;">P. réel</th>
     <th style="padding:6px 6px;text-align:right;font-size:9px;">Q. std</th>
@@ -328,23 +337,59 @@ function buildAnalysisPage(opts: VariancePDFOptions, totalPages: number) {
   const fc = (n: number) => favorableColor(n, fav);
   const tot = opts.totals;
 
-  // KPI summary grid
+  // KPI summary grid (overhead gets all 4+1 components)
+  const isOverheadPage = opts.objective === "overhead";
   const kpis = [
     { label: `${lbl.priceAr} · ${lbl.priceFr}`,   value: fDA(tot.priceVariance),  color: fc(tot.priceVariance) },
+    ...(isOverheadPage && lbl.var4Fr ? [{ label: `${lbl.var4Ar ?? ""} · ${lbl.var4Fr}`, value: fDA(tot.var4 ?? 0), color: fc(tot.var4 ?? 0) }] : []),
+    ...(isOverheadPage && lbl.var3Fr ? [{ label: `${lbl.var3Ar ?? ""} · ${lbl.var3Fr}`, value: fDA(tot.var3 ?? 0), color: fc(tot.var3 ?? 0) }] : []),
     { label: `${lbl.qtyAr} · ${lbl.qtyFr}`,        value: fDA(tot.qtyVariance),    color: fc(tot.qtyVariance) },
     { label: "الإجمالي · Total",                    value: fDA(tot.totalVariance),  color: fc(tot.totalVariance) },
-    { label: "العوامل المسيطرة · Facteur dominant", value: opts.dominantFactor === "price" ? `${lbl.priceFr}` : opts.dominantFactor === "qty" ? lbl.qtyFr : "Égaux", color: C.primary },
+    { label: "العوامل المسيطرة · Facteur dominant", value: opts.dominantFactor === "price" ? lbl.priceFr : opts.dominantFactor === "qty" ? lbl.qtyFr : "Équilibrés", color: C.primary },
   ];
 
   const kpiGrid = kpis.map(k => `
-    <div style="background:${C.white};border:1px solid ${C.border};border-radius:8px;padding:12px 14px;">
-      <div style="font-size:9px;color:${C.muted};margin-bottom:4px;">${k.label}</div>
-      <div style="font-size:16px;font-weight:800;color:${k.color};">${k.value}</div>
+    <div style="background:${C.white};border:1px solid ${C.border};border-radius:8px;padding:10px 12px;">
+      <div style="font-size:8.5px;color:${C.muted};margin-bottom:3px;">${k.label}</div>
+      <div style="font-size:15px;font-weight:800;color:${k.color};">${k.value}</div>
     </div>`).join("");
+
+  // Ratios card
+  const totalBase = opts.rows.reduce((s, r) =>
+    s + (opts.objective === "overhead" ? r.standardPrice : r.standardPrice * r.standardQty), 0);
+
+  const ratioItems: { label: string; v: number }[] = [
+    { label: `${lbl.priceAr} · ${lbl.priceFr}`, v: tot.priceVariance },
+    ...(isOverheadPage && lbl.var4Fr ? [{ label: `${lbl.var4Ar ?? ""} · ${lbl.var4Fr}`, v: tot.var4 ?? 0 }] : []),
+    ...(isOverheadPage && lbl.var3Fr ? [{ label: `${lbl.var3Ar ?? ""} · ${lbl.var3Fr}`, v: tot.var3 ?? 0 }] : []),
+    { label: `${lbl.qtyAr} · ${lbl.qtyFr}`, v: tot.qtyVariance },
+    { label: "الانحراف الإجمالي · Écart Total", v: tot.totalVariance },
+  ];
+
+  const ratiosHtml = totalBase > 0 ? ratioItems.map(item => {
+    const p    = (item.v / totalBase) * 100;
+    const ap   = Math.abs(p);
+    const col  = ap < 5 ? C.green : ap < 15 ? "#e65100" : C.red;
+    const bdg  = ap < 5 ? "مقبول · Acceptable" : ap < 15 ? "يستدعي انتباه · Vigilance" : "حرج · Critique";
+    const bBg  = ap < 5 ? "#e8f5e9" : ap < 15 ? "#fff3e0" : C.redLight;
+    const barW = Math.min(ap * 4, 100);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:${C.white};border:1px solid ${C.border};border-radius:6px;margin-bottom:5px;">
+      <div style="width:110px;font-size:8.5px;color:${C.text};font-weight:600;flex-shrink:0;">${item.label}</div>
+      <div style="flex:1;height:8px;background:#f0f0f0;border-radius:4px;max-width:120px;">
+        <div style="width:${barW.toFixed(0)}%;height:8px;background:${col};border-radius:4px;opacity:0.85;"></div>
+      </div>
+      <div style="font-size:9px;font-family:monospace;color:${col};font-weight:700;width:44px;text-align:right;">${p >= 0 ? "+" : ""}${p.toFixed(1)}%</div>
+      <div style="font-size:8px;font-weight:700;color:${col};background:${bBg};padding:2px 6px;border-radius:4px;white-space:nowrap;">${bdg}</div>
+    </div>`;
+  }).join("") : "";
 
   const content = `
     ${secTitle("Synthèse des Indicateurs", "ملخص المؤشرات")}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;">${kpiGrid}</div>
+
+    ${secTitle("مؤشرات ونسب التسيير · Ratios de Gestion", "مؤشرات ونسب التسيير")}
+    <div style="margin-bottom:6px;font-size:8.5px;color:${C.muted};">القاعدة المعيارية: ${fDA(totalBase)} · Seuils : vert &lt;5% · orange 5–15% · rouge &gt;15%</div>
+    <div style="margin-bottom:12px;">${ratiosHtml}</div>
 
     ${secTitle("Analyse de la Situation", "تحليل الوضع")}
     <div style="margin-bottom:14px;">${analysisHtml}</div>

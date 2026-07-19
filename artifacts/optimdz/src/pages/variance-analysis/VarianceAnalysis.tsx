@@ -23,7 +23,8 @@ interface VarianceRow {
   actualPrice: number;
   standardQty: number;
   actualQty: number;
-  extra1?: number; // overhead: coutStdUnitaire
+  extra1?: number; // overhead: coutStdUnitaire (CS)
+  extra2?: number; // overhead: charges fixes (CF)
 }
 
 // ── Objective config ──────────────────────────────────────────────────────────
@@ -76,15 +77,17 @@ function getColLabels(obj: VarianceObjective, _isAr: boolean) {
       actQtyFr: "Heures réelles",       actQtyAr: "ساعات فعلية",
       elemFr: "Élément (ex: عملية التجميع)", elemAr: "العنصر (مثال: عملية التجميع)",
       extra1Fr: undefined as string | undefined, extra1Ar: undefined as string | undefined,
+      extra2Fr: undefined as string | undefined, extra2Ar: undefined as string | undefined,
     };
   }
   if (obj === "overhead") {
     return {
-      priceFr: "Charges budgétées (DA)", priceAr: "التكاليف المدرجة (د.ج)",
-      actPriceFr: "Charges réelles (DA)", actPriceAr: "التكاليف الفعلية (د.ج)",
-      qtyFr: "Activité standard (Nh)",   qtyAr: "النشاط المعياري (Nh)",
-      actQtyFr: "Activité réelle (Nr)",  actQtyAr: "النشاط الفعلي (Nr)",
-      extra1Fr: "Coût std. unitaire (DA/Nh)", extra1Ar: "التكلفة الوحدوية المعيارية (د.ج/Nh)",
+      priceFr: "Charges budgétées CB (DA)", priceAr: "التكاليف المدرجة CB (د.ج)",
+      actPriceFr: "Charges réelles CR (DA)", actPriceAr: "التكاليف الفعلية CR (د.ج)",
+      qtyFr: "Activité standard Nh",         qtyAr: "النشاط المعياري Nh",
+      actQtyFr: "Activité réelle Nr",         actQtyAr: "النشاط الفعلي Nr",
+      extra1Fr: "Coût std. unitaire CS (DA/Nh)", extra1Ar: "التكلفة الوحدوية المعيارية CS (د.ج/Nh)",
+      extra2Fr: "Dont fixe CF (DA)",            extra2Ar: "منها تكاليف ثابتة CF (د.ج)",
       elemFr: "Élément (ex: مركز التحليل)", elemAr: "العنصر (مثال: مركز التحليل)",
     };
   }
@@ -95,6 +98,7 @@ function getColLabels(obj: VarianceObjective, _isAr: boolean) {
     actQtyFr: "Quantité réelle",        actQtyAr: "الكمية الفعلية",
     elemFr: "Élément",                  elemAr: "العنصر",
     extra1Fr: undefined as string | undefined, extra1Ar: undefined as string | undefined,
+    extra2Fr: undefined as string | undefined, extra2Ar: undefined as string | undefined,
   };
 }
 
@@ -124,10 +128,10 @@ const TEMPLATES: SectorTemplate[] = [
     projectNameFr: "Charges indirectes — Complexe Industriel Annaba",
     projectNameAr: "التكاليف غير المباشرة — المجمع الصناعي عنابة",
     rows: [
-      { id: "A", element: "Maintenance industrielle / الصيانة",  standardPrice: 2500000, actualPrice: 2750000, standardQty: 1000, actualQty: 1050, extra1: 2200 },
-      { id: "B", element: "Énergie électrique / الطاقة الكهربائية", standardPrice: 1800000, actualPrice: 1940000, standardQty: 1000, actualQty: 1050, extra1: 1600 },
-      { id: "C", element: "Administration générale / الإدارة العامة", standardPrice: 1200000, actualPrice: 1280000, standardQty: 1000, actualQty: 1050, extra1: 1100 },
-      { id: "D", element: "Contrôle qualité / مراقبة الجودة",     standardPrice: 850000,  actualPrice: 920000,  standardQty: 1000, actualQty: 1050, extra1: 780 },
+      { id: "A", element: "Maintenance industrielle / الصيانة",    standardPrice: 2500000, actualPrice: 2750000, standardQty: 1000, actualQty: 1050, extra1: 2200, extra2: 1800000 },
+      { id: "B", element: "Énergie électrique / الطاقة الكهربائية", standardPrice: 1800000, actualPrice: 1940000, standardQty: 1000, actualQty: 1050, extra1: 1600, extra2: 600000  },
+      { id: "C", element: "Administration générale / الإدارة العامة", standardPrice: 1200000, actualPrice: 1280000, standardQty: 1000, actualQty: 1050, extra1: 1100, extra2: 1100000 },
+      { id: "D", element: "Contrôle qualité / مراقبة الجودة",       standardPrice: 850000,  actualPrice: 920000,  standardQty: 1000, actualQty: 1050, extra1: 780,  extra2: 500000  },
     ],
   },
   {
@@ -217,16 +221,20 @@ function defaultRows(): VarianceRow[] {
 function computeRows(rows: VarianceRow[], objective: VarianceObjective): VarianceRowResult[] {
   if (objective === "overhead") {
     return rows.map(r => {
-      const Nh = r.standardQty;      // heures/activité standard
-      const Nr = r.actualQty;        // heures/activité réelle
-      const CB = r.standardPrice;    // charges budgétées
-      const CR = r.actualPrice;      // charges réelles
-      const CS = r.extra1 ?? 0;      // coût standard unitaire
+      const Nh = r.standardQty;                          // activité standard
+      const Nr = r.actualQty;                            // activité réelle
+      const CB = r.standardPrice;                        // charges budgétées totales
+      const CR = r.actualPrice;                          // charges réelles
+      const CS = r.extra1 ?? 0;                          // coût std unitaire d'imputation
+      const CF = Math.min(r.extra2 ?? 0, CB);            // charges fixes (clamped ≤ CB)
+      const CV = CB - CF;                                 // charges variables = CB − CF
 
-      const budgetAdjusted = Nh > 0 ? CB * (Nr / Nh) : 0;
-      const ecartBudget    = CR - budgetAdjusted;           // É/Budget
-      const ecartActivite  = budgetAdjusted - Nr * CS;     // É/Activité
-      const ecartRendement = (Nr - Nh) * CS;               // É/Rendement
+      // Budget flexible = CF + CV × (Nr/Nh)
+      const BF = Nh > 0 ? CF + CV * (Nr / Nh) : CB;
+      const ecartBudget      = CR - BF;                  // É/Budget
+      const ecartSousActiv   = Nh > 0 ? CF * (1 - Nr / Nh) : 0; // É/Sous-activité = CF×(1−Nr/Nh)
+      const ecartActivite    = Nh > 0 ? Nr * (CB / Nh - CS) : 0; // É/Activité = Nr×(CB/Nh−CS)
+      const ecartRendement   = (Nr - Nh) * CS;           // É/Rendement
 
       return {
         id: r.id,
@@ -236,10 +244,12 @@ function computeRows(rows: VarianceRow[], objective: VarianceObjective): Varianc
         actualPrice: CR,
         actualQty: Nr,
         extra1: CS,
+        extra2: CF,
         priceVariance: ecartBudget,
+        var4: ecartSousActiv,
         var3: ecartActivite,
         qtyVariance: ecartRendement,
-        totalVariance: ecartBudget + ecartActivite + ecartRendement,
+        totalVariance: ecartBudget + ecartSousActiv + ecartActivite + ecartRendement,
       };
     });
   }
@@ -262,10 +272,12 @@ function computeRows(rows: VarianceRow[], objective: VarianceObjective): Varianc
 
 function computeTotals(results: VarianceRowResult[]): VarianceTotals {
   const hasVar3 = results.some(r => r.var3 !== undefined);
+  const hasVar4 = results.some(r => r.var4 !== undefined);
   return {
     priceVariance: results.reduce((s, r) => s + r.priceVariance, 0),
     qtyVariance:   results.reduce((s, r) => s + r.qtyVariance,   0),
     ...(hasVar3 ? { var3: results.reduce((s, r) => s + (r.var3 ?? 0), 0) } : {}),
+    ...(hasVar4 ? { var4: results.reduce((s, r) => s + (r.var4 ?? 0), 0) } : {}),
     totalVariance: results.reduce((s, r) => s + r.totalVariance,  0),
   };
 }
@@ -519,11 +531,17 @@ export default function VarianceAnalysis() {
                       <div className="text-[10px] uppercase tracking-wide font-bold invisible">{t("Réel", "فعلي")}</div>
                       <div className="text-xs normal-case">{isAr ? cols.actQtyAr : cols.actQtyFr}</div>
                     </th>
-                    {/* Overhead extra: coût std unitaire */}
+                    {/* Overhead extra cols: CS + CF */}
                     {objective === "overhead" && (
                       <th className="px-2 py-2 font-medium text-center min-w-[140px] border-s border-violet-300/60 text-violet-700">
                         <div className="text-[10px] uppercase tracking-wide font-bold">{t("Imputation", "التحميل")}</div>
                         <div className="text-xs normal-case">{isAr ? cols.extra1Ar : cols.extra1Fr}</div>
+                      </th>
+                    )}
+                    {objective === "overhead" && (
+                      <th className="px-2 py-2 font-medium text-center min-w-[140px] border-s border-indigo-300/60 text-indigo-700">
+                        <div className="text-[10px] uppercase tracking-wide font-bold">{t("Fixes", "ثابتة")}</div>
+                        <div className="text-xs normal-case">{isAr ? cols.extra2Ar : cols.extra2Fr}</div>
                       </th>
                     )}
                     <th className="w-10" />
@@ -593,7 +611,7 @@ export default function VarianceAnalysis() {
                         />
                       </td>
 
-                      {/* Overhead only: coût standard unitaire */}
+                      {/* Overhead only: coût standard unitaire (CS) */}
                       {objective === "overhead" && (
                         <td className="px-2 py-2 border-s border-violet-200">
                           <Input
@@ -601,6 +619,19 @@ export default function VarianceAnalysis() {
                             value={row.extra1 ?? ""}
                             onChange={e => updateRow(idx, "extra1", parseFloat(e.target.value) || 0)}
                             className="h-8 text-sm text-center w-32 border-violet-300/50 focus-visible:ring-violet-400/50"
+                            placeholder="0"
+                          />
+                        </td>
+                      )}
+
+                      {/* Overhead only: charges fixes (CF) */}
+                      {objective === "overhead" && (
+                        <td className="px-2 py-2 border-s border-indigo-200">
+                          <Input
+                            type="number" min="0" step="any"
+                            value={row.extra2 ?? ""}
+                            onChange={e => updateRow(idx, "extra2", parseFloat(e.target.value) || 0)}
+                            className="h-8 text-sm text-center w-32 border-indigo-300/50 focus-visible:ring-indigo-400/50"
                             placeholder="0"
                           />
                         </td>

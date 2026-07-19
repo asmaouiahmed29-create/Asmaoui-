@@ -5,14 +5,15 @@ description: Full details on the Variance Analysis module at /variance-analysis 
 
 ## Location
 `artifacts/optimdz/src/pages/variance-analysis/`
-- `VarianceAnalysis.tsx` — main form + sector selection
-- `VarianceAnalysisReport.tsx` — results, analysis, suggestions, save, PDF
+- `VarianceAnalysis.tsx` — main form + sector selection + computation
+- `VarianceAnalysisReport.tsx` — results, ratios card, analysis, suggestions, save, PDF
+- `src/lib/generateVariancePDF.ts` — PDF generator (types + HTML build)
 
 ## Objectives (4 modes)
 - `"revenue"` — Écarts sur Revenus (favorable when positive)
 - `"materials"` — Écarts sur Matières (favorable when negative)
 - `"labor"` — Écarts sur Main-d'œuvre (favorable when negative)
-- `"overhead"` — Écarts sur Charges Indirectes (favorable when negative) — **added**
+- `"overhead"` — Écarts sur Charges Indirectes (favorable when negative)
 
 ## Sector templates (5)
 - Commerce → revenue
@@ -21,25 +22,44 @@ description: Full details on the Variance Analysis module at /variance-analysis 
 - Services → labor
 - **Énergie → overhead** (Complexe Industriel Annaba, 4 cost centers)
 
-## Overhead mode specifics
-**Why:** 3-way additive variance decomposition (classic French contrôle de gestion):
-- `VarianceRow.extra1` = Coût standard unitaire d'imputation (5th input column)
-- `priceVariance` = Écart/Budget = CR − CB×(Nr/Nh)
-- `var3` = Écart/Activité = CB×(Nr/Nh) − Nr×CS
-- `qtyVariance` = Écart/Rendement = (Nr−Nh)×CS
-- Total = priceVariance + var3 + qtyVariance = CR − Nh×CS ✓ (always additive)
+## Overhead mode — 4-variance model (proper budget flexible)
+### Inputs per row (6 form columns)
+- CB = standardPrice (charges budgétées totales)
+- CR = actualPrice (charges réelles)
+- Nh = standardQty (activité standard)
+- Nr = actualQty (activité réelle)
+- CS = extra1 (coût std unitaire d'imputation)
+- CF = extra2 (charges fixes, portion of CB — clamped ≤ CB)
 
-**dominantFactor** for overhead: 4-way ("price" | "qty" | "var3" | "equal")  
-(PDF export maps "var3" → "equal" since VariancePDFOptions only has "price"|"qty"|"equal")
+### Computed variances (additive, sum = Total = CR − Nh×CS)
+- **priceVariance** = É/Budget = CR − BF  where BF = CF + (CB−CF)×(Nr/Nh)
+- **var4** = É/Sous-activité = CF×(1 − Nr/Nh)
+- **var3** = É/Activité = Nr×(CB/Nh − CS)
+- **qtyVariance** = É/Rendement = (Nr−Nh)×CS
 
-## Type extensions (generateVariancePDF.ts)
-- `VarianceObjective`: now includes "overhead"
-- `VarianceRowResult`: optional `extra1?` and `var3?` fields
-- `VarianceTotals`: optional `var3?` field
-- `objLabels()`: overhead entry with `var3Fr/var3Ar` labels
+**Why:** Proper budget flexible requires knowing fixed cost CF. With CF=0 (all-variable legacy), the model reduces to the original 3-variance form (var4=0, É/Budget = old formula). The four components are mathematically additive and sum exactly to Total.
 
-## PDF
-`artifacts/optimdz/src/lib/generateVariancePDF.ts` — buildResultsPage handles overhead with 10-column table (vs 8-column for others).
+### dominantFactor: 5-way — "price" | "qty" | "var3" | "var4" | "equal"
+(PDF export maps var3/var4 → "equal" since VariancePDFOptions only has price|qty|equal)
+
+## مؤشرات ونسب التسيير (Ratios card) — ALL modes
+- Added after the numerical results table in VarianceAnalysisReport.tsx
+- Also included in the PDF analysis page (buildAnalysisPage)
+- **Base**: sum(standardPrice × standardQty) for revenue/materials/labor; sum(CB) for overhead
+- **Badge thresholds**: green "مقبول" < 5%; orange "يستدعي انتباه" 5–15%; red "حرج" > 15%
+- Shows all variance components (including var3/var4 for overhead) + total
+
+## Type structure
+```typescript
+VarianceRowResult: { ..., extra1?, extra2?, priceVariance, qtyVariance, var3?, var4?, totalVariance }
+VarianceTotals:    { priceVariance, qtyVariance, var3?, var4?, totalVariance }
+```
 
 ## Save pattern
-POST /api/problems — same as other modes; `objective` in problemData distinguishes the 4 modes.
+POST /api/problems — objective in problemData; all 4 variances in result.totals.
+
+## PDF structure (4 pages)
+1. Cover — overhead: 5 KPI tiles (budget, sous-activité, activité, rendement, total)
+2. Results table — overhead: 12-column (6 inputs + 4 variances + total)
+3. Analysis + Ratios card + Recommendations
+4. Digital stamp

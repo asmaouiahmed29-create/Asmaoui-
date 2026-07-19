@@ -46,11 +46,13 @@ interface ObjCfg {
   priceVarFr: string; priceVarAr: string;
   qtyVarFr: string;   qtyVarAr: string;
   var3VarFr?: string; var3VarAr?: string;
+  var4VarFr?: string; var4VarAr?: string; // overhead: Écart/Sous-activité
   stdPriceFr: string; stdPriceAr: string;
   actPriceFr: string; actPriceAr: string;
   stdQtyFr: string;   stdQtyAr: string;
   actQtyFr: string;   actQtyAr: string;
   extra1Fr?: string;  extra1Ar?: string;
+  extra2Fr?: string;  extra2Ar?: string;  // overhead: CF
   favorableWhen: "positive" | "negative";
 }
 
@@ -89,12 +91,14 @@ const OBJ_CFG: Record<VarianceObjective, ObjCfg> = {
     nameFr: "Charges Indirectes",      nameAr: "التكاليف غير المباشرة",
     priceVarFr: "Écart/Budget",        priceVarAr: "انحراف الميزانية",
     var3VarFr: "Écart/Activité",       var3VarAr: "انحراف النشاط",
+    var4VarFr: "É/Sous-activité",      var4VarAr: "انحراف قصور النشاط",
     qtyVarFr: "Écart/Rendement",       qtyVarAr: "انحراف المردودية",
-    stdPriceFr: "Ch. budgétées",       stdPriceAr: "تكاليف مدرجة",
-    actPriceFr: "Ch. réelles",         actPriceAr: "تكاليف فعلية",
-    stdQtyFr: "Nh (std)",              stdQtyAr: "النشاط المعياري (Nh)",
-    actQtyFr: "Nr (réel)",             actQtyAr: "النشاط الفعلي (Nr)",
-    extra1Fr: "C. std. unitaire",      extra1Ar: "التكلفة الوحدوية المعيارية",
+    stdPriceFr: "Ch. budgétées CB",    stdPriceAr: "تكاليف مدرجة CB",
+    actPriceFr: "Ch. réelles CR",      actPriceAr: "تكاليف فعلية CR",
+    stdQtyFr: "Nh (activité std)",     stdQtyAr: "النشاط المعياري Nh",
+    actQtyFr: "Nr (activité réelle)",  actQtyAr: "النشاط الفعلي Nr",
+    extra1Fr: "C. std. unitaire CS",   extra1Ar: "التكلفة الوحدوية المعيارية CS",
+    extra2Fr: "Dont fixe CF",          extra2Ar: "منها تكاليف ثابتة CF",
     favorableWhen: "negative",
   },
 };
@@ -123,17 +127,23 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
   const absPriceTotal  = Math.abs(totals.priceVariance);
   const absQtyTotal    = Math.abs(totals.qtyVariance);
   const absVar3Total   = Math.abs(totals.var3 ?? 0);
+  const absVar4Total   = Math.abs(totals.var4 ?? 0);
 
-  const dominantFactor: "price" | "qty" | "var3" | "equal" = (() => {
+  const dominantFactor: "price" | "qty" | "var3" | "var4" | "equal" = (() => {
     if (!isOverhead) {
       return absPriceTotal > absQtyTotal * 1.1 ? "price" :
              absQtyTotal > absPriceTotal * 1.1 ? "qty" : "equal";
     }
-    const mx = Math.max(absPriceTotal, absQtyTotal, absVar3Total);
+    const mx = Math.max(absPriceTotal, absQtyTotal, absVar3Total, absVar4Total);
     if (mx === 0) return "equal";
-    if (absPriceTotal === mx && absPriceTotal > absQtyTotal * 1.1 && absPriceTotal > absVar3Total * 1.1) return "price";
-    if (absQtyTotal   === mx && absQtyTotal   > absPriceTotal * 1.1 && absQtyTotal   > absVar3Total * 1.1) return "qty";
-    if (absVar3Total  === mx && absVar3Total  > absPriceTotal * 1.1 && absVar3Total  > absQtyTotal * 1.1) return "var3";
+    const thresh = 1.1;
+    const others = (exclude: number) => [absPriceTotal, absQtyTotal, absVar3Total, absVar4Total]
+      .filter(v => v !== exclude || mx > exclude); // unique max check via simple comparison
+    if (absPriceTotal === mx && absQtyTotal < mx/thresh && absVar3Total < mx/thresh && absVar4Total < mx/thresh) return "price";
+    if (absQtyTotal   === mx && absPriceTotal < mx/thresh && absVar3Total < mx/thresh && absVar4Total < mx/thresh) return "qty";
+    if (absVar3Total  === mx && absPriceTotal < mx/thresh && absQtyTotal < mx/thresh && absVar4Total < mx/thresh) return "var3";
+    if (absVar4Total  === mx && absPriceTotal < mx/thresh && absQtyTotal < mx/thresh && absVar3Total < mx/thresh) return "var4";
+    void others; // suppress unused warning
     return "equal";
   })();
 
@@ -167,13 +177,18 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
           )
         : dominantFactor === "var3"
         ? t(
-            `L'écart est principalement piloté par l'${cfg.var3VarFr} (${fDA(totals.var3 ?? 0, "fr")}) — le niveau d'activité réel diffère significativement du niveau standard : revoir le taux d'imputation des charges indirectes.`,
-            `الانحراف مدفوع بشكل رئيسي بـ ${cfg.var3VarAr} (${fDA(totals.var3 ?? 0, "ar")}) — مستوى النشاط الفعلي يختلف بشكل ملحوظ عن المعياري: مراجعة معدل تحميل التكاليف غير المباشرة ضرورية.`
+            `L'écart est principalement piloté par l'${cfg.var3VarFr} (${fDA(totals.var3 ?? 0, "fr")}) — le taux d'imputation ne reflète pas l'activité réelle : revoir CB/Nh vs CS pour aligner le budget avec la réalité opérationnelle.`,
+            `الانحراف مدفوع بشكل رئيسي بـ ${cfg.var3VarAr} (${fDA(totals.var3 ?? 0, "ar")}) — معدل التحميل لا يعكس النشاط الفعلي: مراجعة CB/Nh مقابل CS لمواءمة الميزانية مع الواقع التشغيلي.`
+          )
+        : dominantFactor === "var4"
+        ? t(
+            `L'écart est principalement piloté par l'${cfg.var4VarFr} (${fDA(totals.var4 ?? 0, "fr")}) — les charges fixes ne sont ${(totals.var4 ?? 0) > 0 ? "pas entièrement absorbées : sous-utilisation de la capacité installée" : "sur-absorbées : activité réelle supérieure à la normale"}. Révisez les hypothèses d'activité budgétée.`,
+            `الانحراف مدفوع بشكل رئيسي بـ ${cfg.var4VarAr} (${fDA(totals.var4 ?? 0, "ar")}) — التكاليف الثابتة ${(totals.var4 ?? 0) > 0 ? "لم تُستوعَب كلياً: قصور في استغلال الطاقة المُثبَّتة" : "مُستوعَبة بزيادة: النشاط الفعلي أعلى من المعتاد"}. راجع افتراضيات النشاط الميزاني.`
           )
         : isOverhead
         ? t(
-            `Les trois composantes (${cfg.priceVarFr}: ${fDA(totals.priceVariance, "fr")} / ${cfg.var3VarFr}: ${fDA(totals.var3 ?? 0, "fr")} / ${cfg.qtyVarFr}: ${fDA(totals.qtyVariance, "fr")}) contribuent de manière équilibrée — une action simultanée sur les trois axes est recommandée.`,
-            `المكوّنات الثلاثة (${cfg.priceVarAr}: ${fDA(totals.priceVariance, "ar")} / ${cfg.var3VarAr}: ${fDA(totals.var3 ?? 0, "ar")} / ${cfg.qtyVarAr}: ${fDA(totals.qtyVariance, "ar")}) تساهم بالتساوي — يُنصح بالتحرك على المحاور الثلاثة معاً.`
+            `Les quatre composantes (${cfg.priceVarFr}: ${fDA(totals.priceVariance, "fr")} / ${cfg.var4VarFr}: ${fDA(totals.var4 ?? 0, "fr")} / ${cfg.var3VarFr}: ${fDA(totals.var3 ?? 0, "fr")} / ${cfg.qtyVarFr}: ${fDA(totals.qtyVariance, "fr")}) contribuent de manière équilibrée — une action simultanée sur les quatre axes est recommandée.`,
+            `المكوّنات الأربعة (${cfg.priceVarAr}: ${fDA(totals.priceVariance, "ar")} / ${cfg.var4VarAr}: ${fDA(totals.var4 ?? 0, "ar")} / ${cfg.var3VarAr}: ${fDA(totals.var3 ?? 0, "ar")} / ${cfg.qtyVarAr}: ${fDA(totals.qtyVariance, "ar")}) تساهم بالتساوي — يُنصح بالتحرك على المحاور الأربعة معاً.`
           )
         : t(
             `Les deux composantes contribuent équitablement à l'écart total (${cfg.priceVarFr}: ${fDA(totals.priceVariance, "fr")} / ${cfg.qtyVarFr}: ${fDA(totals.qtyVariance, "fr")}) — une action simultanée sur les deux axes est recommandée.`,
@@ -232,6 +247,23 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
           budgetUnfav
             ? "التكاليف الفعلية تتجاوز الميزانية المرنة (المعدَّلة للنشاط الفعلي). دقّق مراكز التكلفة المعنية: مقاولو الباطن، الصيانة غير المخططة، الاستهلاكات الطاقوية الخارجة عن القياس."
             : "التكاليف الفعلية أقل من الميزانية المرنة — ضبط ميزاني فعّال. استثمر في الرافعات التحسينية المُحدَّدة للفترات القادمة."
+        ),
+      });
+    }
+    const sousActUnfav = (totals.var4 ?? 0) > 0;
+    if (dominantFactor === "var4" || dominantFactor === "equal") {
+      suggestions.push({
+        icon: sousActUnfav ? "🔴" : "🟢",
+        color: sousActUnfav ? "bg-red-50" : "bg-green-50",
+        borderColor: sousActUnfav ? "border-l-red-500" : "border-l-green-500",
+        title: t("Sous/Sur-activité : capacité non absorbée", "قصور/فائض النشاط: طاقة غير مستوعَبة"),
+        desc: t(
+          sousActUnfav
+            ? "Les charges fixes ne sont pas pleinement absorbées (Nr < Nh) — capacité payée mais non utilisée. Augmentez le volume d'activité, renégociez les contrats de maintenance à capacité modulable, ou révisez le budget de la période."
+            : "Les charges fixes sont sur-absorbées (Nr > Nh) — l'activité dépasse les prévisions. Surveillance requise : risque de sur-utilisation de l'équipement ; vérifiez que la qualité n'est pas impactée par la cadence.",
+          sousActUnfav
+            ? "التكاليف الثابتة لم تُستوعَب بالكامل (Nr < Nh) — طاقة مدفوعة وغير مستغَلة. ارفع حجم النشاط أو أعد التفاوض على عقود الصيانة بطاقة مرنة أو راجع ميزانية الفترة."
+            : "التكاليف الثابتة مُستوعَبة بزيادة (Nr > Nh) — النشاط يتجاوز التوقعات. مراقبة مطلوبة: تأكد من أن الجودة لا تتأثر بالوتيرة المرتفعة."
         ),
       });
     }
@@ -421,10 +453,13 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
     <div className="space-y-6">
 
       {/* ── KPI summary cards ─────────────────────────────────────────────────── */}
-      <div className={cn("grid gap-4", isOverhead ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-1 sm:grid-cols-3")}>
+      <div className={cn("grid gap-4", isOverhead ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-1 sm:grid-cols-3")}>
         {([
           { label: isAr ? cfg.priceVarAr : cfg.priceVarFr, value: totals.priceVariance, style: priceStyle },
-          ...(isOverhead ? [{ label: isAr ? (cfg.var3VarAr ?? "") : (cfg.var3VarFr ?? ""), value: totals.var3 ?? 0, style: useVarianceStyle(totals.var3 ?? 0, favWhen) }] : []),
+          ...(isOverhead ? [
+            { label: isAr ? (cfg.var4VarAr ?? "") : (cfg.var4VarFr ?? ""), value: totals.var4 ?? 0, style: useVarianceStyle(totals.var4 ?? 0, favWhen) },
+            { label: isAr ? (cfg.var3VarAr ?? "") : (cfg.var3VarFr ?? ""), value: totals.var3 ?? 0, style: useVarianceStyle(totals.var3 ?? 0, favWhen) },
+          ] : []),
           { label: isAr ? cfg.qtyVarAr   : cfg.qtyVarFr,   value: totals.qtyVariance,   style: qtyStyle   },
           { label: t("Écart Total", "الانحراف الإجمالي"),   value: totals.totalVariance, style: totStyle   },
         ] as { label: string; value: number; style: ReturnType<typeof useVarianceStyle> }[]).map(({ label, value, style }) => {
@@ -489,9 +524,19 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
                       {isAr ? (cfg.extra1Ar ?? "") : (cfg.extra1Fr ?? "")}
                     </TableHead>
                   )}
+                  {isOverhead && (
+                    <TableHead className="text-center font-semibold text-indigo-700">
+                      {isAr ? (cfg.extra2Ar ?? "") : (cfg.extra2Fr ?? "")}
+                    </TableHead>
+                  )}
                   <TableHead className="text-center font-semibold">
                     {isAr ? cfg.priceVarAr : cfg.priceVarFr}
                   </TableHead>
+                  {isOverhead && (
+                    <TableHead className="text-center font-semibold text-indigo-700">
+                      {isAr ? (cfg.var4VarAr ?? "") : (cfg.var4VarFr ?? "")}
+                    </TableHead>
+                  )}
                   {isOverhead && (
                     <TableHead className="text-center font-semibold">
                       {isAr ? (cfg.var3VarAr ?? "") : (cfg.var3VarFr ?? "")}
@@ -521,9 +566,17 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
                       {isOverhead && (
                         <TableCell className="text-center text-violet-700 font-mono text-sm font-medium">{fNum(r.extra1 ?? 0)}</TableCell>
                       )}
+                      {isOverhead && (
+                        <TableCell className="text-center text-indigo-700 font-mono text-sm font-medium">{fNum(r.extra2 ?? 0)}</TableCell>
+                      )}
                       <TableCell className={cn("text-center font-mono font-semibold text-sm", pvFav.color)}>
                         {fDA(r.priceVariance, language)}
                       </TableCell>
+                      {isOverhead && (
+                        <TableCell className={cn("text-center font-mono font-semibold text-sm", useVarianceStyle(r.var4 ?? 0, favWhen).color)}>
+                          {fDA(r.var4 ?? 0, language)}
+                        </TableCell>
+                      )}
                       {isOverhead && (
                         <TableCell className={cn("text-center font-mono font-semibold text-sm", v3Fav.color)}>
                           {fDA(r.var3 ?? 0, language)}
@@ -544,10 +597,15 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
                   <TableCell className="font-bold text-primary">
                     {t("TOTAL", "الإجمالي")}
                   </TableCell>
-                  <TableCell colSpan={isOverhead ? 5 : 4} />
+                  <TableCell colSpan={isOverhead ? 6 : 4} />
                   <TableCell className={cn("text-center font-mono font-bold", priceStyle.color)}>
                     {fDA(totals.priceVariance, language)}
                   </TableCell>
+                  {isOverhead && (
+                    <TableCell className={cn("text-center font-mono font-bold", useVarianceStyle(totals.var4 ?? 0, favWhen).color)}>
+                      {fDA(totals.var4 ?? 0, language)}
+                    </TableCell>
+                  )}
                   {isOverhead && (
                     <TableCell className={cn("text-center font-mono font-bold", useVarianceStyle(totals.var3 ?? 0, favWhen).color)}>
                       {fDA(totals.var3 ?? 0, language)}
@@ -565,6 +623,88 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
           </div>
         </Card>
       </div>
+
+      {/* ── مؤشرات ونسب التسيير ─────────────────────────────────────────────── */}
+      {(() => {
+        // Compute standard base per objective
+        const getBase = (r: VarianceRowResult) =>
+          isOverhead ? r.standardPrice : r.standardPrice * r.standardQty;
+        const totalBase = rows.reduce((s, r) => s + getBase(r), 0);
+        if (totalBase === 0) return null;
+
+        const pct = (v: number) => (v / totalBase) * 100;
+        const badge = (absPct: number) => {
+          if (absPct < 5)  return { cls: "bg-green-100 text-green-800 border-green-200",   fr: "Acceptable",       ar: "مقبول" };
+          if (absPct < 15) return { cls: "bg-orange-100 text-orange-800 border-orange-200", fr: "Vigilance",        ar: "يستدعي انتباه" };
+          return               { cls: "bg-red-100 text-red-800 border-red-200",             fr: "Critique",         ar: "حرج" };
+        };
+
+        const items: { labelFr: string; labelAr: string; v: number }[] = [
+          { labelFr: cfg.priceVarFr,  labelAr: cfg.priceVarAr,  v: totals.priceVariance },
+          ...(isOverhead ? [
+            { labelFr: cfg.var4VarFr ?? "É/Sous-activité", labelAr: cfg.var4VarAr ?? "انحراف قصور النشاط", v: totals.var4 ?? 0 },
+            { labelFr: cfg.var3VarFr ?? "Écart/Activité",  labelAr: cfg.var3VarAr ?? "انحراف النشاط",      v: totals.var3 ?? 0 },
+          ] : []),
+          { labelFr: cfg.qtyVarFr,   labelAr: cfg.qtyVarAr,   v: totals.qtyVariance },
+          { labelFr: "Écart Total",  labelAr: "الانحراف الإجمالي", v: totals.totalVariance },
+        ];
+
+        return (
+          <div className="space-y-3">
+            <h2 className={cn("text-xl font-bold text-foreground flex items-center gap-2", isAr && "flex-row-reverse")}>
+              <BarChart2 className="w-5 h-5 text-primary" />
+              {t("Indicateurs & Ratios de Gestion", "مؤشرات ونسب التسيير")}
+            </h2>
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <p className="text-xs text-muted-foreground mb-4">
+                  {t(
+                    `Base standard : ${fDA(totalBase, language)} — Seuils : vert < 5 % · orange 5–15 % · rouge > 15 %`,
+                    `القاعدة المعيارية: ${fDA(totalBase, language)} — الحدود: أخضر < 5% · برتقالي 5–15% · أحمر > 15%`
+                  )}
+                </p>
+                <div className="space-y-2">
+                  {items.map(item => {
+                    const p = pct(item.v);
+                    const absp = Math.abs(p);
+                    const b = badge(absp);
+                    const varStyle = useVarianceStyle(item.v, favWhen);
+                    return (
+                      <div key={item.labelFr} className={cn(
+                        "flex items-center gap-3 rounded-lg border px-4 py-2.5",
+                        isAr ? "flex-row-reverse" : "",
+                        "bg-card"
+                      )}>
+                        <div className={cn("w-40 shrink-0 text-xs font-semibold", isAr ? "text-right" : "text-left")}>
+                          {isAr ? item.labelAr : item.labelFr}
+                        </div>
+                        <div className={cn("flex-1 flex items-center gap-2", isAr && "flex-row-reverse")}>
+                          {/* Mini bar */}
+                          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden max-w-[180px]">
+                            <div
+                              className={cn("h-2 rounded-full", absp < 5 ? "bg-green-500" : absp < 15 ? "bg-orange-400" : "bg-red-500")}
+                              style={{ width: `${Math.min(absp * 3, 100)}%` }}
+                            />
+                          </div>
+                          <span className={cn("text-sm font-bold tabular-nums w-16 shrink-0", isAr ? "text-right" : "text-left", varStyle.color)}>
+                            {p >= 0 ? "+" : "−"}{Math.abs(p).toFixed(1)}%
+                          </span>
+                        </div>
+                        <span className={cn("text-xs font-bold tabular-nums shrink-0 w-28", isAr ? "text-right" : "text-left", varStyle.color)}>
+                          {fDA(item.v, language)}
+                        </span>
+                        <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full border shrink-0", b.cls)}>
+                          {isAr ? b.ar : b.fr}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* ── قسم تحليل الوضع ──────────────────────────────────────────────────── */}
       <div className="space-y-3">
@@ -644,13 +784,17 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {([
                 { label: isAr ? cfg.priceVarAr : cfg.priceVarFr,          value: fDA(totals.priceVariance, language) },
-                ...(isOverhead ? [{ label: isAr ? (cfg.var3VarAr ?? "") : (cfg.var3VarFr ?? ""), value: fDA(totals.var3 ?? 0, language) }] : []),
+                ...(isOverhead ? [
+                  { label: isAr ? (cfg.var4VarAr ?? "") : (cfg.var4VarFr ?? ""), value: fDA(totals.var4 ?? 0, language) },
+                  { label: isAr ? (cfg.var3VarAr ?? "") : (cfg.var3VarFr ?? ""), value: fDA(totals.var3 ?? 0, language) },
+                ] : []),
                 { label: isAr ? cfg.qtyVarAr   : cfg.qtyVarFr,            value: fDA(totals.qtyVariance, language) },
                 { label: t("Écart Total",    "الانحراف الإجمالي"),          value: fDA(totals.totalVariance, language) },
                 { label: t("Facteur dominant", "العامل المسيطر"),
                   value: dominantFactor === "price" ? (isAr ? cfg.priceVarAr : cfg.priceVarFr)
                        : dominantFactor === "qty"   ? (isAr ? cfg.qtyVarAr   : cfg.qtyVarFr)
                        : dominantFactor === "var3"  ? (isAr ? (cfg.var3VarAr ?? "") : (cfg.var3VarFr ?? ""))
+                       : dominantFactor === "var4"  ? (isAr ? (cfg.var4VarAr ?? "") : (cfg.var4VarFr ?? ""))
                        : t("Équilibré", "متوازن") },
               ] as { label: string; value: string }[]).map(kpi => (
                 <div key={kpi.label} className="rounded-lg border border-border p-3">
@@ -693,7 +837,7 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
         objective={objective}
         rows={rows}
         totals={totals}
-        dominantFactor={dominantFactor === "var3" ? "equal" : dominantFactor}
+        dominantFactor={dominantFactor === "var3" || dominantFactor === "var4" ? "equal" : dominantFactor}
         analysisLines={analysisLines.map(l => l.text)}
         suggestions={suggestions.map(s => ({ icon: s.icon, title: s.title, desc: s.desc }))}
       />
