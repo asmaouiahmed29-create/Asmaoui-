@@ -1,696 +1,594 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "@/lib/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
-  Scale, TrendingUp, TrendingDown, Minus,
-  RefreshCw, ShoppingCart, Package, Users, AlertTriangle,
+  Scale, Calculator, Plus, Trash2, ArrowRight, RefreshCw,
+  ShoppingBag, Factory, Leaf, Monitor, PencilRuler,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VarianceAnalysisReport } from "./VarianceAnalysisReport";
+import type { VarianceObjective, VarianceRowResult, VarianceTotals } from "@/lib/generateVariancePDF";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type AnalysisType = "revenue" | "materials" | "labor";
+type SectorKey = "commerce" | "industry" | "agriculture" | "services" | "custom";
 
-interface VarianceResult {
-  priceVariance: number;
-  quantityVariance: number;
-  totalVariance: number;
+interface VarianceRow {
+  id: string;
+  element: string;
+  standardPrice: number;
+  actualPrice: number;
+  standardQty: number;
+  actualQty: number;
 }
 
-// ── Pure calculation ──────────────────────────────────────────────────────────
-function computeVariances(sp: number, sq: number, ap: number, aq: number): VarianceResult {
+// ── Objective config ──────────────────────────────────────────────────────────
+interface ObjOption {
+  value: VarianceObjective;
+  nameFr: string;
+  nameAr: string;
+  descFr: string;
+  descAr: string;
+}
+
+const OBJECTIVES: ObjOption[] = [
+  {
+    value: "revenue",
+    nameFr: "Revenus / Ventes",
+    nameAr: "انحراف الإيرادات",
+    descFr: "Prix de vente et volume vendu",
+    descAr: "سعر البيع والحجم المُباع",
+  },
+  {
+    value: "materials",
+    nameFr: "Matières premières",
+    nameAr: "انحراف تكلفة المواد",
+    descFr: "Coût d'achat et quantité consommée",
+    descAr: "تكلفة الشراء والكمية المستهلكة",
+  },
+  {
+    value: "labor",
+    nameFr: "Main-d'œuvre",
+    nameAr: "انحراف اليد العاملة",
+    descFr: "Taux horaire et heures travaillées",
+    descAr: "الأجر الساعي وساعات العمل",
+  },
+];
+
+// ── Column labels per objective ───────────────────────────────────────────────
+function getColLabels(obj: VarianceObjective, isAr: boolean) {
+  if (obj === "labor") {
+    return {
+      priceFr: "Taux standard (DA/h)", priceAr: "الأجر المعياري (د.ج/س)",
+      actPriceFr: "Taux réel (DA/h)",  actPriceAr: "الأجر الفعلي (د.ج/س)",
+      qtyFr: "Heures standard",         qtyAr: "ساعات معيارية",
+      actQtyFr: "Heures réelles",       actQtyAr: "ساعات فعلية",
+      elemFr: "Élément (ex: عملية التجميع)", elemAr: "العنصر (مثال: عملية التجميع)",
+    };
+  }
   return {
-    priceVariance:    (ap - sp) * aq,
-    quantityVariance: (aq - sq) * sp,
-    totalVariance:    (ap - sp) * aq + (aq - sq) * sp,
+    priceFr: "Prix standard (DA)",     priceAr: "السعر المعياري (د.ج)",
+    actPriceFr: "Prix réel (DA)",      actPriceAr: "السعر الفعلي (د.ج)",
+    qtyFr: "Quantité standard",         qtyAr: "الكمية المعيارية",
+    actQtyFr: "Quantité réelle",        actQtyAr: "الكمية الفعلية",
+    elemFr: "Élément",                  elemAr: "العنصر",
   };
 }
 
-// ── Per-type configuration ────────────────────────────────────────────────────
-interface TypeConfig {
+// ── Sector templates ──────────────────────────────────────────────────────────
+interface SectorTemplate {
+  id: SectorKey;
   icon: React.ElementType;
   nameFr: string;
   nameAr: string;
   descFr: string;
   descAr: string;
-  priceLabelFr: string;
-  priceLabelAr: string;
-  priceUnitFr: string;
-  priceUnitAr: string;
-  qtyLabelFr: string;
-  qtyLabelAr: string;
-  qtyUnitFr: string;
-  qtyUnitAr: string;
-  priceVarNameFr: string;
-  priceVarNameAr: string;
-  qtyVarNameFr: string;
-  qtyVarNameAr: string;
-  /** positive → more = good (revenue); negative → less = good (cost) */
-  favorableWhen: "positive" | "negative";
-  priceVarExplainFr: (v: number) => string;
-  priceVarExplainAr: (v: number) => string;
-  qtyVarExplainFr: (v: number) => string;
-  qtyVarExplainAr: (v: number) => string;
+  objective: VarianceObjective;
+  projectNameFr: string;
+  projectNameAr: string;
+  rows: VarianceRow[];
 }
 
-const CONFIGS: Record<AnalysisType, TypeConfig> = {
-  revenue: {
-    icon: ShoppingCart,
-    nameFr: "Revenu / Ventes",
-    nameAr: "الإيرادات / المبيعات",
-    descFr: "Prix de vente et volume vendu",
-    descAr: "سعر البيع والحجم المُباع",
-    priceLabelFr: "Prix de vente standard",
-    priceLabelAr: "سعر البيع المعياري",
-    priceUnitFr: "DA / unité",
-    priceUnitAr: "د.ج / وحدة",
-    qtyLabelFr: "Volume standard vendu",
-    qtyLabelAr: "الحجم المعياري المُباع",
-    qtyUnitFr: "unités",
-    qtyUnitAr: "وحدات",
-    priceVarNameFr: "Écart sur Prix",
-    priceVarNameAr: "انحراف السعر",
-    qtyVarNameFr: "Écart sur Volume",
-    qtyVarNameAr: "انحراف الحجم",
-    favorableWhen: "positive",
-    priceVarExplainFr: (v) =>
-      v > 0
-        ? "Le prix de vente réel est supérieur au standard — revenu additionnel par unité."
-        : v < 0
-        ? "Le prix réel est inférieur au standard — manque à gagner sur chaque unité."
-        : "Aucun écart de prix — la tarification est conforme.",
-    priceVarExplainAr: (v) =>
-      v > 0
-        ? "سعر البيع الفعلي أعلى من المعياري — إيراد إضافي لكل وحدة."
-        : v < 0
-        ? "سعر البيع الفعلي أقل من المعياري — خسارة في الإيراد لكل وحدة."
-        : "لا انحراف في السعر — التسعير مطابق للمعيار.",
-    qtyVarExplainFr: (v) =>
-      v > 0
-        ? "Le volume vendu dépasse le prévisionnel — bonne performance commerciale."
-        : v < 0
-        ? "Le volume vendu est inférieur au prévisionnel — objectif de vente non atteint."
-        : "Volume vendu conforme au prévisionnel.",
-    qtyVarExplainAr: (v) =>
-      v > 0
-        ? "حجم المبيعات يتجاوز التوقعات — أداء تجاري إيجابي."
-        : v < 0
-        ? "حجم المبيعات أقل من التوقعات — هدف المبيعات لم يُحقَّق."
-        : "حجم المبيعات مطابق للتوقعات.",
+const TEMPLATES: SectorTemplate[] = [
+  {
+    id: "commerce",
+    icon: ShoppingBag,
+    nameFr: "Commerce",
+    nameAr: "التجارة",
+    descFr: "Écarts sur revenus d'un commerce à Oran",
+    descAr: "انحرافات إيرادات تجارة بوهران",
+    objective: "revenue",
+    projectNameFr: "Analyse des ventes — Commerce Oran",
+    projectNameAr: "تحليل المبيعات — تجارة وهران",
+    rows: [
+      { id: "A", element: "Produit A — Électroménager",  standardPrice: 25000, actualPrice: 26500, standardQty: 500, actualQty: 480 },
+      { id: "B", element: "Produit B — Textile",         standardPrice: 1800,  actualPrice: 1750,  standardQty: 300, actualQty: 320 },
+      { id: "C", element: "Produit C — Accessoires",     standardPrice: 950,   actualPrice: 980,   standardQty: 1000, actualQty: 950 },
+    ],
   },
-
-  materials: {
-    icon: Package,
-    nameFr: "Matières premières",
-    nameAr: "المواد الأولية",
-    descFr: "Coût d'achat et quantité consommée",
-    descAr: "تكلفة الشراء والكمية المستهلكة",
-    priceLabelFr: "Coût unitaire standard",
-    priceLabelAr: "التكلفة الوحدوية المعيارية",
-    priceUnitFr: "DA / unité",
-    priceUnitAr: "د.ج / وحدة",
-    qtyLabelFr: "Quantité standard consommée",
-    qtyLabelAr: "الكمية المعيارية المستهلكة",
-    qtyUnitFr: "unités",
-    qtyUnitAr: "وحدات",
-    priceVarNameFr: "Écart sur Prix d'Achat",
-    priceVarNameAr: "انحراف سعر الشراء",
-    qtyVarNameFr: "Écart sur Consommation",
-    qtyVarNameAr: "انحراف الاستهلاك",
-    favorableWhen: "negative",
-    priceVarExplainFr: (v) =>
-      v < 0
-        ? "Le coût d'achat réel est inférieur au standard — économie sur les approvisionnements."
-        : v > 0
-        ? "Le coût réel dépasse le standard — surcoût d'approvisionnement à analyser."
-        : "Coût d'achat conforme au standard.",
-    priceVarExplainAr: (v) =>
-      v < 0
-        ? "تكلفة الشراء الفعلية أقل من المعيارية — وفر في التموين."
-        : v > 0
-        ? "تكلفة الشراء الفعلية تتجاوز المعيارية — تكلفة إضافية تستوجب التحليل."
-        : "تكلفة الشراء مطابقة للمعيار.",
-    qtyVarExplainFr: (v) =>
-      v < 0
-        ? "La consommation réelle est inférieure au standard — efficience matière positive."
-        : v > 0
-        ? "La consommation réelle dépasse le standard — gaspillage ou dépassement à corriger."
-        : "Consommation conforme au standard.",
-    qtyVarExplainAr: (v) =>
-      v < 0
-        ? "الاستهلاك الفعلي أقل من المعياري — كفاءة جيدة في استخدام المواد."
-        : v > 0
-        ? "الاستهلاك الفعلي يتجاوز المعياري — هدر أو تجاوز يستوجب التصحيح."
-        : "الاستهلاك مطابق للمعيار.",
+  {
+    id: "industry",
+    icon: Factory,
+    nameFr: "Industrie",
+    nameAr: "الصناعة",
+    descFr: "Écarts matières d'une unité à Sétif",
+    descAr: "انحرافات مواد وحدة إنتاج بسطيف",
+    objective: "materials",
+    projectNameFr: "Consommations matières — Unité Sétif",
+    projectNameAr: "استهلاك المواد — وحدة سطيف",
+    rows: [
+      { id: "A", element: "Acier plat / الصلب المسطح",        standardPrice: 180,  actualPrice: 195,  standardQty: 2000, actualQty: 2100 },
+      { id: "B", element: "Plastique ABS / البلاستيك",         standardPrice: 85,   actualPrice: 82,   standardQty: 500,  actualQty: 520  },
+      { id: "C", element: "Carton emballage / الكرتون",        standardPrice: 45,   actualPrice: 47,   standardQty: 1500, actualQty: 1480 },
+      { id: "D", element: "Peinture / الطلاء",                 standardPrice: 220,  actualPrice: 225,  standardQty: 300,  actualQty: 310  },
+    ],
   },
-
-  labor: {
-    icon: Users,
-    nameFr: "Main-d'œuvre",
-    nameAr: "اليد العاملة",
-    descFr: "Taux horaire et heures travaillées",
-    descAr: "الأجر الساعي وساعات العمل",
-    priceLabelFr: "Taux horaire standard",
-    priceLabelAr: "الأجر المعياري الساعي",
-    priceUnitFr: "DA / heure",
-    priceUnitAr: "د.ج / ساعة",
-    qtyLabelFr: "Heures standard allouées",
-    qtyLabelAr: "ساعات العمل المعيارية المخصصة",
-    qtyUnitFr: "heures",
-    qtyUnitAr: "ساعات",
-    priceVarNameFr: "Écart sur Taux",
-    priceVarNameAr: "انحراف الأجر",
-    qtyVarNameFr: "Écart sur Rendement",
-    qtyVarNameAr: "انحراف المردودية",
-    favorableWhen: "negative",
-    priceVarExplainFr: (v) =>
-      v < 0
-        ? "Le taux réel est inférieur au taux standard — économie salariale réalisée."
-        : v > 0
-        ? "Le taux réel dépasse le standard — surcoût salarial (heures sup., prime, etc.)."
-        : "Taux horaire conforme au standard.",
-    priceVarExplainAr: (v) =>
-      v < 0
-        ? "الأجر الفعلي أقل من المعياري — وفر في تكاليف العمالة."
-        : v > 0
-        ? "الأجر الفعلي أعلى من المعياري — تكلفة إضافية (ساعات إضافية، علاوات...)."
-        : "الأجر الساعي مطابق للمعيار.",
-    qtyVarExplainFr: (v) =>
-      v < 0
-        ? "Le temps réel est inférieur au standard — productivité supérieure aux attentes."
-        : v > 0
-        ? "Le temps réel dépasse le standard — productivité insuffisante ou retards."
-        : "Temps de travail conforme au standard.",
-    qtyVarExplainAr: (v) =>
-      v < 0
-        ? "وقت العمل الفعلي أقل من المعياري — إنتاجية تفوق التوقعات."
-        : v > 0
-        ? "وقت العمل الفعلي أكثر من المعياري — إنتاجية منخفضة أو تأخيرات."
-        : "وقت العمل مطابق للمعيار.",
+  {
+    id: "agriculture",
+    icon: Leaf,
+    nameFr: "Agriculture",
+    nameAr: "الفلاحة",
+    descFr: "Écarts intrants agricoles en Mitidja",
+    descAr: "انحرافات مستلزمات فلاحية في المتيجة",
+    objective: "materials",
+    projectNameFr: "Intrants agricoles — Mitidja",
+    projectNameAr: "المستلزمات الفلاحية — المتيجة",
+    rows: [
+      { id: "A", element: "Fertilisants azotés / أسمدة",       standardPrice: 320, actualPrice: 340,  standardQty: 800, actualQty: 780 },
+      { id: "B", element: "Semences sélectionnées / بذور",      standardPrice: 250, actualPrice: 248,  standardQty: 200, actualQty: 210 },
+      { id: "C", element: "Produits phytosanitaires / مبيدات",  standardPrice: 580, actualPrice: 600,  standardQty: 120, actualQty: 115 },
+      { id: "D", element: "Eau d'irrigation (m³) / ماء",        standardPrice: 12,  actualPrice: 12,   standardQty: 5000, actualQty: 5200 },
+    ],
   },
-};
+  {
+    id: "services",
+    icon: Monitor,
+    nameFr: "Services",
+    nameAr: "الخدمات",
+    descFr: "Écarts main-d'œuvre projet ERP — PME",
+    descAr: "انحرافات عمالة مشروع ERP — م.ص.م",
+    objective: "labor",
+    projectNameFr: "Main-d'œuvre projet ERP — PME Algérienne",
+    projectNameAr: "عمالة مشروع ERP — مؤسسة جزائرية",
+    rows: [
+      { id: "A", element: "Développeurs / المطورون",             standardPrice: 1500, actualPrice: 1600, standardQty: 160, actualQty: 175 },
+      { id: "B", element: "Testeurs QA / فريق الجودة",           standardPrice: 1200, actualPrice: 1200, standardQty: 80,  actualQty: 88  },
+      { id: "C", element: "Chef de projet / مدير المشروع",       standardPrice: 2000, actualPrice: 2100, standardQty: 40,  actualQty: 42  },
+      { id: "D", element: "Consultants ERP / المستشارون",        standardPrice: 2500, actualPrice: 2450, standardQty: 60,  actualQty: 55  },
+    ],
+  },
+];
 
-// ── Formatting helper ─────────────────────────────────────────────────────────
-function fmtDA(n: number, lang: string): string {
-  const locale = lang === "ar" ? "ar-DZ" : "fr-DZ";
-  const abs = Math.abs(n);
-  const sign = n > 0 ? "+" : n < 0 ? "−" : "";
-  const formatted = abs.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${sign}\u202F${formatted} DA`;
+// ── Letter ID helper ──────────────────────────────────────────────────────────
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function nextId(existing: string[]): string {
+  for (const ch of LETTERS) if (!existing.includes(ch)) return ch;
+  return `Z${existing.length}`;
 }
 
-// ── VarianceCard sub-component ────────────────────────────────────────────────
-interface VCardProps {
-  title: string;
-  subtitleFr: string;
-  subtitleAr: string;
-  value: number;
-  favorable: boolean | null;
-  explanation: string;
-  language: string;
-  isAr: boolean;
-  isTotal?: boolean;
+function defaultRows(): VarianceRow[] {
+  return [
+    { id: "A", element: "", standardPrice: 0, actualPrice: 0, standardQty: 0, actualQty: 0 },
+    { id: "B", element: "", standardPrice: 0, actualPrice: 0, standardQty: 0, actualQty: 0 },
+  ];
 }
 
-function VarianceCard({ title, subtitleFr, subtitleAr, value, favorable, explanation, language, isAr, isTotal }: VCardProps) {
-  const colorBorder =
-    favorable === null ? "border-border" : favorable ? "border-green-300 dark:border-green-700" : "border-red-300 dark:border-red-700";
-  const colorBg =
-    favorable === null ? "bg-card" : favorable ? "bg-green-50 dark:bg-green-950/20" : "bg-red-50 dark:bg-red-950/20";
-  const colorValue =
-    favorable === null ? "text-foreground" : favorable ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400";
-  const badgeBg =
-    favorable === null ? "bg-muted text-muted-foreground" : favorable ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-  const badgeLabel =
-    favorable === null ? { fr: "Neutre", ar: "محايد" } : favorable ? { fr: "Favorable ✓", ar: "مُلائم ✓" } : { fr: "Défavorable ✗", ar: "غير مُلائم ✗" };
-  const Icon = favorable === null ? Minus : favorable ? TrendingUp : TrendingDown;
-  const iconColor = favorable === null ? "text-muted-foreground" : favorable ? "text-green-600" : "text-red-600";
-
-  return (
-    <Card className={cn("border-2 transition-all flex flex-col", colorBorder, colorBg, isTotal && "ring-1 ring-primary/20")}>
-      <CardContent className="pt-5 flex flex-col gap-4 flex-1">
-        {/* Header */}
-        <div className={cn("flex items-start justify-between gap-2", isAr && "flex-row-reverse")}>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground leading-tight">
-              {title}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {isAr ? subtitleAr : subtitleFr}
-            </p>
-          </div>
-          <Icon className={cn("w-5 h-5 shrink-0 mt-0.5", iconColor)} />
-        </div>
-
-        {/* Value */}
-        <div className={cn("text-2xl font-bold tabular-nums leading-none", colorValue, isAr ? "text-right" : "text-left")}>
-          {fmtDA(value, language)}
-        </div>
-
-        {/* Badge */}
-        <span className={cn("self-start inline-flex text-xs font-bold px-2.5 py-1 rounded-full", badgeBg)}>
-          {isAr ? badgeLabel.ar : badgeLabel.fr}
-        </span>
-
-        {/* Explanation */}
-        <p className={cn("text-xs text-muted-foreground leading-relaxed border-t pt-3 mt-auto", isAr && "text-right")}>
-          {explanation}
-        </p>
-      </CardContent>
-    </Card>
-  );
+// ── Computation ───────────────────────────────────────────────────────────────
+function computeRows(rows: VarianceRow[]): VarianceRowResult[] {
+  return rows.map(r => {
+    const pv = (r.actualPrice - r.standardPrice) * r.actualQty;
+    const qv = (r.actualQty - r.standardQty) * r.standardPrice;
+    return {
+      id: r.id,
+      element: r.element || r.id,
+      standardPrice: r.standardPrice,
+      standardQty: r.standardQty,
+      actualPrice: r.actualPrice,
+      actualQty: r.actualQty,
+      priceVariance: pv,
+      qtyVariance: qv,
+      totalVariance: pv + qv,
+    };
+  });
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+function computeTotals(results: VarianceRowResult[]): VarianceTotals {
+  return {
+    priceVariance: results.reduce((s, r) => s + r.priceVariance, 0),
+    qtyVariance:   results.reduce((s, r) => s + r.qtyVariance,   0),
+    totalVariance: results.reduce((s, r) => s + r.totalVariance,  0),
+  };
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function VarianceAnalysis() {
   const { t, language } = useLanguage();
   const isAr = language === "ar";
 
-  const [analysisType, setAnalysisType] = useState<AnalysisType>("revenue");
-  const [standardPrice, setStandardPrice] = useState("");
-  const [standardQty,   setStandardQty]   = useState("");
-  const [actualPrice,   setActualPrice]   = useState("");
-  const [actualQty,     setActualQty]     = useState("");
-  const [result,  setResult]  = useState<VarianceResult | null>(null);
-  const [error,   setError]   = useState<string | null>(null);
+  // ── Form state ──────────────────────────────────────────────────────────────
+  const [selectedSector, setSelectedSector] = useState<SectorKey | null>(null);
+  const [problemName,    setProblemName]    = useState("");
+  const [objective,      setObjective]      = useState<VarianceObjective>("revenue");
+  const [rows,           setRows]           = useState<VarianceRow[]>(defaultRows());
 
-  const cfg = CONFIGS[analysisType];
+  // ── Result state ────────────────────────────────────────────────────────────
+  const [results,      setResults]      = useState<VarianceRowResult[] | null>(null);
+  const [totals,       setTotals]       = useState<VarianceTotals | null>(null);
+  const [resultStale,  setResultStale]  = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
-  function handleCalculate() {
-    const sp = parseFloat(standardPrice.replace(",", "."));
-    const sq = parseFloat(standardQty.replace(",", "."));
-    const ap = parseFloat(actualPrice.replace(",", "."));
-    const aq = parseFloat(actualQty.replace(",", "."));
+  // ── Mark stale when form changes after calculation ──────────────────────────
+  useEffect(() => {
+    if (results) setResultStale(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, objective]);
 
-    if ([sp, sq, ap, aq].some(isNaN)) {
-      setError(t(
-        "Veuillez remplir tous les champs avec des valeurs numériques valides.",
-        "يرجى ملء جميع الحقول بقيم رقمية صحيحة."
-      ));
-      setResult(null);
-      return;
+  // ── Sector selection ────────────────────────────────────────────────────────
+  function handleSectorSelect(key: SectorKey) {
+    setSelectedSector(key);
+    setResults(null);
+    setResultStale(false);
+    if (key === "custom") {
+      setProblemName("");
+      setObjective("revenue");
+      setRows(defaultRows());
+    } else {
+      const tpl = TEMPLATES.find(t => t.id === key)!;
+      setProblemName(isAr ? tpl.projectNameAr : tpl.projectNameFr);
+      setObjective(tpl.objective);
+      setRows(tpl.rows.map(r => ({ ...r })));
     }
-    if ([sp, sq, ap, aq].some((v) => v < 0)) {
-      setError(t("Les valeurs ne peuvent pas être négatives.", "لا يمكن أن تكون القيم سالبة."));
-      setResult(null);
-      return;
-    }
-    setError(null);
-    setResult(computeVariances(sp, sq, ap, aq));
   }
 
-  function handleReset() {
-    setStandardPrice("");
-    setStandardQty("");
-    setActualPrice("");
-    setActualQty("");
-    setResult(null);
-    setError(null);
+  // ── Row mutations ───────────────────────────────────────────────────────────
+  function addRow() {
+    const id = nextId(rows.map(r => r.id));
+    setRows([...rows, { id, element: "", standardPrice: 0, actualPrice: 0, standardQty: 0, actualQty: 0 }]);
   }
 
-  function handleTypeChange(type: AnalysisType) {
-    setAnalysisType(type);
-    setResult(null);
-    setError(null);
+  function deleteRow(idx: number) {
+    if (rows.length <= 1) return;
+    setRows(rows.filter((_, i) => i !== idx));
   }
 
-  /** Returns null for zero, true for favorable, false for unfavorable */
-  function isFavorable(value: number): boolean | null {
-    if (value === 0) return null;
-    return cfg.favorableWhen === "positive" ? value > 0 : value < 0;
+  function updateRow<K extends keyof VarianceRow>(idx: number, key: K, val: VarianceRow[K]) {
+    const next = [...rows];
+    next[idx] = { ...next[idx], [key]: val };
+    setRows(next);
   }
 
-  const canCalculate = [standardPrice, standardQty, actualPrice, actualQty].every((v) => v.trim() !== "");
+  // ── Solve ───────────────────────────────────────────────────────────────────
+  function handleSolve() {
+    const res = computeRows(rows);
+    const tot = computeTotals(res);
+    setResults(res);
+    setTotals(tot);
+    setResultStale(false);
+    setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  }
 
+  const canSolve = rows.length > 0 && rows.every(r => r.element.trim() !== "");
+  const cols = getColLabels(objective, isAr);
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div
-      className={cn("container mx-auto px-4 py-8 space-y-8 max-w-5xl", isAr ? "rtl" : "ltr")}
+      className={cn("container mx-auto px-4 py-8 max-w-6xl space-y-8", isAr ? "rtl" : "ltr")}
       dir={isAr ? "rtl" : "ltr"}
     >
 
-      {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-      <section className="bg-primary text-primary-foreground rounded-xl p-8 md:p-12 shadow-lg relative overflow-hidden">
-        <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 bg-primary-foreground/15 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
-            <Scale className="w-4 h-4" />
-            {t("Module — Analyse des Écarts", "وحدة — تحليل الانحرافات")}
+      {/* ── Header ────────────────────────────────────────────────────────────── */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-xl text-primary">
+            <Scale className="w-6 h-6" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
+          <h1 className="text-3xl font-bold text-foreground">
             {t("Analyse des Écarts", "تحليل الانحرافات")}
           </h1>
-          <p className="text-primary-foreground/80 text-lg mb-6 max-w-2xl leading-relaxed">
-            {t(
-              "Calculez et interprétez les écarts entre données prévisionnelles (standards) et données réelles — pour les revenus, les matières premières ou la main-d'œuvre.",
-              "احسب وافسّر الانحرافات بين البيانات المعيارية والفعلية — للإيرادات أو المواد الأولية أو اليد العاملة."
-            )}
-          </p>
-          <div className="flex flex-wrap gap-3 text-sm text-primary-foreground/70">
-            {[
-              { fr: "Écart sur Prix", ar: "انحراف السعر" },
-              { fr: "Écart sur Quantité", ar: "انحراف الكمية" },
-              { fr: "Écart Total", ar: "الانحراف الإجمالي" },
-            ].map((item) => (
-              <span key={item.fr} className="inline-flex items-center gap-1.5 bg-primary-foreground/10 rounded-full px-3 py-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-300" />
-                {isAr ? item.ar : item.fr}
-              </span>
-            ))}
-          </div>
+          <Badge variant="secondary">
+            {OBJECTIVES.find(o => o.value === objective)?.[isAr ? "nameAr" : "nameFr"] ?? ""}
+          </Badge>
         </div>
-        {/* background decoration */}
-        <div className="absolute -right-20 -bottom-20 opacity-10 pointer-events-none" aria-hidden>
-          <Scale className="w-80 h-80" />
-        </div>
-      </section>
+        <p className="text-muted-foreground ps-14">
+          {t(
+            "Calculez les écarts standards vs réels pour les revenus, les matières premières ou la main-d'œuvre.",
+            "احسب الانحرافات بين المعياري والفعلي للإيرادات أو المواد الأولية أو اليد العاملة."
+          )}
+        </p>
+      </div>
 
-      {/* ── Analysis Type Selector ────────────────────────────────────────────── */}
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-xl font-bold text-foreground">
-            {t("Type d'analyse", "نوع التحليل")}
-          </h2>
-          <p className="text-muted-foreground text-sm mt-1">
-            {t(
-              "Choisissez le contexte pour adapter les libellés et l'interprétation favorable / défavorable.",
-              "اختر السياق لتكييف التسميات وتفسير الملاءمة / عدم الملاءمة."
-            )}
-          </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {(["revenue", "materials", "labor"] as AnalysisType[]).map((type) => {
-            const c = CONFIGS[type];
-            const Icon = c.icon;
-            const selected = analysisType === type;
-            return (
-              <button
-                key={type}
-                onClick={() => handleTypeChange(type)}
-                className={cn(
-                  "flex items-center gap-3 p-4 rounded-xl border-2 transition-all duration-200 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                  selected
-                    ? "border-primary bg-primary/5 shadow-sm"
-                    : "border-border bg-card hover:border-primary/40 hover:bg-muted/50"
-                )}
-              >
-                <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                  selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                )}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div className={isAr ? "text-right" : "text-left"}>
-                  <div className={cn("font-semibold text-sm", selected ? "text-primary" : "text-foreground")}>
-                    {isAr ? c.nameAr : c.nameFr}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {isAr ? c.descAr : c.descFr}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ── Input Form ───────────────────────────────────────────────────────── */}
-      <Card className="border-primary/20 shadow-sm">
+      {/* ── 1. Sector selection ───────────────────────────────────────────────── */}
+      <Card>
         <CardHeader className="pb-4">
-          <CardTitle className={cn("flex items-center gap-2 text-lg", isAr && "flex-row-reverse")}>
-            <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-              <Scale className="w-4 h-4" />
-            </div>
-            {t("Données d'entrée", "بيانات الإدخال")}
-          </CardTitle>
+          <CardTitle className="text-lg">{t("Secteur d'activité", "قطاع النشاط")}</CardTitle>
           <CardDescription>
             {t(
-              "Saisissez les valeurs standards (prévisionnelles) et réelles (observées).",
-              "أدخل القيم المعيارية (التوقعية) والفعلية (المُلاحَظة)."
+              "Sélectionnez un secteur pour pré-remplir un exemple algérien réaliste.",
+              "اختر قطاعاً لتعبئة مثال جزائري واقعي تلقائياً."
             )}
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {TEMPLATES.map(tpl => {
+              const Icon = tpl.icon;
+              const active = selectedSector === tpl.id;
+              return (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => handleSectorSelect(tpl.id)}
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all cursor-pointer",
+                    active ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-muted/50"
+                  )}
+                >
+                  <div className={cn(
+                    "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
+                    active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  )}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <span className={cn("text-sm font-semibold", active ? "text-primary" : "text-foreground")}>
+                    {isAr ? tpl.nameAr : tpl.nameFr}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
+                    {isAr ? tpl.descAr : tpl.descFr}
+                  </span>
+                </button>
+              );
+            })}
+
+            {/* Custom */}
+            {(() => {
+              const active = selectedSector === "custom";
+              return (
+                <button
+                  type="button"
+                  onClick={() => handleSectorSelect("custom")}
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-xl border-2 border-dashed p-4 text-center transition-all cursor-pointer",
+                    active ? "border-primary bg-primary/5" : "border-border hover:border-primary/40 hover:bg-muted/50"
+                  )}
+                >
+                  <div className={cn(
+                    "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
+                    active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  )}>
+                    <PencilRuler className="w-5 h-5" />
+                  </div>
+                  <span className={cn("text-sm font-semibold", active ? "text-primary" : "text-foreground")}>
+                    {t("Personnalisé", "مخصص")}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {t("Saisie libre", "إدخال حر")}
+                  </span>
+                </button>
+              );
+            })()}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── 2. Problem setup ──────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">{t("Configuration du Problème", "إعداد المسألة")}</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-6">
 
-          {/* Two-column: Standard | Actual */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Standard column */}
-            <div className="space-y-4">
-              <div className={cn("flex items-center gap-2", isAr && "flex-row-reverse")}>
-                <div className="h-0.5 flex-1 bg-border rounded" />
-                <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap px-1">
-                  {t("Standard — Prévisionnel", "المعياري — التوقعي")}
-                </span>
-                <div className="h-0.5 flex-1 bg-border rounded" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="sp" className="text-sm font-medium">
-                  {isAr ? cfg.priceLabelAr : cfg.priceLabelFr}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="sp"
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder="0.00"
-                    value={standardPrice}
-                    onChange={(e) => setStandardPrice(e.target.value)}
-                    className={isAr ? "text-right pl-20" : "pr-20"}
-                  />
-                  <span className={cn("absolute top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none", isAr ? "left-3" : "right-3")}>
-                    {isAr ? cfg.priceUnitAr : cfg.priceUnitFr}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="sq" className="text-sm font-medium">
-                  {isAr ? cfg.qtyLabelAr : cfg.qtyLabelFr}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="sq"
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder="0"
-                    value={standardQty}
-                    onChange={(e) => setStandardQty(e.target.value)}
-                    className={isAr ? "text-right pl-20" : "pr-20"}
-                  />
-                  <span className={cn("absolute top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none", isAr ? "left-3" : "right-3")}>
-                    {isAr ? cfg.qtyUnitAr : cfg.qtyUnitFr}
-                  </span>
-                </div>
-              </div>
+          {/* Name + Objective */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{t("Nom du problème", "اسم المسألة")}</Label>
+              <Input
+                value={problemName}
+                onChange={e => setProblemName(e.target.value)}
+                placeholder={t("Ex: Analyse des ventes T3 2025", "مثال: تحليل مبيعات الربع الثالث 2025")}
+              />
             </div>
-
-            {/* Actual column */}
-            <div className="space-y-4">
-              <div className={cn("flex items-center gap-2", isAr && "flex-row-reverse")}>
-                <div className="h-0.5 flex-1 bg-primary/30 rounded" />
-                <span className="text-[11px] font-bold uppercase tracking-widest text-primary whitespace-nowrap px-1">
-                  {t("Réel — Observé", "الفعلي — المُلاحَظ")}
-                </span>
-                <div className="h-0.5 flex-1 bg-primary/30 rounded" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ap" className="text-sm font-medium">
-                  {isAr ? cfg.priceLabelAr : cfg.priceLabelFr}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="ap"
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder="0.00"
-                    value={actualPrice}
-                    onChange={(e) => setActualPrice(e.target.value)}
-                    className={isAr ? "text-right pl-20" : "pr-20"}
-                  />
-                  <span className={cn("absolute top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none", isAr ? "left-3" : "right-3")}>
-                    {isAr ? cfg.priceUnitAr : cfg.priceUnitFr}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="aq" className="text-sm font-medium">
-                  {isAr ? cfg.qtyLabelAr : cfg.qtyLabelFr}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="aq"
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder="0"
-                    value={actualQty}
-                    onChange={(e) => setActualQty(e.target.value)}
-                    className={isAr ? "text-right pl-20" : "pr-20"}
-                  />
-                  <span className={cn("absolute top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none", isAr ? "left-3" : "right-3")}>
-                    {isAr ? cfg.qtyUnitAr : cfg.qtyUnitFr}
-                  </span>
-                </div>
+            <div className="space-y-2">
+              <Label>{t("Type d'analyse (Objectif)", "نوع التحليل (الهدف)")}</Label>
+              <div className="flex rounded-lg border border-border overflow-hidden h-10">
+                {OBJECTIVES.map(obj => (
+                  <button
+                    key={obj.value}
+                    type="button"
+                    onClick={() => { setObjective(obj.value); setResults(null); setResultStale(false); }}
+                    className={cn(
+                      "flex-1 text-xs font-semibold transition-colors px-1 truncate",
+                      objective === obj.value
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted"
+                    )}
+                    title={isAr ? obj.nameAr : obj.nameFr}
+                  >
+                    {isAr ? obj.nameAr : obj.nameFr}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Error message */}
-          {error && (
-            <div className={cn("flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm", isAr && "flex-row-reverse text-right")}>
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              {error}
+          {/* القيم المعيارية والفعلية */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">
+                {t("Valeurs standard et réelles", "القيم المعيارية والفعلية")}
+              </Label>
+              <Button type="button" variant="outline" size="sm" onClick={addRow}>
+                <Plus className="w-4 h-4 me-1.5" />
+                {t("Ajouter", "إضافة")}
+              </Button>
             </div>
-          )}
 
-          {/* Actions */}
-          <div className={cn("flex gap-3 pt-1", isAr && "flex-row-reverse")}>
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium text-start w-10">ID</th>
+                    <th className="px-3 py-2 font-medium text-start min-w-[170px]">
+                      {isAr ? cols.elemAr : cols.elemFr}
+                    </th>
+                    {/* Standard columns */}
+                    <th className="px-2 py-2 font-medium text-center min-w-[130px] border-s border-primary/20 text-primary/80">
+                      <div className="text-[10px] uppercase tracking-wide font-bold">{t("Standard", "معياري")}</div>
+                      <div className="text-xs normal-case">{isAr ? cols.priceAr : cols.priceFr}</div>
+                    </th>
+                    <th className="px-2 py-2 font-medium text-center min-w-[120px] text-primary/80">
+                      <div className="text-[10px] uppercase tracking-wide font-bold invisible">{t("Standard", "معياري")}</div>
+                      <div className="text-xs normal-case">{isAr ? cols.qtyAr : cols.qtyFr}</div>
+                    </th>
+                    {/* Actual columns */}
+                    <th className="px-2 py-2 font-medium text-center min-w-[130px] border-s border-amber-300/60 text-amber-700">
+                      <div className="text-[10px] uppercase tracking-wide font-bold">{t("Réel", "فعلي")}</div>
+                      <div className="text-xs normal-case">{isAr ? cols.actPriceAr : cols.actPriceFr}</div>
+                    </th>
+                    <th className="px-2 py-2 font-medium text-center min-w-[120px] text-amber-700">
+                      <div className="text-[10px] uppercase tracking-wide font-bold invisible">{t("Réel", "فعلي")}</div>
+                      <div className="text-xs normal-case">{isAr ? cols.actQtyAr : cols.actQtyFr}</div>
+                    </th>
+                    <th className="w-10" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {rows.map((row, idx) => (
+                    <tr key={row.id} className="hover:bg-muted/30">
+                      {/* ID */}
+                      <td className="px-3 py-2">
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-primary/10 text-primary font-bold text-sm">
+                          {row.id}
+                        </span>
+                      </td>
+
+                      {/* Element name */}
+                      <td className="px-3 py-2">
+                        <Input
+                          value={row.element}
+                          onChange={e => updateRow(idx, "element", e.target.value)}
+                          placeholder={isAr ? cols.elemAr : cols.elemFr}
+                          className="h-8 text-sm"
+                        />
+                      </td>
+
+                      {/* Standard price */}
+                      <td className="px-2 py-2 border-s border-primary/10">
+                        <Input
+                          type="number" min="0" step="any"
+                          value={row.standardPrice || ""}
+                          onChange={e => updateRow(idx, "standardPrice", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm text-center w-28"
+                          placeholder="0"
+                        />
+                      </td>
+
+                      {/* Standard qty */}
+                      <td className="px-2 py-2">
+                        <Input
+                          type="number" min="0" step="any"
+                          value={row.standardQty || ""}
+                          onChange={e => updateRow(idx, "standardQty", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm text-center w-28"
+                          placeholder="0"
+                        />
+                      </td>
+
+                      {/* Actual price */}
+                      <td className="px-2 py-2 border-s border-amber-200">
+                        <Input
+                          type="number" min="0" step="any"
+                          value={row.actualPrice || ""}
+                          onChange={e => updateRow(idx, "actualPrice", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm text-center w-28 border-amber-300/50 focus-visible:ring-amber-400/50"
+                          placeholder="0"
+                        />
+                      </td>
+
+                      {/* Actual qty */}
+                      <td className="px-2 py-2">
+                        <Input
+                          type="number" min="0" step="any"
+                          value={row.actualQty || ""}
+                          onChange={e => updateRow(idx, "actualQty", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm text-center w-28 border-amber-300/50 focus-visible:ring-amber-400/50"
+                          placeholder="0"
+                        />
+                      </td>
+
+                      {/* Delete */}
+                      <td className="px-3 py-2">
+                        <Button
+                          type="button" variant="ghost" size="icon"
+                          onClick={() => deleteRow(idx)}
+                          disabled={rows.length <= 1}
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              {objective === "labor"
+                ? t(
+                    "Écart/Taux = (Taux réel − Taux std.) × H. réelles · Écart/Rendement = (H. réelles − H. std.) × Taux std.",
+                    "انحراف الأجر = (الأجر الفعلي − المعياري) × الساعات الفعلية · انحراف المردودية = (الساعات الفعلية − المعيارية) × الأجر المعياري"
+                  )
+                : t(
+                    "Écart/Prix = (Prix réel − Prix std.) × Qté réelle · Écart/Volume = (Qté réelle − Qté std.) × Prix std.",
+                    "انحراف السعر = (السعر الفعلي − المعياري) × الكمية الفعلية · انحراف الكمية = (الكمية الفعلية − المعيارية) × السعر المعياري"
+                  )}
+            </p>
+          </div>
+
+          {/* Solve button */}
+          <div className="flex justify-end pt-2">
             <Button
-              onClick={handleCalculate}
-              disabled={!canCalculate}
-              className="flex-1 sm:flex-none sm:px-8 gap-2"
+              size="lg"
+              onClick={handleSolve}
+              disabled={!canSolve}
+              className="px-10"
             >
-              <Scale className="w-4 h-4" />
-              {t("Calculer les écarts", "احسب الانحرافات")}
-            </Button>
-            <Button variant="outline" onClick={handleReset} className="gap-2">
-              <RefreshCw className="w-4 h-4" />
-              {t("Réinitialiser", "إعادة تعيين")}
+              <Calculator className="w-5 h-5 me-2" />
+              {t("Résoudre le Problème", "حل المسألة")}
+              <ArrowRight className={cn("w-4 h-4 ms-2", isAr && "rotate-180")} />
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* ── Results ──────────────────────────────────────────────────────────── */}
-      {result && (
-        <section className="space-y-5">
-          <div>
-            <h2 className="text-xl font-bold text-foreground">
-              {t("Résultats", "النتائج")}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {cfg.favorableWhen === "positive"
-                ? t("Convention : positif = favorable (plus de revenu).", "الاتفاقية: موجب = ملائم (إيراد أكثر).")
-                : t("Convention : négatif = favorable (moins de coût).", "الاتفاقية: سالب = ملائم (تكلفة أقل).")}
-            </p>
-          </div>
+      {/* ── 3. Results ────────────────────────────────────────────────────────── */}
+      {results && totals && (
+        <div ref={resultsRef} className="space-y-6 scroll-mt-20">
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Price/Rate variance */}
-            <VarianceCard
-              title={isAr ? cfg.priceVarNameAr : cfg.priceVarNameFr}
-              subtitleFr={`(Prix réel − Standard) × Qté réelle`}
-              subtitleAr={`(السعر الفعلي − المعياري) × الكمية الفعلية`}
-              value={result.priceVariance}
-              favorable={isFavorable(result.priceVariance)}
-              explanation={
-                isAr
-                  ? cfg.priceVarExplainAr(result.priceVariance)
-                  : cfg.priceVarExplainFr(result.priceVariance)
-              }
-              language={language}
-              isAr={isAr}
-            />
+          {/* Stale warning */}
+          {resultStale && (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <RefreshCw className="w-4 h-4 shrink-0" />
+              {t(
+                "Les paramètres ont changé — cliquez Résoudre pour mettre à jour.",
+                "تغيرت المعطيات — انقر حل المسألة للتحديث."
+              )}
+            </div>
+          )}
 
-            {/* Quantity/Volume variance */}
-            <VarianceCard
-              title={isAr ? cfg.qtyVarNameAr : cfg.qtyVarNameFr}
-              subtitleFr={`(Qté réelle − Standard) × Prix standard`}
-              subtitleAr={`(الكمية الفعلية − المعيارية) × السعر المعياري`}
-              value={result.quantityVariance}
-              favorable={isFavorable(result.quantityVariance)}
-              explanation={
-                isAr
-                  ? cfg.qtyVarExplainAr(result.quantityVariance)
-                  : cfg.qtyVarExplainFr(result.quantityVariance)
-              }
-              language={language}
-              isAr={isAr}
-            />
-
-            {/* Total variance */}
-            <VarianceCard
-              title={t("Écart Total", "الانحراف الإجمالي")}
-              subtitleFr="Écart Prix + Écart Quantité"
-              subtitleAr="انحراف السعر + انحراف الكمية"
-              value={result.totalVariance}
-              favorable={isFavorable(result.totalVariance)}
-              explanation={
-                result.totalVariance === 0
-                  ? t("Aucun écart global — performance parfaitement conforme au standard.", "لا انحراف إجمالي — الأداء مطابق تمامًا للمعيار.")
-                  : isFavorable(result.totalVariance)
-                  ? t(
-                      "L'écart total est favorable — la performance réelle dépasse les standards.",
-                      "الانحراف الإجمالي مُلائم — الأداء الفعلي يتجاوز المعايير."
-                    )
-                  : t(
-                      "L'écart total est défavorable — des actions correctives sont recommandées.",
-                      "الانحراف الإجمالي غير مُلائم — يُنصح باتخاذ إجراءات تصحيحية."
-                    )
-              }
-              language={language}
-              isAr={isAr}
-              isTotal
-            />
-          </div>
-
-          {/* Formula reference card */}
-          <Card className="bg-muted/30 border-dashed border-muted-foreground/20">
-            <CardContent className="pt-5 pb-4">
-              <p className={cn("text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3", isAr && "text-right")}>
-                {t("Formules appliquées", "الصيغ المُطبَّقة")}
-              </p>
-              <div className={cn("space-y-2 text-sm font-mono text-muted-foreground", isAr && "text-right")}>
-                <div>
-                  <span className="font-semibold text-foreground">
-                    {isAr ? cfg.priceVarNameAr : cfg.priceVarNameFr}
-                  </span>
-                  {" = "}
-                  {t(
-                    `(${actualPrice} − ${standardPrice}) × ${actualQty} = `,
-                    `(${actualPrice} − ${standardPrice}) × ${actualQty} = `
-                  )}
-                  <span className={cn("font-bold", isFavorable(result.priceVariance) === true ? "text-green-600" : isFavorable(result.priceVariance) === false ? "text-red-600" : "")}>
-                    {fmtDA(result.priceVariance, language)}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-semibold text-foreground">
-                    {isAr ? cfg.qtyVarNameAr : cfg.qtyVarNameFr}
-                  </span>
-                  {" = "}
-                  {t(
-                    `(${actualQty} − ${standardQty}) × ${standardPrice} = `,
-                    `(${actualQty} − ${standardQty}) × ${standardPrice} = `
-                  )}
-                  <span className={cn("font-bold", isFavorable(result.quantityVariance) === true ? "text-green-600" : isFavorable(result.quantityVariance) === false ? "text-red-600" : "")}>
-                    {fmtDA(result.quantityVariance, language)}
-                  </span>
-                </div>
-                <div className="border-t border-dashed border-muted-foreground/20 pt-2">
-                  <span className="font-semibold text-foreground">
-                    {t("Écart Total", "الانحراف الإجمالي")}
-                  </span>
-                  {" = "}
-                  <span className={cn("font-bold text-base", isFavorable(result.totalVariance) === true ? "text-green-600" : isFavorable(result.totalVariance) === false ? "text-red-600" : "text-foreground")}>
-                    {fmtDA(result.totalVariance, language)}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
+          <VarianceAnalysisReport
+            problemName={problemName}
+            sector={selectedSector ?? "custom"}
+            objective={objective}
+            rows={results}
+            totals={totals}
+          />
+        </div>
       )}
-
-      {/* Spacer at bottom */}
-      <div className="h-4" />
     </div>
   );
 }

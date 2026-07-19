@@ -108,9 +108,9 @@ const MODULES: Module[] = [
 
 // ── Platform stats (static for now) ─────────────────────────────────────────
 const PLATFORM_STATS = [
-  { valueFr: "7", valueAr: "٧", labelFr: "Modules planifiés", labelAr: "وحدات مخططة" },
+  { valueFr: "8", valueAr: "٨", labelFr: "Modules planifiés", labelAr: "وحدات مخططة" },
   { valueFr: "4", valueAr: "٤", labelFr: "Secteurs d'activité", labelAr: "قطاعات نشاط" },
-  { valueFr: "7", valueAr: "٧", labelFr: "Modules disponibles", labelAr: "سبع وحدات متاحة" },
+  { valueFr: "8", valueAr: "٨", labelFr: "Modules disponibles", labelAr: "ثماني وحدات متاحة" },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
