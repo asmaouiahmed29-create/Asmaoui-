@@ -1,6 +1,6 @@
 import { useLanguage } from "@/lib/LanguageContext";
 import { Link } from "wouter";
-import { Calculator, Truck, Users, Network, BarChart3, Briefcase, Brain, ArrowRight, CheckCircle2, Sparkles, MessageSquareMore, Scale } from "lucide-react";
+import { Calculator, Truck, Users, Network, BarChart3, Briefcase, Brain, ArrowRight, CheckCircle2, Sparkles, MessageSquareMore, Scale, Package } from "lucide-react";
 
 // ── Module definitions ────────────────────────────────────────────────────────
 interface Module {
@@ -101,6 +101,17 @@ const MODULES: Module[] = [
     descFr: "Calculez et interprétez les écarts entre données standards et réelles — prix, quantité et total — pour les revenus, matières premières ou main-d'œuvre.",
     descAr: "احسب وافسّر الانحرافات بين البيانات المعيارية والفعلية — السعر والكمية والإجمالي — للإيرادات أو المواد أو العمالة.",
     href: "/variance-analysis",
+    active: true,
+    badge: { fr: "Nouveau", ar: "جديد" },
+  },
+  {
+    id: "supply-chain",
+    icon: Package,
+    nameFr: "Gestion de la Chaîne d'Approvisionnement",
+    nameAr: "إدارة سلاسل الإمداد",
+    descFr: "Optimisez vos stocks avec l'EOQ, calculez les points de commande et classifiez vos articles en ABC pour une gestion efficace de la chaîne d'approvisionnement.",
+    descAr: "حسّن مخزونك بالكمية الاقتصادية EOQ، احسب نقاط إعادة الطلب، وصنّف موادك بتحليل ABC لسلسلة إمداد فعّالة.",
+    href: "/supply-chain",
     active: true,
     badge: { fr: "Nouveau", ar: "جديد" },
   },

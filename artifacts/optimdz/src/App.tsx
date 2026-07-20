@@ -48,6 +48,9 @@ import { DecisionAssistantLayout } from "@/components/DecisionAssistantLayout";
 import VarianceAnalysis from "@/pages/variance-analysis/VarianceAnalysis";
 import OverallVariance  from "@/pages/variance-analysis/OverallVariance";
 import { VarianceLayout } from "@/components/VarianceLayout";
+import SupplyChainHome     from "@/pages/supply-chain/SupplyChainHome";
+import InventoryManagement from "@/pages/supply-chain/InventoryManagement";
+import { SupplyChainLayout } from "@/components/SupplyChainLayout";
 
 const queryClient = new QueryClient();
 
@@ -131,6 +134,14 @@ function Router() {
               <Route component={NotFound} />
             </Switch>
           </VarianceLayout>
+        ) : location.startsWith("/supply-chain") ? (
+          <SupplyChainLayout>
+            <Switch>
+              <Route path="/supply-chain"           component={SupplyChainHome} />
+              <Route path="/supply-chain/inventory" component={InventoryManagement} />
+              <Route component={NotFound} />
+            </Switch>
+          </SupplyChainLayout>
         ) : (
           <Layout>
             <Switch>
