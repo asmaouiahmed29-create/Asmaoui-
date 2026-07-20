@@ -2,4 +2,4 @@
 - [Financial Analysis module](financial-analysis-module.md) — Break-even/CVP at /financial-analysis; same layout/PDF/save pattern as PERT/CPM.
 - [Project Feasibility module](project-feasibility-module.md) — Mini-dashboard at /project-feasibility; 2 active tools: break-even (/breakeven) and investment appraisal (/investment-appraisal).
 - [KPI Dashboard module](kpi-dashboard-module.md) — Mini-dashboard at /kpi-dashboard; 1 active tool: Manual KPI Tracking (/kpi-dashboard/tracking); 1 coming-soon: Connectors.
-- [Variance Analysis module](variance-analysis-module.md) — Full PERT/CPM-pattern template at /variance-analysis; 4 sector templates, 3 objectives, row-level table, report+save+PDF complete.
+- [Variance Analysis module](variance-analysis-module.md) — 5 modes: revenue/materials/labor/overhead (4-variance) + Overall synthesis at /variance-analysis/overall; CSS waterfall chart, no external lib.

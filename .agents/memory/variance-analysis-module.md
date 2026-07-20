@@ -63,3 +63,14 @@ POST /api/problems — objective in problemData; all 4 variances in result.total
 2. Results table — overhead: 12-column (6 inputs + 4 variances + total)
 3. Analysis + Ratios card + Recommendations
 4. Digital stamp
+
+## 5th mode: Overall Result Synthesis (الانحراف الإجمالي)
+- **Route**: `/variance-analysis/overall`
+- **File**: `VarianceAnalysis.tsx` has a 5th navigation button (not in OBJECTIVES array) that routes there
+- **Page**: `pages/variance-analysis/OverallVariance.tsx` — standalone, no overlap with 4 existing modes
+- **PDF lib**: `src/lib/generateOverallVariancePDF.ts` — exports `generateOverallVariancePDF(opts)`
+- **Computation**: grandTotal = sum of 4 rawValues; % contribution = |component|/Σ|components|×100
+- **Favorability**: revenue positive = good; cost types negative = good; grandTotal > 0 = net favorable
+- **referenceBase priority**: user-entered → extracted from saved revenue problem's result.rows (Σ Ps×Qs) → falls back to Σ|rawValues|
+- **Component sources**: multi-select from السجل filtered by type (pulls result.totals.totalVariance), OR manual fallback
+- **Waterfall**: pure CSS/div bars with running-total positioning, no external chart lib

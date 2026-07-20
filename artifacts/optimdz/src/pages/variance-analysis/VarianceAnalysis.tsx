@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 import { useLanguage } from "@/lib/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -349,6 +350,8 @@ export default function VarianceAnalysis() {
     setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   }
 
+  const [, navigate] = useLocation();
+
   const canSolve = rows.length > 0 && rows.every(r => r.element.trim() !== "");
   const cols = getColLabels(objective, isAr);
 
@@ -489,6 +492,15 @@ export default function VarianceAnalysis() {
                     {isAr ? obj.nameAr : obj.nameFr}
                   </button>
                 ))}
+                {/* 5th button: Overall synthesis — navigates to /variance-analysis/overall */}
+                <button
+                  type="button"
+                  onClick={() => navigate("/variance-analysis/overall")}
+                  className="flex-1 text-xs font-semibold transition-colors px-1 truncate text-muted-foreground hover:bg-muted border-s border-border"
+                  title={t("Synthèse globale des écarts sur résultat", "الانحراف الإجمالي على النتيجة")}
+                >
+                  {t("Synthèse ⚖️", "الإجمالي ⚖️")}
+                </button>
               </div>
             </div>
           </div>
