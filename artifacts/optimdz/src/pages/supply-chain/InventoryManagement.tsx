@@ -244,7 +244,7 @@ export default function InventoryManagement() {
       setSavedOk(true);
       setTimeout(() => setSavedOk(false), 3000);
     } catch (e: unknown) {
-      setSaveError(e instanceof Error ? e.message : "Erreur");
+      setSaveError(e instanceof Error ? e.message : t("Erreur", "خطأ"));
     } finally {
       setIsSaving(false);
     }
@@ -254,7 +254,7 @@ export default function InventoryManagement() {
   async function handlePDF() {
     if (!hasResults) return;
     try {
-      setPdfProgress("جارٍ الإنشاء…");
+      setPdfProgress(t("جارٍ الإنشاء…", "Génération en cours…"));
       await generateInventoryPDF({
         mode,
         problemName: problemName || (isAr ? "تحليل مخزون" : "Analyse Stocks"),
@@ -518,7 +518,7 @@ export default function InventoryManagement() {
       {/* ── 2. Analysis type + name ──────────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg">{t("إعداد التحليل", "Configuration de l'analyse")}</CardTitle>
+          <CardTitle className="text-lg">{t("Configuration de l'analyse", "إعداد التحليل")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
@@ -775,7 +775,7 @@ export default function InventoryManagement() {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
                       {[
-                        { label: "EOQ (وحدة)", value: fNum(r.eoq, 1), color: "text-primary font-bold text-lg" },
+                        { label: t("EOQ (وحدة)", "EOQ (unités)"), value: fNum(r.eoq, 1), color: "text-primary font-bold text-lg" },
                         { label: t("طلبات/سنة", "Cmd./an"), value: fNum(r.ordersPerYear, 1), color: "" },
                         { label: t("دورة (يوم)", "Cycle (j)"), value: fNum(r.cycleTime, 0), color: "" },
                         { label: t("تكلفة الطلب", "Coût cmd."), value: fDA(r.orderingCost, language), color: "" },
@@ -818,11 +818,11 @@ export default function InventoryManagement() {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                       {[
-                        { label: t("الطلب اليومي", "Demande jour."), value: fNum(r.dailyDemand, 1) + " وحدة/يوم", color: "" },
+                        { label: t("الطلب اليومي", "Demande jour."), value: fNum(r.dailyDemand, 1) + " " + t("وحدة/يوم", "unités/j"), color: "" },
                         { label: t("مهلة التسليم", "Délai livraison"), value: fNum(r.leadTime, 0) + " " + t("يوم", "jour(s)"), color: "" },
-                        { label: t("مخزون الأمان", "Stock séc."), value: fNum(r.safetyStock, 0) + " وحدة", color: "" },
-                        { label: t("الطلب خلال المهلة", "Demande/délai"), value: fNum(r.demandDuringLeadTime, 1) + " وحدة", color: "" },
-                        { label: t("نقطة إعادة الطلب", "Point de commande"), value: fNum(r.reorderPoint, 1) + " وحدة", color: "text-primary font-bold text-lg" },
+                        { label: t("مخزون الأمان", "Stock séc."), value: fNum(r.safetyStock, 0) + " " + t("وحدة", "unités"), color: "" },
+                        { label: t("الطلب خلال المهلة", "Demande/délai"), value: fNum(r.demandDuringLeadTime, 1) + " " + t("وحدة", "unités"), color: "" },
+                        { label: t("نقطة إعادة الطلب", "Point de commande"), value: fNum(r.reorderPoint, 1) + " " + t("وحدة", "unités"), color: "text-primary font-bold text-lg" },
                       ].map((kpi, i) => (
                         <div key={i} className="rounded-lg bg-background border p-3 text-center">
                           <div className="text-[11px] text-muted-foreground mb-1">{kpi.label}</div>

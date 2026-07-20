@@ -33,10 +33,11 @@ const TOOLS: Tool[] = [
     icon: TrendingUp,
     nameAr: "التنبؤ بالطلب",
     nameFr: "Prévision de la Demande",
-    descAr: "استخدم نماذج إحصائية للتنبؤ بالطلب المستقبلي وتحسين تخطيط الإنتاج والمشتريات.",
-    descFr: "Utilisez des modèles statistiques pour prévoir la demande future et optimiser la planification.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    descAr: "استخدم المتوسط المتحرك أو التمهيد الأسي البسيط للتنبؤ بالطلب المستقبلي وتحسين تخطيط المشتريات.",
+    descFr: "Utilisez la Moyenne Mobile ou le Lissage Exponentiel Simple pour prévoir la demande future et optimiser la planification.",
+    href: "/supply-chain/forecast",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
   {
     id: "suppliers",
@@ -72,8 +73,8 @@ const TOOLS: Tool[] = [
 
 const MODULE_STATS = [
   { valueAr: "٥", valueFr: "5", labelAr: "أدوات مخططة", labelFr: "Outils planifiés" },
-  { valueAr: "١", valueFr: "1", labelAr: "أداة متاحة", labelFr: "Outil disponible" },
-  { valueAr: "EOQ · ABC", valueFr: "EOQ · ABC", labelAr: "نماذج متاحة الآن", labelFr: "Modèles disponibles" },
+  { valueAr: "٢", valueFr: "2", labelAr: "أداة متاحة", labelFr: "Outils disponibles" },
+  { valueAr: "EOQ · ABC · MA", valueFr: "EOQ · ABC · MA", labelAr: "نماذج متاحة الآن", labelFr: "Modèles disponibles" },
 ];
 
 export default function SupplyChainHome() {

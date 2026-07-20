@@ -50,6 +50,7 @@ import OverallVariance  from "@/pages/variance-analysis/OverallVariance";
 import { VarianceLayout } from "@/components/VarianceLayout";
 import SupplyChainHome     from "@/pages/supply-chain/SupplyChainHome";
 import InventoryManagement from "@/pages/supply-chain/InventoryManagement";
+import DemandForecasting   from "@/pages/supply-chain/DemandForecasting";
 import { SupplyChainLayout } from "@/components/SupplyChainLayout";
 
 const queryClient = new QueryClient();
@@ -139,6 +140,7 @@ function Router() {
             <Switch>
               <Route path="/supply-chain"           component={SupplyChainHome} />
               <Route path="/supply-chain/inventory" component={InventoryManagement} />
+              <Route path="/supply-chain/forecast"  component={DemandForecasting} />
               <Route component={NotFound} />
             </Switch>
           </SupplyChainLayout>
