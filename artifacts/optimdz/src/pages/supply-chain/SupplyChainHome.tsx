@@ -55,10 +55,11 @@ const TOOLS: Tool[] = [
     icon: Truck,
     nameAr: "النقل والتوزيع",
     nameFr: "Transport & Distribution",
-    descAr: "حسّن مسارات النقل وتكاليف التوزيع بين المستودعات والعملاء.",
-    descFr: "Optimisez les routes de transport et les coûts de distribution entre entrepôts et clients.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    descAr: "حسّن مسارات النقل وتكاليف التوزيع بين المستودعات والعملاء باستخدام طريقة MODI.",
+    descFr: "Optimisez les routes de transport et les coûts de distribution entre entrepôts et clients via MODI.",
+    href: "/supply-chain/transport",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
   {
     id: "kpi-sc",
@@ -74,8 +75,8 @@ const TOOLS: Tool[] = [
 
 const MODULE_STATS = [
   { valueAr: "٥", valueFr: "5", labelAr: "أدوات مخططة", labelFr: "Outils planifiés" },
-  { valueAr: "٣", valueFr: "3", labelAr: "أداة متاحة", labelFr: "Outils disponibles" },
-  { valueAr: "EOQ · MA · WS", valueFr: "EOQ · MA · WS", labelAr: "نماذج متاحة الآن", labelFr: "Modèles disponibles" },
+  { valueAr: "٤", valueFr: "4", labelAr: "أداة متاحة", labelFr: "Outils disponibles" },
+  { valueAr: "EOQ · MA · WS · MODI", valueFr: "EOQ · MA · WS · MODI", labelAr: "نماذج متاحة الآن", labelFr: "Modèles disponibles" },
 ];
 
 export default function SupplyChainHome() {

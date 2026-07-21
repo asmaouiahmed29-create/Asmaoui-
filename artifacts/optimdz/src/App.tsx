@@ -48,11 +48,12 @@ import { DecisionAssistantLayout } from "@/components/DecisionAssistantLayout";
 import VarianceAnalysis from "@/pages/variance-analysis/VarianceAnalysis";
 import OverallVariance  from "@/pages/variance-analysis/OverallVariance";
 import { VarianceLayout } from "@/components/VarianceLayout";
-import SupplyChainHome     from "@/pages/supply-chain/SupplyChainHome";
-import InventoryManagement from "@/pages/supply-chain/InventoryManagement";
-import DemandForecasting   from "@/pages/supply-chain/DemandForecasting";
-import SupplierSelection   from "@/pages/supply-chain/SupplierSelection";
-import { SupplyChainLayout } from "@/components/SupplyChainLayout";
+import SupplyChainHome         from "@/pages/supply-chain/SupplyChainHome";
+import InventoryManagement     from "@/pages/supply-chain/InventoryManagement";
+import DemandForecasting       from "@/pages/supply-chain/DemandForecasting";
+import SupplierSelection       from "@/pages/supply-chain/SupplierSelection";
+import TransportDistribution   from "@/pages/supply-chain/TransportDistribution";
+import { SupplyChainLayout }   from "@/components/SupplyChainLayout";
 
 const queryClient = new QueryClient();
 
@@ -137,15 +138,18 @@ function Router() {
             </Switch>
           </VarianceLayout>
         ) : location.startsWith("/supply-chain") ? (
-          <SupplyChainLayout>
-            <Switch>
-              <Route path="/supply-chain"           component={SupplyChainHome} />
-              <Route path="/supply-chain/inventory" component={InventoryManagement} />
-              <Route path="/supply-chain/forecast"   component={DemandForecasting} />
-              <Route path="/supply-chain/suppliers" component={SupplierSelection} />
-              <Route component={NotFound} />
-            </Switch>
-          </SupplyChainLayout>
+          <TransportHistoryProvider>
+            <SupplyChainLayout>
+              <Switch>
+                <Route path="/supply-chain"            component={SupplyChainHome} />
+                <Route path="/supply-chain/inventory"  component={InventoryManagement} />
+                <Route path="/supply-chain/forecast"   component={DemandForecasting} />
+                <Route path="/supply-chain/suppliers"  component={SupplierSelection} />
+                <Route path="/supply-chain/transport"  component={TransportDistribution} />
+                <Route component={NotFound} />
+              </Switch>
+            </SupplyChainLayout>
+          </TransportHistoryProvider>
         ) : (
           <Layout>
             <Switch>
