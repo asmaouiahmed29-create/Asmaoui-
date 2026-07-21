@@ -3,3 +3,4 @@
 - [Project Feasibility module](project-feasibility-module.md) — Mini-dashboard at /project-feasibility; 2 active tools: break-even (/breakeven) and investment appraisal (/investment-appraisal).
 - [KPI Dashboard module](kpi-dashboard-module.md) — Mini-dashboard at /kpi-dashboard; 1 active tool: Manual KPI Tracking (/kpi-dashboard/tracking); 1 coming-soon: Connectors.
 - [Variance Analysis module](variance-analysis-module.md) — 5 modes: revenue/materials/labor/overhead (4-variance) + Overall synthesis at /variance-analysis/overall; CSS waterfall chart, no external lib.
+- [Supply Chain module](supply-chain-module.md) — 3 active tools at /supply-chain: inventory (EOQ/ABC), forecast (MA/ES), suppliers (weighted multicriteria); t(fr,ar) order is FRENCH FIRST — failure to follow this caused a full-page i18n audit on the forecast module.

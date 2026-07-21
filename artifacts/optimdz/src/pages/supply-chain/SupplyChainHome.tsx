@@ -44,10 +44,11 @@ const TOOLS: Tool[] = [
     icon: Users2,
     nameAr: "اختيار الموردين",
     nameFr: "Sélection des Fournisseurs",
-    descAr: "قيّم الموردين وصنّفهم وفق معايير متعددة: الجودة والسعر والمواعيد والموثوقية.",
-    descFr: "Évaluez et classifiez vos fournisseurs selon des critères multicritères : qualité, prix, délais, fiabilité.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    descAr: "قيّم الموردين وصنّفهم وفق معايير مرجّحة متعددة: الجودة، السعر، المواعيد، الموثوقية — واحصل على ترتيب موضوعي.",
+    descFr: "Évaluez et classifiez vos fournisseurs avec une pondération multicritère : qualité, prix, délais, fiabilité.",
+    href: "/supply-chain/suppliers",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
   {
     id: "transport",
@@ -73,8 +74,8 @@ const TOOLS: Tool[] = [
 
 const MODULE_STATS = [
   { valueAr: "٥", valueFr: "5", labelAr: "أدوات مخططة", labelFr: "Outils planifiés" },
-  { valueAr: "٢", valueFr: "2", labelAr: "أداة متاحة", labelFr: "Outils disponibles" },
-  { valueAr: "EOQ · ABC · MA", valueFr: "EOQ · ABC · MA", labelAr: "نماذج متاحة الآن", labelFr: "Modèles disponibles" },
+  { valueAr: "٣", valueFr: "3", labelAr: "أداة متاحة", labelFr: "Outils disponibles" },
+  { valueAr: "EOQ · MA · WS", valueFr: "EOQ · MA · WS", labelAr: "نماذج متاحة الآن", labelFr: "Modèles disponibles" },
 ];
 
 export default function SupplyChainHome() {
