@@ -53,6 +53,7 @@ import InventoryManagement     from "@/pages/supply-chain/InventoryManagement";
 import DemandForecasting       from "@/pages/supply-chain/DemandForecasting";
 import SupplierSelection       from "@/pages/supply-chain/SupplierSelection";
 import TransportDistribution   from "@/pages/supply-chain/TransportDistribution";
+import SupplyChainKpi          from "@/pages/supply-chain/SupplyChainKpi";
 import { SupplyChainLayout }   from "@/components/SupplyChainLayout";
 
 const queryClient = new QueryClient();
@@ -146,6 +147,7 @@ function Router() {
                 <Route path="/supply-chain/forecast"   component={DemandForecasting} />
                 <Route path="/supply-chain/suppliers"  component={SupplierSelection} />
                 <Route path="/supply-chain/transport"  component={TransportDistribution} />
+                <Route path="/supply-chain/kpi"        component={SupplyChainKpi} />
                 <Route component={NotFound} />
               </Switch>
             </SupplyChainLayout>

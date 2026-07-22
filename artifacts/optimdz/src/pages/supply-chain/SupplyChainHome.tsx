@@ -66,17 +66,18 @@ const TOOLS: Tool[] = [
     icon: BarChart3,
     nameAr: "مؤشرات الأداء",
     nameFr: "Indicateurs de Performance",
-    descAr: "تتبّع مؤشرات الأداء الرئيسية لسلسلة الإمداد: معدل الدوران، مستوى الخدمة، تكلفة الاحتفاظ.",
-    descFr: "Suivez les KPI de la chaîne d'approvisionnement : rotation des stocks, niveau de service, coût de détention.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    descAr: "تتبّع مؤشرات الأداء الرئيسية لسلسلة الإمداد: معدل الدوران، مستوى الخدمة، تكلفة الاحتفاظ ونسبة النقص.",
+    descFr: "Suivez les KPI de la chaîne d'approvisionnement : rotation des stocks, taux de service, coût d'approvisionnement et taux de rupture.",
+    href: "/supply-chain/kpi",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
 ];
 
 const MODULE_STATS = [
   { valueAr: "٥", valueFr: "5", labelAr: "أدوات مخططة", labelFr: "Outils planifiés" },
-  { valueAr: "٤", valueFr: "4", labelAr: "أداة متاحة", labelFr: "Outils disponibles" },
-  { valueAr: "EOQ · MA · WS · MODI", valueFr: "EOQ · MA · WS · MODI", labelAr: "نماذج متاحة الآن", labelFr: "Modèles disponibles" },
+  { valueAr: "٥", valueFr: "5", labelAr: "أداة متاحة", labelFr: "Outils disponibles" },
+  { valueAr: "EOQ · MA · WS · MODI · KPI", valueFr: "EOQ · MA · WS · MODI · KPI", labelAr: "نماذج متاحة الآن", labelFr: "Modèles disponibles" },
 ];
 
 export default function SupplyChainHome() {
