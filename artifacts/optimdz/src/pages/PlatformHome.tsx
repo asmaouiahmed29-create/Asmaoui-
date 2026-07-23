@@ -1,6 +1,6 @@
 import { useLanguage } from "@/lib/LanguageContext";
 import { Link } from "wouter";
-import { Calculator, Truck, Users, Network, BarChart3, Briefcase, Brain, ArrowRight, CheckCircle2, Sparkles, MessageSquareMore, Scale, Package } from "lucide-react";
+import { Calculator, Truck, Users, Network, BarChart3, Briefcase, Brain, ArrowRight, CheckCircle2, Sparkles, MessageSquareMore, Scale, Package, Factory } from "lucide-react";
 
 // ── Module definitions ────────────────────────────────────────────────────────
 interface Module {
@@ -112,6 +112,17 @@ const MODULES: Module[] = [
     descFr: "Optimisez vos stocks avec l'EOQ, calculez les points de commande et classifiez vos articles en ABC pour une gestion efficace de la chaîne d'approvisionnement.",
     descAr: "حسّن مخزونك بالكمية الاقتصادية EOQ، احسب نقاط إعادة الطلب، وصنّف موادك بتحليل ABC لسلسلة إمداد فعّالة.",
     href: "/supply-chain",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
+  },
+  {
+    id: "industrial-management",
+    icon: Factory,
+    nameFr: "Gestion Industrielle",
+    nameAr: "التسيير الصناعي",
+    descFr: "Planifiez la production avec MRP, ordonnancez les ateliers, gérez les capacités, la qualité et la maintenance — outils adaptés au contexte industriel algérien.",
+    descAr: "خطط الإنتاج بمنهجية MRP، جدول ورشاتك، أدر الطاقة الإنتاجية والجودة والصيانة — أدوات مكيّفة مع البيئة الصناعية الجزائرية.",
+    href: "/industrial-management",
     active: true,
     badge: { fr: "Nouveau", ar: "جديد" },
   },

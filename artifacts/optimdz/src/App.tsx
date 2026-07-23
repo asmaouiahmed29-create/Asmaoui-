@@ -55,6 +55,9 @@ import SupplierSelection       from "@/pages/supply-chain/SupplierSelection";
 import TransportDistribution   from "@/pages/supply-chain/TransportDistribution";
 import SupplyChainKpi          from "@/pages/supply-chain/SupplyChainKpi";
 import { SupplyChainLayout }   from "@/components/SupplyChainLayout";
+import IndustrialManagementHome  from "@/pages/industrial-management/IndustrialManagementHome";
+import ProductionPlanning        from "@/pages/industrial-management/ProductionPlanning";
+import { IndustrialManagementLayout } from "@/components/IndustrialManagementLayout";
 
 const queryClient = new QueryClient();
 
@@ -152,6 +155,14 @@ function Router() {
               </Switch>
             </SupplyChainLayout>
           </TransportHistoryProvider>
+        ) : location.startsWith("/industrial-management") ? (
+          <IndustrialManagementLayout>
+            <Switch>
+              <Route path="/industrial-management"                      component={IndustrialManagementHome} />
+              <Route path="/industrial-management/production-planning"  component={ProductionPlanning} />
+              <Route component={NotFound} />
+            </Switch>
+          </IndustrialManagementLayout>
         ) : (
           <Layout>
             <Switch>
