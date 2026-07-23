@@ -57,6 +57,7 @@ import SupplyChainKpi          from "@/pages/supply-chain/SupplyChainKpi";
 import { SupplyChainLayout }   from "@/components/SupplyChainLayout";
 import IndustrialManagementHome  from "@/pages/industrial-management/IndustrialManagementHome";
 import ProductionPlanning        from "@/pages/industrial-management/ProductionPlanning";
+import WorkshopScheduling        from "@/pages/industrial-management/WorkshopScheduling";
 import { IndustrialManagementLayout } from "@/components/IndustrialManagementLayout";
 
 const queryClient = new QueryClient();
@@ -158,8 +159,9 @@ function Router() {
         ) : location.startsWith("/industrial-management") ? (
           <IndustrialManagementLayout>
             <Switch>
-              <Route path="/industrial-management"                      component={IndustrialManagementHome} />
-              <Route path="/industrial-management/production-planning"  component={ProductionPlanning} />
+              <Route path="/industrial-management"                          component={IndustrialManagementHome} />
+              <Route path="/industrial-management/production-planning"      component={ProductionPlanning} />
+              <Route path="/industrial-management/workshop-scheduling"      component={WorkshopScheduling} />
               <Route component={NotFound} />
             </Switch>
           </IndustrialManagementLayout>

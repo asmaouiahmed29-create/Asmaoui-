@@ -53,10 +53,11 @@ const TOOLS: Tool[] = [
     icon: CalendarRange,
     nameAr: "جدولة الورشات",
     nameFr: "Ordonnancement des Ateliers",
-    descAr: "جدولة عمليات الإنتاج على الآلات لتقليل أوقات الانتظار وتعظيم استخدام الطاقة الإنتاجية.",
-    descFr: "Ordonnancez les opérations de production sur les machines pour minimiser les temps d'attente et maximiser l'utilisation des capacités.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    descAr: "جدولة المهام على آلة واحدة باستخدام قواعد SPT، EDD وFIFO — احسب التأخيرات وأوقات الإنهاء واحصل على توصيات إدارية.",
+    descFr: "Séquencez vos tâches sur une machine avec les règles SPT, EDD et FIFO — calculez les retards, temps de fin et obtenez des recommandations managériales.",
+    href: "/industrial-management/workshop-scheduling",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
   {
     id: "capacity-planning",
@@ -92,8 +93,8 @@ const TOOLS: Tool[] = [
 
 const MODULE_STATS = [
   { valueAr: "٥", valueFr: "5", labelAr: "أدوات مخططة", labelFr: "Outils planifiés" },
-  { valueAr: "١",  valueFr: "1",  labelAr: "أداة متاحة الآن", labelFr: "Outil disponible" },
-  { valueAr: "MRP", valueFr: "MRP", labelAr: "النموذج الأول المتاح", labelFr: "Premier modèle disponible" },
+  { valueAr: "٢",  valueFr: "2",  labelAr: "أدوات متاحة الآن", labelFr: "Outils disponibles" },
+  { valueAr: "MRP · SPT · EDD · FIFO", valueFr: "MRP · SPT · EDD · FIFO", labelAr: "الخوارزميات المدعومة", labelFr: "Algorithmes supportés" },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
