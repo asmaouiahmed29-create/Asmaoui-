@@ -58,6 +58,7 @@ import { SupplyChainLayout }   from "@/components/SupplyChainLayout";
 import IndustrialManagementHome  from "@/pages/industrial-management/IndustrialManagementHome";
 import ProductionPlanning        from "@/pages/industrial-management/ProductionPlanning";
 import WorkshopScheduling        from "@/pages/industrial-management/WorkshopScheduling";
+import CapacityPlanning          from "@/pages/industrial-management/CapacityPlanning";
 import { IndustrialManagementLayout } from "@/components/IndustrialManagementLayout";
 
 const queryClient = new QueryClient();
@@ -162,6 +163,7 @@ function Router() {
               <Route path="/industrial-management"                          component={IndustrialManagementHome} />
               <Route path="/industrial-management/production-planning"      component={ProductionPlanning} />
               <Route path="/industrial-management/workshop-scheduling"      component={WorkshopScheduling} />
+              <Route path="/industrial-management/capacity-planning"       component={CapacityPlanning} />
               <Route component={NotFound} />
             </Switch>
           </IndustrialManagementLayout>

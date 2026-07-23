@@ -64,10 +64,11 @@ const TOOLS: Tool[] = [
     icon: Gauge,
     nameAr: "تخطيط الطاقة الإنتاجية",
     nameFr: "Planification des Capacités",
-    descAr: "قيّم الطاقة الإنتاجية المتاحة مقابل الحمل المخطط واكتشف الاختناقات قبل أن تؤثر على الإنتاج.",
-    descFr: "Évaluez la capacité disponible face à la charge planifiée et identifiez les goulots d'étranglement avant qu'ils n'impactent la production.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    descAr: "قيّم الطاقة المتاحة مقابل الحمل المخطط لكل مركز عمل — اكتشف الاختناقات واحسب فجوات الطاقة واحصل على توصيات إدارية مستهدفة.",
+    descFr: "Évaluez la capacité disponible face à la charge planifiée par centre de travail — détectez les goulots, calculez les écarts et obtenez des recommandations managériales ciblées.",
+    href: "/industrial-management/capacity-planning",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
   {
     id: "quality-management",
@@ -93,7 +94,7 @@ const TOOLS: Tool[] = [
 
 const MODULE_STATS = [
   { valueAr: "٥", valueFr: "5", labelAr: "أدوات مخططة", labelFr: "Outils planifiés" },
-  { valueAr: "٢",  valueFr: "2",  labelAr: "أدوات متاحة الآن", labelFr: "Outils disponibles" },
+  { valueAr: "٣",  valueFr: "3",  labelAr: "أدوات متاحة الآن", labelFr: "Outils disponibles" },
   { valueAr: "MRP · SPT · EDD · FIFO", valueFr: "MRP · SPT · EDD · FIFO", labelAr: "الخوارزميات المدعومة", labelFr: "Algorithmes supportés" },
 ];
 
