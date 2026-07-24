@@ -86,16 +86,17 @@ const TOOLS: Tool[] = [
     icon: Wrench,
     nameAr: "صيانة المعدات",
     nameFr: "Maintenance des Équipements",
-    descAr: "خطط للصيانة الوقائية وتتبع أعطال المعدات واحسب معامل التوافرية لتقليل التوقفات غير المخطط لها.",
-    descFr: "Planifiez la maintenance préventive, suivez les pannes des équipements et calculez le taux de disponibilité pour réduire les arrêts imprévus.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    descAr: "احسب MTBF وMTTR ومعدل التوافرية لكل معدة — حدّد المعدات الحرجة واحصل على توصيات إدارية مستهدفة للحد من التوقفات غير المخططة.",
+    descFr: "Calculez le MTBF, le MTTR et la disponibilité de chaque équipement — identifiez les équipements critiques et obtenez des recommandations managériales ciblées.",
+    href: "/industrial-management/maintenance",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
 ];
 
 const MODULE_STATS = [
   { valueAr: "٥", valueFr: "5", labelAr: "أدوات مخططة", labelFr: "Outils planifiés" },
-  { valueAr: "٤",  valueFr: "4",  labelAr: "أدوات متاحة الآن", labelFr: "Outils disponibles" },
+  { valueAr: "٥",  valueFr: "5",  labelAr: "أدوات متاحة الآن", labelFr: "Outils disponibles" },
   { valueAr: "MRP · SPT · EDD · FIFO", valueFr: "MRP · SPT · EDD · FIFO", labelAr: "الخوارزميات المدعومة", labelFr: "Algorithmes supportés" },
 ];
 
