@@ -221,21 +221,24 @@ export function solveSimplex(input: ProblemInput): SolveResult {
     tableau.push(row);
   }
 
-  // Fix basis for >= constraints
-  // Rebuild basis properly
+  // Build initial basis correctly:
+  // "slack"    (<=)  → slack variable is the initial basis variable
+  // "surplus"  (>=)  → artificial is the initial basis variable (surplus is non-basic)
+  // "artificial" (=) → artificial is the initial basis variable
   const basisFixed: number[] = [];
   slackCount = 0;
   artCount = 0;
   for (let i = 0; i < m; i++) {
     const types = slackTypes[i];
-    if (types[0] === "<=") {
+    if (types[0] === "slack") {
       basisFixed.push(n + slackCount);
       slackCount++;
-    } else if (types[0] === ">=") {
+    } else if (types[0] === "surplus") {
       basisFixed.push(n + numSlack + artCount);
       slackCount++;
       artCount++;
     } else {
+      // "artificial" — equality constraint
       basisFixed.push(n + numSlack + artCount);
       artCount++;
     }
@@ -244,12 +247,13 @@ export function solveSimplex(input: ProblemInput): SolveResult {
   // Objective row
   const objRow: number[] = [...fullObj, 0];
 
-  // Big-M: subtract M * artificial rows from objective
+  // Big-M: eliminate artificial variables from the objective row.
+  // For each row whose basis variable is an artificial, subtract M * that row
+  // from objRow so the artificial's column becomes 0 (standard row-reduction).
   for (let i = 0; i < m; i++) {
     if (artificialIndices.includes(basisFixed[i])) {
-      const ai = basisFixed[i];
       for (let j = 0; j <= totalVars; j++) {
-        objRow[j] += BIG_M * tableau[i][j];
+        objRow[j] -= BIG_M * tableau[i][j];
       }
     }
   }
@@ -338,10 +342,11 @@ export function solveSimplex(input: ProblemInput): SolveResult {
       objRow[j] -= objFactor * tableau[pivRow][j];
     }
 
+    const leavingVarIdx = basisFixed[pivRow]; // capture BEFORE updating basis
     basisFixed[pivRow] = pivCol;
 
     const enteringName = varNames[pivCol] ?? `x${pivCol}`;
-    const leavingName = varNames[basisFixed[pivRow]] ?? `x${basisFixed[pivRow]}`;
+    const leavingName = varNames[leavingVarIdx] ?? `x${leavingVarIdx}`;
 
     recordStep(
       iteration,
