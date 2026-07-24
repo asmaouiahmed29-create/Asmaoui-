@@ -75,10 +75,11 @@ const TOOLS: Tool[] = [
     icon: ShieldCheck,
     nameAr: "إدارة الجودة",
     nameFr: "Gestion de la Qualité",
-    descAr: "تتبع معدلات العيوب ونسب الإتقان وتحليل أسباب الانحرافات الجودوية لتحسين مستمر للعملية الإنتاجية.",
-    descFr: "Suivez les taux de défauts, les taux de conformité et analysez les causes des écarts qualité pour une amélioration continue.",
-    active: false,
-    badge: { fr: "Bientôt", ar: "قريباً" },
+    descAr: "أنشئ بطاقات المراقبة الإحصائية (X-bar وP) لاكتشاف انجرافات العملية وتحديد النقاط خارج السيطرة والحصول على توصيات إدارية مستهدفة.",
+    descFr: "Construisez des cartes de contrôle statistique (X-bar et P) pour détecter les dérives de processus, identifier les points hors contrôle et obtenir des recommandations managériales ciblées.",
+    href: "/industrial-management/quality-control",
+    active: true,
+    badge: { fr: "Disponible", ar: "متاح" },
   },
   {
     id: "maintenance",
@@ -94,7 +95,7 @@ const TOOLS: Tool[] = [
 
 const MODULE_STATS = [
   { valueAr: "٥", valueFr: "5", labelAr: "أدوات مخططة", labelFr: "Outils planifiés" },
-  { valueAr: "٣",  valueFr: "3",  labelAr: "أدوات متاحة الآن", labelFr: "Outils disponibles" },
+  { valueAr: "٤",  valueFr: "4",  labelAr: "أدوات متاحة الآن", labelFr: "Outils disponibles" },
   { valueAr: "MRP · SPT · EDD · FIFO", valueFr: "MRP · SPT · EDD · FIFO", labelAr: "الخوارزميات المدعومة", labelFr: "Algorithmes supportés" },
 ];
 
