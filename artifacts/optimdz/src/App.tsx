@@ -21,10 +21,7 @@ import Solve from "@/pages/Solve";
 import Results from "@/pages/Results";
 import ScenarioCompare from "@/pages/ScenarioCompare";
 
-import TransportHome     from "@/pages/transportation/Home";
-import TransportSolve    from "@/pages/transportation/Solve";
-import TransportSolution from "@/pages/transportation/Solution";
-import TransportOptimize from "@/pages/transportation/Optimize";
+import Transport from "@/pages/transportation/Transport";
 
 import AssignmentHome     from "@/pages/assignment/Home";
 import AssignmentSolve    from "@/pages/assignment/Solve";
@@ -80,10 +77,7 @@ function Router() {
             <TransportProvider>
               <TransportLayout>
                 <Switch>
-                  <Route path="/transport"           component={TransportHome} />
-                  <Route path="/transport/solve"     component={TransportSolve} />
-                  <Route path="/transport/solution"  component={TransportSolution} />
-                  <Route path="/transport/optimize"  component={TransportOptimize} />
+                  <Route path="/transport" component={Transport} />
                   <Route component={NotFound} />
                 </Switch>
               </TransportLayout>

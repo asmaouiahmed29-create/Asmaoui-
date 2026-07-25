@@ -10,7 +10,7 @@ export function TransportNavbar() {
 
   const navItems = [
     { href: "/transport",       label: t("Tableau de bord", "لوحة القيادة"),  icon: LayoutDashboard },
-    { href: "/transport/solve", label: t("Nouveau Problème", "مسألة جديدة"),  icon: PlusCircle },
+    { href: "/transport", label: t("Nouveau Problème", "مسألة جديدة"),  icon: PlusCircle },
   ];
 
   return (
