@@ -128,7 +128,7 @@ function pageShell(content: string, pageNum: number, totalPages: number, title: 
           <span style="color:${C.white}; font-weight:700; font-size:16px; letter-spacing:0.5px;">OptimDZ</span>
         </div>
         <span style="color:rgba(255,255,255,0.75); font-size:11px;">${title}</span>
-        <span style="color:rgba(255,255,255,0.6); font-size:10px;">${pageNum} / ${totalPages}</span>
+        <span style="color:rgba(255,255,255,0.6); font-size:10px; direction:ltr; display:inline-block;">${pageNum} / ${totalPages}</span>
       </div>
 
       <!-- content -->
@@ -177,7 +177,7 @@ function buildCoverPage(
 
       <!-- main title block -->
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 40px; text-align:center; gap:16px;">
-        <div style="font-size:11px; letter-spacing:3px; color:${C.accent}; text-transform:uppercase; font-weight:600;">تقرير رسمي · Rapport Officiel</div>
+        <div style="font-size:11px; letter-spacing:3px; color:${C.accent}; text-transform:uppercase; font-weight:600; direction:rtl; unicode-bidi:bidi-override;">تقرير رسمي · Rapport Officiel</div>
         <div style="font-size:30px; font-weight:800; line-height:1.3; direction:rtl;">تقرير تحسين القرار الإداري</div>
         <div style="font-size:18px; font-weight:400; color:rgba(255,255,255,0.8);">Rapport d'Optimisation de Décision Managériale</div>
         <div style="width:60px; height:3px; background:${C.accent}; border-radius:2px; margin:8px 0;"></div>
@@ -189,8 +189,8 @@ function buildCoverPage(
       <!-- info cards -->
       <div style="padding:0 40px 32px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
         ${[
-          ["المدير / Responsable", managerName || "—"],
-          ["المؤسسة / Institution", institutionName || "—"],
+          ["المدير / Responsable", (managerName || "").trim() || "—"],
+          ["المؤسسة / Institution", (institutionName || "").trim() || "—"],
           ["القطاع / Secteur", sectorLabel(sector)],
           ["القيمة المثلى / Valeur Optimale", fmt(result.optimalValue ?? 0, "fr") + " DZD"],
           ["تاريخ الإصدار / Date", generatedAt],
@@ -204,7 +204,7 @@ function buildCoverPage(
       </div>
 
       <!-- stamp circle -->
-      <div style="position:absolute; bottom:60px; right:40px; width:110px; height:110px;">
+      <div style="position:absolute; top:90px; right:40px; width:110px; height:110px;">
         <svg width="110" height="110" viewBox="0 0 110 110">
           <circle cx="55" cy="55" r="52" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2"/>
           <circle cx="55" cy="55" r="44" fill="none" stroke="${C.accent}" stroke-width="1.5" stroke-dasharray="4 3"/>
@@ -453,12 +453,12 @@ function buildRecommendationsPage(input: ProblemInput, result: SolveResult, tota
   const actionItems = actions.map((a) => {
     const [bg, color] = typeColors[a.type] ?? [C.primaryLight, C.primary];
     return `
-      <div style="background:${bg}; border-right:4px solid ${color}; border-radius:8px; padding:12px 16px; margin-bottom:10px; display:flex; gap:12px; align-items:flex-start;">
+      <div style="background:${bg}; border-right:4px solid ${color}; border-radius:8px; padding:12px 16px; margin-bottom:10px; display:flex; gap:12px; align-items:flex-start; direction:ltr;">
         <div style="background:${color}; color:${C.white}; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0;">${a.rank}</div>
         <div style="flex:1;">
-          <div style="font-size:10px; font-weight:700; color:${color}; margin-bottom:4px;">${typeLabels[a.type] ?? ""}</div>
+          <div style="font-size:10px; font-weight:700; color:${color}; margin-bottom:4px; direction:ltr;">${typeLabels[a.type] ?? ""}</div>
           <div style="font-size:13px; color:${C.text}; direction:rtl; text-align:right; margin-bottom:2px;">${a.textAr}</div>
-          <div style="font-size:11px; color:${C.muted};">${a.textFr}</div>
+          <div style="font-size:11px; color:${C.muted}; direction:ltr;">${a.textFr}</div>
           ${a.impact > 0.5 ? `<div style="margin-top:4px; font-size:11px; font-weight:700; color:${color};">+ ${fmt(a.impact, "fr", 0)} DZD</div>` : ""}
         </div>
       </div>
@@ -675,8 +675,8 @@ function buildStampPage(
           ${[
             ["رقم التقرير · N° Rapport", reportId],
             ["تاريخ الإنشاء · Date de Génération", generatedAt],
-            ["المدير · Responsable", managerName || "—"],
-            ["المؤسسة · Institution", institutionName || "—"],
+            ["المدير · Responsable", (managerName || "").trim() || "—"],
+            ["المؤسسة · Institution", (institutionName || "").trim() || "—"],
           ].map(([label, value]) => `
             <div style="background:${C.white}; border:1px solid ${C.border}; border-radius:8px; padding:10px 14px;">
               <div style="font-size:9px; color:${C.muted}; margin-bottom:2px;">${label}</div>
