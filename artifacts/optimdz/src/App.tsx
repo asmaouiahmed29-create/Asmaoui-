@@ -8,7 +8,6 @@ import { ProblemProvider } from "@/lib/ProblemContext";
 import { ScenarioProvider } from "@/lib/ScenarioContext";
 import { TransportProvider } from "@/lib/TransportContext";
 import { TransportHistoryProvider } from "@/lib/TransportHistoryContext";
-import { AssignmentProvider } from "@/lib/AssignmentContext";
 import { AssignmentHistoryProvider } from "@/lib/AssignmentHistoryContext";
 import { Layout } from "@/components/Layout";
 import { TransportLayout } from "@/components/TransportLayout";
@@ -23,9 +22,7 @@ import ScenarioCompare from "@/pages/ScenarioCompare";
 
 import Transport from "@/pages/transportation/Transport";
 
-import AssignmentHome     from "@/pages/assignment/Home";
-import AssignmentSolve    from "@/pages/assignment/Solve";
-import AssignmentSolution from "@/pages/assignment/Solution";
+import Assignment from "@/pages/assignment/Assignment";
 
 import PertCpm from "@/pages/pert-cpm/PertCpm";
 import { PertLayout } from "@/components/PertLayout";
@@ -85,16 +82,12 @@ function Router() {
           </TransportHistoryProvider>
         ) : location.startsWith("/assignment") ? (
           <AssignmentHistoryProvider>
-            <AssignmentProvider>
-              <AssignmentLayout>
-                <Switch>
-                  <Route path="/assignment"           component={AssignmentHome} />
-                  <Route path="/assignment/solve"     component={AssignmentSolve} />
-                  <Route path="/assignment/solution"  component={AssignmentSolution} />
-                  <Route component={NotFound} />
-                </Switch>
-              </AssignmentLayout>
-            </AssignmentProvider>
+            <AssignmentLayout>
+              <Switch>
+                <Route path="/assignment" component={Assignment} />
+                <Route component={NotFound} />
+              </Switch>
+            </AssignmentLayout>
           </AssignmentHistoryProvider>
         ) : location.startsWith("/pert-cpm") ? (
           <PertLayout>

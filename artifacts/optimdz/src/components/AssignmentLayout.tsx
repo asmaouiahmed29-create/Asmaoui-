@@ -1,17 +1,11 @@
 import React from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { useLanguage } from "@/lib/LanguageContext";
 import { Button } from "@/components/ui/button";
-import { Users, LayoutDashboard, PlusCircle, ChevronLeft } from "lucide-react";
+import { Users, ChevronLeft } from "lucide-react";
 
 export function AssignmentNavbar() {
-  const [location] = useLocation();
   const { language, setLanguage, t } = useLanguage();
-
-  const navItems = [
-    { href: "/assignment",       label: t("Tableau de bord", "لوحة القيادة"), icon: LayoutDashboard },
-    { href: "/assignment/solve", label: t("Nouveau Problème", "مسألة جديدة"), icon: PlusCircle },
-  ];
 
   return (
     <header className="border-b bg-background sticky top-0 z-50 shadow-sm">
@@ -34,24 +28,13 @@ export function AssignmentNavbar() {
         </div>
 
         <nav className="hidden md:flex items-center gap-6">
-          {navItems.map((item) => {
-            const isActive = location === item.href;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`relative flex items-center gap-2 text-sm font-medium transition-colors h-16 ${
-                  isActive
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+          <Link
+            href="/assignment"
+            className="relative flex items-center gap-2 text-sm font-medium transition-colors h-16 text-primary border-b-2 border-primary"
+          >
+            <Users className="w-4 h-4" />
+            {t("Problème d'Affectation", "مسألة التوزيع")}
+          </Link>
         </nav>
 
         <Button

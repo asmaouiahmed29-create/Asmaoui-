@@ -6,7 +6,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import type { AssignmentProblem } from "./AssignmentContext";
 import type { HungarianResult } from "./hungarianAlgorithm";
 
-export type AssignmentSectorKey = "industry" | "trade" | "services" | "agriculture" | "custom";
+export type AssignmentSectorKey = "industry" | "trade" | "services" | "agriculture" | "energy" | "custom";
 
 export interface SavedAssignmentProblem {
   id:       string;
@@ -29,6 +29,7 @@ const SECTOR_NAME_FR: Record<AssignmentSectorKey, string> = {
   trade:       "Commerce",
   services:    "Services",
   agriculture: "Agriculture",
+  energy:      "Énergie",
   custom:      "Personnalisé",
 };
 const SECTOR_NAME_AR: Record<AssignmentSectorKey, string> = {
@@ -36,6 +37,7 @@ const SECTOR_NAME_AR: Record<AssignmentSectorKey, string> = {
   trade:       "تجارة",
   services:    "خدمات",
   agriculture: "فلاحة",
+  energy:      "طاقة",
   custom:      "مخصص",
 };
 
