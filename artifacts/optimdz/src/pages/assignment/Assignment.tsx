@@ -19,7 +19,7 @@ import {
   Plus, Trash2, ArrowRight,
   RotateCcw, AlertTriangle, CheckCircle2, Info,
   Ban, Target, GitMerge, BarChart3, BookmarkPlus, Download,
-  Star, Check, ArrowLeft, ChevronLeft, ChevronRight,
+  Star, Check, ArrowLeft, ChevronLeft, ChevronRight, Lightbulb,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -506,24 +506,278 @@ function StepExplanation({ step, language, isMax }: { step: DisplayStep; languag
   );
 }
 
+// ── Analysis / Recommendations builders ──────────────────────────────────────
+interface AnalysisLine { fr: string; ar: string; }
+interface Recommendation {
+  icon: string;
+  priority: "high" | "medium" | "low";
+  titleFr: string; titleAr: string;
+  descFr: string;  descAr: string;
+}
+
+function buildAnalysisLines(
+  result: HungarianResult,
+  isMax: boolean,
+  unit: string,
+  lang: string,
+): AnalysisLine[] {
+  const {
+    m, n, N, resourceNames, taskNames, originalCosts, finalAssignment,
+    unassignedResources, unassignedTasks, hasAlternativeOptima,
+    isInfeasible, totalCostReal, iterations, forbidden,
+  } = result;
+
+  const lines: AnalysisLine[] = [];
+  const realPairs = finalAssignment.filter(({ i, j }) => i < m && j < n);
+  const forbiddenCount = forbidden.flat().filter(Boolean).length;
+  const isSquare = m === n;
+  const kIter = iterations.length;
+  const us = unit ? ` ${unit}` : "";
+
+  // 1. Problem scope
+  lines.push({
+    fr: `La matrice d'affectation compte ${m} ressource${m > 1 ? "s" : ""} et ${n} tâche${n > 1 ? "s" : ""} — matrice ${isSquare ? "carrée" : "non carrée"} (${m}×${n}). L'objectif est la ${isMax ? "maximisation des performances" : "minimisation des coûts"}.`,
+    ar: `تضم مصفوفة التوزيع ${m} ${m > 1 ? "موارد" : "مورد"} و${n} ${n > 1 ? "مهام" : "مهمة"} — مصفوفة ${isSquare ? "مربعة" : "غير مربعة"} (${m}×${n}). الهدف هو ${isMax ? "تعظيم الأداء" : "تقليل التكاليف"}.`,
+  });
+
+  // 2. Optimal value with meaning
+  const valFmt = fmt(totalCostReal, lang);
+  if (isMax) {
+    lines.push({
+      fr: `L'algorithme a produit un score de performance optimal de ${valFmt}${us}. Chaque ressource est affectée à la tâche où son avantage comparatif est maximal — aucune permutation alternative ne peut dépasser ce total.`,
+      ar: `أنتجت الخوارزمية درجة أداء مثلى تبلغ ${valFmt}${us}. كل مورد مُخصَّص للمهمة التي يتميز فيها نسبياً أكثر — لا توجد أي مبادلة بديلة تتجاوز هذا المجموع.`,
+    });
+  } else {
+    lines.push({
+      fr: `La valeur optimale obtenue est ${valFmt}${us}. Parmi toutes les permutations d'affectation admissibles, cette combinaison minimise le coût total — aucune autre affectation ne peut faire mieux tout en respectant les contraintes.`,
+      ar: `القيمة المثلى المُحققة هي ${valFmt}${us}. من بين جميع تباديل التوزيع المقبولة، هذه التركيبة تُقلّل إجمالي التكلفة إلى أدنى مستوى ممكن مع احترام القيود.`,
+    });
+  }
+
+  // 3. Algorithm complexity
+  if (kIter <= 1) {
+    lines.push({
+      fr: `La résolution n'a nécessité que ${kIter === 0 ? "aucune" : "une seule"} itération de couverture : la matrice était déjà quasi-optimale après les étapes de réduction initiale. Le problème présente une faible complexité combinatoire.`,
+      ar: `لم تحتج الخوارزمية سوى ${kIter === 0 ? "أي" : "تكرار واحد"} من خطوات التغطية: كانت المصفوفة شبه مثلى بعد الاختزال مباشرةً — تعقيد تركيبي منخفض.`,
+    });
+  } else if (kIter <= 3) {
+    lines.push({
+      fr: `La résolution a nécessité ${kIter} itérations de couverture et d'ajustement — une complexité modérée, reflet d'une concurrence entre ressources pour les meilleures tâches.`,
+      ar: `احتاجت الخوارزمية إلى ${kIter} تكرارات من التغطية والتعديل — تعقيد معتدل يعكس تنافساً بين الموارد على أفضل المهام.`,
+    });
+  } else {
+    lines.push({
+      fr: `La résolution a requis ${kIter} itérations de couverture : le problème présente une structure combinatoire dense avec de nombreuses ressources en compétition. Ce niveau de complexité est entièrement pris en charge par l'algorithme.`,
+      ar: `احتاجت الخوارزمية إلى ${kIter} تكرارات من التغطية: المسألة ذات بنية تركيبية كثيفة مع تنافس شديد بين الموارد على أفضل المهام — هذا التعقيد مُعالَج بالكامل بواسطة الخوارزمية.`,
+    });
+  }
+
+  // 4. Non-square balancing
+  if (!isSquare) {
+    const addedFr = m < n ? "ressource fictive" : "tâche fictive";
+    const addedAr = m < n ? "مورد وهمي" : "مهمة وهمية";
+    const unassigned = m < n ? unassignedResources : unassignedTasks;
+    const unassignedNames = (m < n
+      ? unassignedResources.map(i => resourceNames[i])
+      : unassignedTasks.map(j => taskNames[j]));
+    lines.push({
+      fr: `La matrice étant non carrée (${m}×${n}), une ${addedFr} a été introduite pour équilibrer à ${N}×${N}. ${unassigned.length > 0 ? `En conséquence, ${unassignedNames.join(", ")} ${m < n ? "ne reçoit aucune tâche" : "n'est prise en charge par aucune ressource"} dans ce cycle.` : "Toutes les ressources et tâches ont néanmoins été honorées."}`,
+      ar: `بما أن المصفوفة غير مربعة (${m}×${n})، أُضيف ${addedAr} لتوازن الحجم إلى ${N}×${N}. ${unassigned.length > 0 ? `نتيجةً لذلك، ${unassignedNames.join("، ")} ${m < n ? "لا تُخصَّص لأي مهمة" : "لا يتكفل بها أي مورد"} في هذه الدورة.` : "مع ذلك، جميع الموارد والمهام تمت تغطيتها."}`,
+    });
+  }
+
+  // 5. Forbidden cells
+  if (forbiddenCount > 0) {
+    lines.push({
+      fr: `${forbiddenCount} cellule${forbiddenCount > 1 ? "s interdites" : " interdite"} ont restreint l'espace des solutions admissibles. Ces contraintes métier ont été intégralement respectées dans l'affectation finale${isInfeasible ? " — sauf une, dont le non-respect était inévitable pour garantir une affectation complète" : ""}.`,
+      ar: `${forbiddenCount} خلية${forbiddenCount > 1 ? " محظورة" : " محظورة"} قيّدت فضاء الحلول المقبولة. احتُرمت هذه القيود المهنية بالكامل في التوزيع النهائي${isInfeasible ? " — باستثناء قيد واحد كان تجاوزه حتمياً لضمان توزيع كامل" : ""}.`,
+    });
+  }
+
+  // 6. Best and worst pairs
+  if (realPairs.length >= 2) {
+    const sorted = [...realPairs].sort((a, b) =>
+      isMax
+        ? originalCosts[b.i][b.j] - originalCosts[a.i][a.j]
+        : originalCosts[a.i][a.j] - originalCosts[b.i][b.j]
+    );
+    const best  = sorted[0];
+    const worst = sorted[sorted.length - 1];
+    const bestVal  = fmt(originalCosts[best.i][best.j],  lang);
+    const worstVal = fmt(originalCosts[worst.i][worst.j], lang);
+    const gap = Math.abs(originalCosts[best.i][best.j] - originalCosts[worst.i][worst.j]);
+    lines.push(isMax ? {
+      fr: `La paire la plus performante est ${resourceNames[best.i]} → ${taskNames[best.j]} (${bestVal}${us}). La moins performante est ${resourceNames[worst.i]} → ${taskNames[worst.j]} (${worstVal}${us}) — un écart de ${fmt(gap, lang)}${us} qui illustre la dispersion des compétences au sein du groupe.`,
+      ar: `أفضل زوج من حيث الأداء هو ${resourceNames[best.i]} → ${taskNames[best.j]} (${bestVal}${us}). أضعف زوج هو ${resourceNames[worst.i]} → ${taskNames[worst.j]} (${worstVal}${us}) — بفجوة ${fmt(gap, lang)}${us} تعكس تباين الكفاءات داخل المجموعة.`,
+    } : {
+      fr: `La paire la moins coûteuse est ${resourceNames[best.i]} → ${taskNames[best.j]} (${bestVal}${us}). La plus coûteuse du plan est ${resourceNames[worst.i]} → ${taskNames[worst.j]} (${worstVal}${us}) — un écart de ${fmt(gap, lang)}${us} inhérent aux contraintes opérationnelles.`,
+      ar: `أقل زوج تكلفةً هو ${resourceNames[best.i]} → ${taskNames[best.j]} (${bestVal}${us}). أكثر زوج تكلفةً في الحل هو ${resourceNames[worst.i]} → ${taskNames[worst.j]} (${worstVal}${us}) — بفجوة ${fmt(gap, lang)}${us} ناتجة عن القيود التشغيلية.`,
+    });
+  }
+
+  // 7. Alternative optima
+  if (hasAlternativeOptima) {
+    lines.push({
+      fr: `Des affectations alternatives existent à la même valeur optimale. L'algorithme a retenu un plan parmi plusieurs équivalents — cette multiplicité laisse une marge de manœuvre pour des critères qualitatifs (équité, charge, préférences d'équipe).`,
+      ar: `توجد توزيعات بديلة بنفس القيمة المثلى تماماً. اختارت الخوارزمية خطة واحدة من بين عدة خطط متكافئة — هذا التعدد يُتيح هامشاً للتناوب وفق معايير نوعية (الإنصاف، التوازن، التفضيلات).`,
+    });
+  }
+
+  return lines;
+}
+
+function buildRecommendations(
+  result: HungarianResult,
+  isMax: boolean,
+  unit: string,
+  lang: string,
+): Recommendation[] {
+  const {
+    m, n, resourceNames, taskNames, originalCosts, finalAssignment,
+    unassignedResources, unassignedTasks, hasAlternativeOptima,
+    isInfeasible, forbidden,
+  } = result;
+
+  const recs: Recommendation[] = [];
+  const realPairs = finalAssignment.filter(({ i, j }) => i < m && j < n);
+  const forbiddenCount = forbidden.flat().filter(Boolean).length;
+  const isSquare = m === n;
+  const us = unit ? ` ${unit}` : "";
+
+  // 1. High — deploy plan
+  recs.push({
+    icon: "✅",
+    priority: "high",
+    titleFr: "Déployer immédiatement ce plan d'affectation",
+    titleAr: "تطبيق خطة التوزيع هذه فوراً",
+    descFr: `L'affectation est mathématiquement optimale — aucune autre combinaison ne fait mieux. Communiquez les ${realPairs.length} affectation${realPairs.length > 1 ? "s" : ""} retenue${realPairs.length > 1 ? "s" : ""} aux responsables concernés, formalisez-les dans un planning et archivez ce rapport comme référence du cycle en cours.`,
+    descAr: `التوزيع مضمون رياضياً على أنه مثالي — لا توجد أي تركيبة أخرى تُحقق نتيجة أفضل. أبلغ المسؤولين المعنيين بالتوزيعات الـ ${realPairs.length} المختارة، أدرجها في جدول زمني رسمي، واحتفظ بهذا التقرير كمرجع للدورة الحالية.`,
+  });
+
+  // 2. High — infeasible: review forbidden cells
+  if (isInfeasible) {
+    recs.push({
+      icon: "🚫",
+      priority: "high",
+      titleFr: "Revoir les contraintes d'interdiction — le problème est infaisable",
+      titleAr: "مراجعة قيود الحظر — المسألة غير قابلة للحل بالقيود الحالية",
+      descFr: `L'algorithme a dû enfreindre une interdiction pour produire une affectation complète. Revoyez vos cellules interdites : l'une d'elles est peut-être trop restrictive ou résulte d'une erreur de saisie. Assouplissez les contraintes ou adaptez les ressources disponibles pour rendre le problème faisable.`,
+      descAr: `اضطرت الخوارزمية لتجاوز قيد محظور لإنتاج توزيع كامل. راجع الخلايا المحظورة: ربما إحداها مُقيِّدة أكثر من اللازم أو نتيجة خطأ في الإدخال. خفّف القيود أو اضبط الموارد المتاحة لجعل المسألة قابلة للحل.`,
+    });
+  }
+
+  // 3. Medium — improve weakest pairing
+  if (realPairs.length >= 2) {
+    const sorted = [...realPairs].sort((a, b) =>
+      isMax
+        ? originalCosts[a.i][a.j] - originalCosts[b.i][b.j]
+        : originalCosts[b.i][b.j] - originalCosts[a.i][a.j]
+    );
+    const weakest  = sorted[0];
+    const weakVal  = fmt(originalCosts[weakest.i][weakest.j], lang);
+    recs.push(isMax ? {
+      icon: "📈",
+      priority: "medium",
+      titleFr: `Renforcer les compétences de ${resourceNames[weakest.i]} sur ${taskNames[weakest.j]}`,
+      titleAr: `تعزيز كفاءة ${resourceNames[weakest.i]} على ${taskNames[weakest.j]}`,
+      descFr: `La paire ${resourceNames[weakest.i]} → ${taskNames[weakest.j]} affiche le score le plus faible du plan (${weakVal}${us}). Un programme de formation ciblé ou un accompagnement par la ressource la plus performante permettrait d'élever le niveau global et d'améliorer la valeur optimale lors du prochain cycle d'affectation.`,
+      descAr: `الزوج ${resourceNames[weakest.i]} → ${taskNames[weakest.j]} يُسجّل أدنى نتيجة في الخطة (${weakVal}${us}). برنامج تدريب مستهدف أو إرشاد من المورد الأعلى أداءً سيرفع المستوى العام ويُحسّن القيمة المثلى في دورة التوزيع القادمة.`,
+    } : {
+      icon: "💰",
+      priority: "medium",
+      titleFr: `Réduire le coût du poste ${resourceNames[weakest.i]} → ${taskNames[weakest.j]}`,
+      titleAr: `تخفيض تكلفة البند ${resourceNames[weakest.i]} → ${taskNames[weakest.j]}`,
+      descFr: `Cette affectation représente le coût unitaire le plus élevé du plan (${weakVal}${us}). Analysez les causes (distance, durée, complexité) et évaluez si une formation, une réorganisation du poste ou un meilleur outillage peut réduire ce coût lors du prochain cycle.`,
+      descAr: `يمثل هذا التوزيع أعلى تكلفة وحدوية في الخطة (${weakVal}${us}). حلّل الأسباب (المسافة، المدة، التعقيد) وقيّم إمكانية تخفيض هذا البند عبر التدريب أو إعادة تنظيم الوظيفة أو تحسين الأدوات في الدورة القادمة.`,
+    });
+  }
+
+  // 4. Medium — use alternative optima
+  if (hasAlternativeOptima) {
+    recs.push({
+      icon: "↔️",
+      priority: "medium",
+      titleFr: "Exploiter les solutions équivalentes pour des critères secondaires",
+      titleAr: "استغلال الحلول المتكافئة لمعايير ثانوية",
+      descFr: `Plusieurs affectations donnent exactement la même valeur optimale. Profitez de cette équivalence pour retenir le plan qui satisfait le mieux des critères qualitatifs : équité de la charge de travail, ancienneté, proximité géographique, préférences des équipes ou équilibre social.`,
+      descAr: `عدة توزيعات تُعطي نفس القيمة المثلى تماماً. استغل هذا التكافؤ لاختيار الخطة التي تُرضي أكثر المعايير النوعية: العدالة في توزيع العبء، الأقدمية، القُرب الجغرافي، تفضيلات الفِرَق، أو التوازن الاجتماعي.`,
+    });
+  }
+
+  // 5a. Medium — unassigned resources (idle capacity)
+  if (!isSquare && unassignedResources.length > 0) {
+    const names = unassignedResources.map(i => resourceNames[i]).join(", ");
+    recs.push({
+      icon: "🏗️",
+      priority: "medium",
+      titleFr: `Valoriser la capacité disponible de : ${names}`,
+      titleAr: `توظيف الطاقة المتاحة لـ : ${names}`,
+      descFr: `${names} ne reçoit aucune tâche dans ce cycle (matrice non carrée). Envisagez de lui confier des tâches transversales, une action de formation, un soutien à une autre équipe, ou planifiez une rotation pour éviter tout sous-emploi prolongé.`,
+      descAr: `${names} غير مخصَّصة لأي مهمة في هذه الدورة (مصفوفة غير مربعة). فكّر في تكليفها بمهام عرضية، تدريب، دعم فريق آخر، أو تخطيط تناوب لتفادي البطالة المطوّلة.`,
+    });
+  }
+
+  // 5b. Medium — unassigned tasks (resource gap)
+  if (!isSquare && unassignedTasks.length > 0) {
+    const names = unassignedTasks.map(j => taskNames[j]).join(", ");
+    recs.push({
+      icon: "📋",
+      priority: "medium",
+      titleFr: `Pourvoir la tâche non couverte : ${names}`,
+      titleAr: `توفير مورد لتغطية المهمة غير المسندة : ${names}`,
+      descFr: `La tâche ${names} n'a été assignée à aucune ressource dans ce cycle. Évaluez un recrutement temporaire, un recours à la sous-traitance, ou réorganisez la priorité des tâches pour couvrir ce besoin lors de la prochaine période.`,
+      descAr: `المهمة ${names} لم تُسند لأي مورد في هذه الدورة. قيّم التوظيف المؤقت، الاستعانة بمقاول خارجي، أو أعد ترتيب أولويات المهام لتغطية هذه الحاجة في الفترة القادمة.`,
+    });
+  }
+
+  // 6. Low — document forbidden cells
+  if (forbiddenCount > 0 && !isInfeasible) {
+    recs.push({
+      icon: "📝",
+      priority: "low",
+      titleFr: "Documenter et réviser périodiquement les contraintes d'interdiction",
+      titleAr: "توثيق قيود الحظر ومراجعتها دورياً",
+      descFr: `${forbiddenCount} cellule${forbiddenCount > 1 ? "s" : ""} interdite${forbiddenCount > 1 ? "s" : ""} ont été appliquées. Chaque contrainte doit être documentée (raison, responsable, date de révision) et réévaluée à chaque cycle pour éviter qu'elle ne devienne obsolète ou trop restrictive.`,
+      descAr: `${forbiddenCount} خلية محظورة طُبّقت في هذه المسألة. يجب توثيق كل قيد رسمياً (السبب، المسؤول، تاريخ المراجعة) وإعادة تقييمه في كل دورة توزيع لتفادي تقادمه أو تقييده المفرط.`,
+    });
+  }
+
+  // 7. Low — periodic reassignment review
+  recs.push({
+    icon: "🔄",
+    priority: "low",
+    titleFr: "Planifier une révision périodique de l'affectation",
+    titleAr: "جدولة مراجعة دورية لخطة التوزيع",
+    descFr: `Toute affectation optimale l'est pour les données du moment. Planifiez une révision systématique à chaque changement significatif : nouvelles ressources, modification des coûts ou des performances, évolution des tâches disponibles. Archivez ce plan dans l'historique pour comparer les cycles futurs.`,
+    descAr: `أي توزيع مثالي هو مثالي وفق بيانات اللحظة الراهنة. خطّط لمراجعة منتظمة عند كل تغيير جوهري: موارد جديدة، تعديل التكاليف أو الأداء، تطور المهام المتاحة. أرشف هذه الخطة في السجل للمقارنة مع الدورات القادمة.`,
+  });
+
+  return recs;
+}
+
 // ── Analysis Tab ──────────────────────────────────────────────────────────────
 function AnalysisTab({
-  result, language, isMax, onSave, onPDF, isSaved, isExporting,
+  result, language, isMax, unit, onSave, onPDF, isSaved, isExporting,
 }: {
   result: HungarianResult;
   language: string;
   isMax: boolean;
+  unit: string;
   onSave: () => void;
   onPDF: () => void;
   isSaved: boolean;
   isExporting: boolean;
 }) {
   const tl = (fr: string, ar: string) => language === "ar" ? ar : fr;
+  const isAr = language === "ar";
   const {
     m, n, resourceNames, taskNames, originalCosts, finalAssignment,
     unassignedResources, unassignedTasks, hasAlternativeOptima, alternativeZeroCells,
     isInfeasible, iterations,
   } = result;
+
+  const analysisLines    = buildAnalysisLines(result, isMax, unit, language);
+  const recommendations  = buildRecommendations(result, isMax, unit, language);
 
   const realPairs = finalAssignment.filter(({ i, j }) => i < m && j < n);
   const coveringSteps = iterations.length;
@@ -662,6 +916,73 @@ function AnalysisTab({
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Situation analysis ──────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-primary" />
+            {tl("Analyse de la Situation", "تحليل الوضع")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-2">
+          {analysisLines.map((line, i) => (
+            <div key={i} className="flex items-start gap-3 rounded-lg bg-primary/5 border border-primary/15 p-3">
+              <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-sm leading-relaxed">{isAr ? line.ar : line.fr}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* ── Managerial recommendations ──────────────────────────────────────── */}
+      {recommendations.length > 0 && (
+        <Card className="border-2 border-primary/20">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-primary" />
+              {tl("Recommandations Managériales", "التوصيات الإدارية")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-3">
+            {recommendations.map((rec, i) => {
+              const colorClass =
+                rec.priority === "high"   ? "border-s-red-500 bg-red-50/60"     :
+                rec.priority === "medium" ? "border-s-amber-500 bg-amber-50/60" :
+                                            "border-s-blue-500 bg-blue-50/60";
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    "rounded-xl border-s-4 p-4 space-y-1.5",
+                    colorClass,
+                    isAr ? "border-s-0 border-e-4" : ""
+                  )}
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-base">{rec.icon}</span>
+                    <p className="font-bold text-sm">{isAr ? rec.titleAr : rec.titleFr}</p>
+                    <Badge
+                      className={cn(
+                        "text-[10px] ms-auto",
+                        rec.priority === "high"   ? "bg-red-600"   :
+                        rec.priority === "medium" ? "bg-amber-600" : "bg-blue-600"
+                      )}
+                    >
+                      {rec.priority === "high"   ? tl("Priorité haute",    "أولوية عالية")    :
+                       rec.priority === "medium" ? tl("Priorité moyenne",  "أولوية متوسطة") :
+                                                   tl("Priorité basse",    "أولوية منخفضة")}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {isAr ? rec.descAr : rec.descFr}
+                  </p>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <Button onClick={onSave} disabled={isSaved} variant={isSaved ? "outline" : "default"} className="flex-1 gap-2">
@@ -1427,6 +1748,7 @@ export default function Assignment() {
               result={result}
               language={language}
               isMax={solvedProblem.objectiveType === "maximize"}
+              unit={unit}
               onSave={handleSave}
               onPDF={handlePDF}
               isSaved={isSaved}
