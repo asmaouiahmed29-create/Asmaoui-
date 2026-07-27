@@ -27,6 +27,36 @@ const C = {
   white:        "#ffffff",
 };
 
+// ── Bidi-safe span helpers ─────────────────────────────────────────────────────
+// html2canvas re-implements text rendering and does not correctly apply the
+// Unicode Bidirectional Algorithm for mixed AR/FR inline text.  Without
+// explicit directional isolation, Arabic strong characters cause the whole
+// text run to be treated as RTL, reversing Latin characters entirely.
+// Wrapping each directional run in display:inline-block with an explicit
+// direction forces html2canvas to render each run independently.
+function arSpan(text: string): string {
+  return `<span style="display:inline-block;direction:rtl;unicode-bidi:isolate;">${text}</span>`;
+}
+function frSpan(text: string): string {
+  return `<span style="display:inline-block;direction:ltr;unicode-bidi:isolate;">${text}</span>`;
+}
+// Arabic · French  (Arabic shown first in source order)
+function arFr(ar: string, fr: string, sep = " · "): string {
+  return `${arSpan(ar)}${sep}${frSpan(fr)}`;
+}
+// French · Arabic  (French shown first in source order)
+function frAr(fr: string, ar: string, sep = " · "): string {
+  return `${frSpan(fr)}${sep}${arSpan(ar)}`;
+}
+// French / Arabic  (slash-separated, FR label first)
+function frSlashAr(fr: string, ar: string): string {
+  return `${frSpan(fr)} / ${arSpan(ar)}`;
+}
+// Arabic / French  (slash-separated, AR label first)
+function arSlashFr(ar: string, fr: string): string {
+  return `${arSpan(ar)} / ${frSpan(fr)}`;
+}
+
 function fmt(n: number, lang: string, decimals = 0): string {
   if (!isFinite(n)) return "∞";
   return n.toLocaleString(lang === "ar" ? "ar-DZ" : "fr-FR", {
@@ -41,11 +71,11 @@ function genReportId(): string {
 
 function sectorLabel(sector: string): string {
   const map: Record<string, string> = {
-    industry:    "صناعة / Industrie",
-    trade:       "تجارة / Commerce",
-    services:    "خدمات / Services",
-    agriculture: "فلاحة / Agriculture",
-    custom:      "مخصص / Personnalisé",
+    industry:    arSlashFr("صناعة", "Industrie"),
+    trade:       arSlashFr("تجارة", "Commerce"),
+    services:    arSlashFr("خدمات", "Services"),
+    agriculture: arSlashFr("فلاحة", "Agriculture"),
+    custom:      arSlashFr("مخصص", "Personnalisé"),
   };
   return map[sector] ?? sector;
 }
@@ -73,7 +103,7 @@ function pageShell(content: string, pageNum: number, totalPages: number, title: 
         ${content}
       </div>
       <div style="border-top:1px solid ${C.border}; padding:8px 36px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
-        <span style="font-size:9px; color:${C.muted};">نظام OptimDZ لدعم القرار الإداري — Système OptimDZ d'Aide à la Décision</span>
+        <span style="font-size:9px; color:${C.muted};">${arFr("نظام OptimDZ لدعم القرار الإداري", "Système OptimDZ d'Aide à la Décision", " — ")}</span>
         <span style="font-size:9px; color:${C.muted};">www.optimdz.replit.app</span>
       </div>
     </div>
@@ -94,7 +124,7 @@ function buildCover(
   const isMin  = problem.objectiveType === "minimize";
   const objFr  = isMin ? "Minimisation du Coût" : "Maximisation du Profit";
   const objAr  = isMin ? "تقليل التكلفة" : "تعظيم الربح";
-  const valLabel = isMin ? "التكلفة المثلى / Coût Optimal" : "الربح الأمثل / Profit Optimal";
+  const valLabel = isMin ? arSlashFr("التكلفة المثلى", "Coût Optimal") : arSlashFr("الربح الأمثل", "Profit Optimal");
 
   void totalPages;
   return `
@@ -116,21 +146,21 @@ function buildCover(
         </div>
       </div>
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 40px; text-align:center; gap:16px;">
-        <div style="font-size:11px; letter-spacing:3px; color:${C.accent}; text-transform:uppercase; font-weight:600;">تقرير رسمي · Rapport Officiel</div>
+        <div style="font-size:11px; letter-spacing:3px; color:${C.accent}; text-transform:uppercase; font-weight:600; direction:ltr;">${arFr("تقرير رسمي", "Rapport Officiel")}</div>
         <div style="font-size:28px; font-weight:800; line-height:1.3; direction:rtl;">تقرير تحسين مسألة النقل</div>
         <div style="font-size:17px; font-weight:400; color:rgba(255,255,255,0.8);">Rapport d'Optimisation du Problème de Transport</div>
         <div style="width:60px; height:3px; background:${C.accent}; border-radius:2px; margin:8px 0;"></div>
-        <div style="font-size:13px; color:rgba(255,255,255,0.7);">${objAr} · ${objFr}</div>
+        <div style="font-size:13px; color:rgba(255,255,255,0.7);">${arFr(objAr, objFr)}</div>
         <div style="font-size:14px; font-weight:600; margin-top:8px;">${lang === "ar" ? problem.name : problem.name}</div>
       </div>
       <div style="padding:0 40px 32px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
         ${[
-          ["المدير / Responsable", managerName || "—"],
-          ["المؤسسة / Institution", institutionName || "—"],
-          ["القطاع / Secteur", sectorLabel(problem.sector)],
+          [arSlashFr("المدير", "Responsable"), managerName || "—"],
+          [arSlashFr("المؤسسة", "Institution"), institutionName || "—"],
+          [arSlashFr("القطاع", "Secteur"), sectorLabel(problem.sector)],
           [valLabel, fmt(result.finalCost, lang) + " DZD"],
-          ["تاريخ الإصدار / Date", generatedAt],
-          ["رقم التقرير / N° Rapport", reportId],
+          [arSlashFr("تاريخ الإصدار", "Date"), generatedAt],
+          [arSlashFr("رقم التقرير", "N° Rapport"), reportId],
         ].map(([label, value]) => `
           <div style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:10px; padding:12px 16px;">
             <div style="font-size:9px; color:rgba(255,255,255,0.55); margin-bottom:4px;">${label}</div>
@@ -162,9 +192,9 @@ function buildSetupPage(problem: TransportProblem, result: MODIResult, pageNum: 
     <table style="width:100%; border-collapse:collapse; font-size:11px; margin-top:8px;">
       <thead>
         <tr style="background:${C.primary}; color:${C.white};">
-          <th style="padding:6px 8px; text-align:left; border:1px solid ${C.border};">Source / وجهة</th>
+          <th style="padding:6px 8px; text-align:left; border:1px solid ${C.border};">${frSlashAr("Source", "وجهة")}</th>
           ${balanced.destinations.map(d => `<th style="padding:6px 8px; text-align:center; border:1px solid ${C.border};">${d.name}</th>`).join("")}
-          <th style="padding:6px 8px; text-align:center; border:1px solid ${C.border}; background:${C.secondary};">Offre / عرض</th>
+          <th style="padding:6px 8px; text-align:center; border:1px solid ${C.border}; background:${C.secondary};">${frSlashAr("Offre", "عرض")}</th>
         </tr>
       </thead>
       <tbody>
@@ -180,7 +210,7 @@ function buildSetupPage(problem: TransportProblem, result: MODIResult, pageNum: 
           </tr>
         `).join("")}
         <tr style="background:${C.blueLight};">
-          <td style="padding:6px 8px; font-weight:600; border:1px solid ${C.border}; color:${C.blue};">Demande / طلب</td>
+          <td style="padding:6px 8px; font-weight:600; border:1px solid ${C.border}; color:${C.blue};">${frSlashAr("Demande", "طلب")}</td>
           ${balanced.destinations.map(d => `<td style="padding:6px 8px; text-align:center; font-weight:700; border:1px solid ${C.border}; color:${C.blue};">${fmt(d.demand, lang)}</td>`).join("")}
           <td style="padding:6px 8px; text-align:center; font-weight:700; border:1px solid ${C.border};">${fmt(balanced.sources.reduce((s,x)=>s+x.supply,0), lang)}</td>
         </tr>
@@ -189,7 +219,7 @@ function buildSetupPage(problem: TransportProblem, result: MODIResult, pageNum: 
   `;
 
   const content = `
-    <div style="font-size:18px; font-weight:800; color:${C.primary}; margin-bottom:4px;">Configuration du Problème · إعداد المسألة</div>
+    <div style="font-size:18px; font-weight:800; color:${C.primary}; margin-bottom:4px;">${frAr("Configuration du Problème", "إعداد المسألة")}</div>
     <div style="font-size:11px; color:${C.muted}; margin-bottom:16px;">${m} sources × ${n} destinations${hasDummySrc || hasDummyDest ? ` · Équilibrage appliqué (ligne/colonne fictive ajoutée)` : ""}</div>
     ${matrix}
     ${(hasDummySrc || hasDummyDest) ? `
@@ -200,7 +230,7 @@ function buildSetupPage(problem: TransportProblem, result: MODIResult, pageNum: 
       </div>
     ` : ""}
     <div style="margin-top:16px;">
-      <div style="font-size:14px; font-weight:700; color:${C.primary}; margin-bottom:8px;">Résumé · ملخص</div>
+      <div style="font-size:14px; font-weight:700; color:${C.primary}; margin-bottom:8px;">${frAr("Résumé", "ملخص")}</div>
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
         ${[
           ["Méthode initiale", result.initialMethod.toUpperCase()],
@@ -216,7 +246,7 @@ function buildSetupPage(problem: TransportProblem, result: MODIResult, pageNum: 
     </div>
   `;
 
-  return pageShell(content, pageNum, totalPages, "Configuration · الإعداد");
+  return pageShell(content, pageNum, totalPages, frAr("Configuration", "الإعداد"));
 }
 
 // ── MODI Iterations page ──────────────────────────────────────────────────────
@@ -243,7 +273,7 @@ function buildIterationsPage(result: MODIResult, pageNum: number, totalPages: nu
   }).join("");
 
   const content = `
-    <div style="font-size:18px; font-weight:800; color:${C.primary}; margin-bottom:4px;">Optimisation MODI · تحسين MODI</div>
+    <div style="font-size:18px; font-weight:800; color:${C.primary}; margin-bottom:4px;">${frAr("Optimisation MODI", "تحسين MODI")}</div>
     <div style="font-size:11px; color:${C.muted}; margin-bottom:16px;">
       ${result.iterations.length - 1} itération${result.iterations.length > 2 ? "s" : ""} effectuée${result.iterations.length > 2 ? "s" : ""}
       ${result.degeneracyHandled ? " · Dégénérescence traitée (ε-perturbation)" : ""}
@@ -280,7 +310,7 @@ function buildIterationsPage(result: MODIResult, pageNum: number, totalPages: nu
     </div>
   `;
 
-  return pageShell(content, pageNum, totalPages, "Optimisation MODI · التحسين");
+  return pageShell(content, pageNum, totalPages, frAr("Optimisation MODI", "التحسين"));
 }
 
 // ── Distribution Plan page ────────────────────────────────────────────────────
@@ -314,14 +344,14 @@ function buildDistributionPage(problem: TransportProblem, result: MODIResult, pa
   void zeroRows;
 
   const content = `
-    <div style="font-size:18px; font-weight:800; color:${C.primary}; margin-bottom:4px;">Plan de Distribution Optimal · خطة التوزيع المثلى</div>
-    <div style="font-size:11px; color:${C.muted}; margin-bottom:16px;">Routes actives uniquement · Routes utilisées dans la solution optimale</div>
+    <div style="font-size:18px; font-weight:800; color:${C.primary}; margin-bottom:4px;">${frAr("Plan de Distribution Optimal", "خطة التوزيع المثلى")}</div>
+    <div style="font-size:11px; color:${C.muted}; margin-bottom:16px;">${frAr("Routes actives uniquement", "Routes utilisées dans la solution optimale", " · ")}</div>
     <table style="width:100%; border-collapse:collapse; font-size:12px;">
       <thead>
         <tr style="background:${C.primary}; color:${C.white};">
-          <th style="padding:8px 10px; text-align:left; border:1px solid ${C.border};">Source / مصدر</th>
-          <th style="padding:8px 10px; text-align:left; border:1px solid ${C.border};">Destination / وجهة</th>
-          <th style="padding:8px 10px; text-align:center; border:1px solid ${C.border};">Quantité / كمية</th>
+          <th style="padding:8px 10px; text-align:left; border:1px solid ${C.border};">${frSlashAr("Source", "مصدر")}</th>
+          <th style="padding:8px 10px; text-align:left; border:1px solid ${C.border};">${frSlashAr("Destination", "وجهة")}</th>
+          <th style="padding:8px 10px; text-align:center; border:1px solid ${C.border};">${frSlashAr("Quantité", "كمية")}</th>
           <th style="padding:8px 10px; text-align:center; border:1px solid ${C.border};">Coût unitaire</th>
           <th style="padding:8px 10px; text-align:right; border:1px solid ${C.border};">Coût total</th>
         </tr>
@@ -329,13 +359,13 @@ function buildDistributionPage(problem: TransportProblem, result: MODIResult, pa
       <tbody>
         ${routeRows}
         <tr style="background:${C.greenLight}; font-weight:800;">
-          <td colspan="4" style="padding:8px 10px; border:1px solid ${C.border}; color:${C.green};">TOTAL OPTIMAL / المجموع الأمثل</td>
+          <td colspan="4" style="padding:8px 10px; border:1px solid ${C.border}; color:${C.green};">${frSlashAr("TOTAL OPTIMAL", "المجموع الأمثل")}</td>
           <td style="padding:8px 10px; text-align:right; border:1px solid ${C.border}; font-size:14px; color:${C.green};">${fmt(result.finalCost, lang)} DZD</td>
         </tr>
       </tbody>
     </table>
     <div style="margin-top:20px;">
-      <div style="font-size:14px; font-weight:700; color:${C.primary}; margin-bottom:10px;">Analyse de Sensibilité · تحليل الحساسية</div>
+      <div style="font-size:14px; font-weight:700; color:${C.primary}; margin-bottom:10px;">${frAr("Analyse de Sensibilité", "تحليل الحساسية")}</div>
       <table style="width:100%; border-collapse:collapse; font-size:11px;">
         <thead>
           <tr style="background:${C.secondary}; color:${C.white};">
@@ -361,7 +391,7 @@ function buildDistributionPage(problem: TransportProblem, result: MODIResult, pa
     </div>
   `;
 
-  return pageShell(content, pageNum, totalPages, "Distribution & Sensibilité · التوزيع والحساسية");
+  return pageShell(content, pageNum, totalPages, frAr("Distribution &amp; Sensibilité", "التوزيع والحساسية"));
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
