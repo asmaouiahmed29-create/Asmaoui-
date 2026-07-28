@@ -314,46 +314,105 @@ function buildIterationsPage(result: MODIResult, pageNum: number, totalPages: nu
 }
 
 // ── Distribution Plan page ────────────────────────────────────────────────────
-function buildDistributionPage(problem: TransportProblem, result: MODIResult, pageNum: number, totalPages: number, lang: string): string {
-  const { balanced, finalAllocation, sensitivityRanges } = result;
+function buildDistributionPage(
+  problem: TransportProblem,
+  result: MODIResult,
+  initialCost: number,
+  pageNum: number,
+  totalPages: number,
+  lang: string,
+): string {
+  const { balanced, sensitivityRanges } = result;
   const epsilonSet = new Set(result.epsilonCells.map(c => `${c.i},${c.j}`));
 
-  const activeRoutes = sensitivityRanges.filter(r => r.allocation > 0);
+  // Mirror the UI: active routes exclude epsilon cells (like AnalysisTab does)
+  const activeRoutes = sensitivityRanges.filter(
+    r => r.allocation > 0 && !epsilonSet.has(`${r.i},${r.j}`),
+  );
 
-  const routeRows = activeRoutes.map(r => `
-    <tr style="background:${C.white};">
+  const improvement = initialCost > 0
+    ? ((initialCost - result.finalCost) / initialCost) * 100
+    : 0;
+  const totalIters = result.iterations.length - 1;
+  const isMin = problem.objectiveType === "minimize";
+
+  // ── KPI strip (mirrors AnalysisTab's 4 cards) ─────────────────────────────
+  const kpiStrip = `
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px;">
+      <div style="background:${C.greenLight}; border:1px solid ${C.green}; border-radius:8px; padding:10px 12px;">
+        <div style="font-size:9px; color:${C.muted}; margin-bottom:3px;">${frSlashAr(isMin ? "Coût optimal" : "Profit optimal", isMin ? "التكلفة المثلى" : "الربح الأمثل")}</div>
+        <div style="font-size:15px; font-weight:800; color:${C.green};">${fmt(result.finalCost, lang)} DZD</div>
+      </div>
+      <div style="background:${C.white}; border:1px solid ${C.border}; border-radius:8px; padding:10px 12px;">
+        <div style="font-size:9px; color:${C.muted}; margin-bottom:3px;">${frSlashAr("Coût initial", "التكلفة الابتدائية")}</div>
+        <div style="font-size:15px; font-weight:800; color:${C.text};">${fmt(initialCost, lang)} DZD</div>
+      </div>
+      <div style="background:${C.white}; border:1px solid ${C.border}; border-radius:8px; padding:10px 12px;">
+        <div style="font-size:9px; color:${C.muted}; margin-bottom:3px;">${frSlashAr("Amélioration", "التحسين")}</div>
+        <div style="font-size:15px; font-weight:800; color:${improvement > 0 ? C.secondary : C.muted};">${improvement.toFixed(1)}%</div>
+      </div>
+      <div style="background:${C.white}; border:1px solid ${C.border}; border-radius:8px; padding:10px 12px;">
+        <div style="font-size:9px; color:${C.muted}; margin-bottom:3px;">${frSlashAr("Itérations MODI", "تكرارات MODI")}</div>
+        <div style="font-size:15px; font-weight:800; color:${C.text};">${totalIters}</div>
+      </div>
+    </div>
+  `;
+
+  // ── Distribution table ────────────────────────────────────────────────────
+  const routeRows = activeRoutes.map((r, idx) => `
+    <tr style="background:${idx % 2 === 0 ? C.white : C.primaryLight};">
       <td style="padding:6px 10px; border:1px solid ${C.border}; font-weight:600;">${r.sourceName}</td>
       <td style="padding:6px 10px; border:1px solid ${C.border}; font-weight:600;">${r.destName}</td>
       <td style="padding:6px 10px; text-align:center; border:1px solid ${C.border}; font-weight:700; color:${C.primary};">${fmt(r.allocation, lang)}</td>
       <td style="padding:6px 10px; text-align:center; border:1px solid ${C.border};">${fmt(r.unitCost, lang)}</td>
-      <td style="padding:6px 10px; text-align:right; border:1px solid ${C.border}; font-weight:600; color:${C.secondary};">${fmt(r.allocation * r.unitCost, lang)}</td>
+      <td style="padding:6px 10px; text-align:right; border:1px solid ${C.border}; font-weight:600; color:${C.secondary};">${fmt(r.allocation * r.unitCost, lang)} DZD</td>
     </tr>
   `).join("");
 
-  // Also show zero-allocation routes for completeness
-  const m = balanced.sources.length;
-  const n = balanced.destinations.length;
-  let zeroRows = "";
-  for (let i = 0; i < m; i++) {
-    for (let j = 0; j < n; j++) {
-      if ((finalAllocation[i]?.[j] ?? 0) === 0 && !epsilonSet.has(`${i},${j}`)) {
-        // non-used route
-      }
-    }
-  }
-  void zeroRows;
+  // ── Dummy row/col explanation alert (mirrors AnalysisTab) ─────────────────
+  const hasDummySrc  = balanced.dummySourceIndex !== null;
+  const hasDummyDest = balanced.dummyDestIndex   !== null;
+  const dummyAlert   = (hasDummySrc || hasDummyDest) ? `
+    <div style="margin-top:10px; padding:9px 12px; background:${C.orangeLight}; border-left:4px solid ${C.orange}; border-radius:4px; font-size:10px; color:${C.orange};">
+      ${hasDummySrc
+        ? `Source fictive (ligne ${(balanced.dummySourceIndex ?? 0) + 1}) : les quantités allouées représentent les capacités inutilisées de la destination correspondante.`
+        : `Destination fictive (colonne ${(balanced.dummyDestIndex ?? 0) + 1}) : les quantités allouées représentent les surplus non distribués de la source correspondante.`}
+    </div>
+  ` : "";
+
+  // ── Sensitivity table — with Alloc. column, epsilon filtered ─────────────
+  const sensitivityRows = sensitivityRanges
+    .filter(r => !epsilonSet.has(`${r.i},${r.j}`))
+    .map((r, idx) => `
+      <tr style="background:${idx % 2 === 0 ? C.white : C.primaryLight};">
+        <td style="padding:5px 8px; border:1px solid ${C.border}; font-size:10px;">
+          <span style="font-weight:600;">${r.sourceName}</span>
+          <span style="color:${C.muted};"> → </span>
+          <span>${r.destName}</span>
+        </td>
+        <td style="padding:5px 8px; text-align:center; border:1px solid ${C.border}; font-weight:700; color:${C.primary};">${fmt(r.allocation, lang)}</td>
+        <td style="padding:5px 8px; text-align:center; border:1px solid ${C.border}; font-weight:700;">${fmt(r.unitCost, lang)}</td>
+        <td style="padding:5px 8px; text-align:center; border:1px solid ${C.border}; font-size:10px;">[${fmt(r.lowerBound, lang, 1)},&nbsp;${r.upperBound === Infinity ? "∞" : fmt(r.upperBound, lang, 1)}]</td>
+        <td style="padding:5px 8px; text-align:center; border:1px solid ${C.border}; color:${C.orange};">${r.allowedDecrease === Infinity ? "∞" : fmt(r.allowedDecrease, lang, 1)}</td>
+        <td style="padding:5px 8px; text-align:center; border:1px solid ${C.border}; color:${C.secondary};">${r.allowedIncrease === Infinity ? "∞" : fmt(r.allowedIncrease, lang, 1)}</td>
+      </tr>
+    `).join("");
 
   const content = `
-    <div style="font-size:18px; font-weight:800; color:${C.primary}; margin-bottom:4px;">${frAr("Plan de Distribution Optimal", "خطة التوزيع المثلى")}</div>
-    <div style="font-size:11px; color:${C.muted}; margin-bottom:16px;">${frAr("Routes actives uniquement", "Routes utilisées dans la solution optimale", " · ")}</div>
+    <div style="font-size:18px; font-weight:800; color:${C.primary}; margin-bottom:4px;">${frAr("Analyse & Distribution", "التحليل والتوزيع")}</div>
+    <div style="font-size:11px; color:${C.muted}; margin-bottom:12px;">${frAr("Résultats optimaux — plan de distribution et analyse de sensibilité", "النتائج المثلى — خطة التوزيع وتحليل الحساسية")}</div>
+
+    ${kpiStrip}
+
+    <div style="font-size:14px; font-weight:700; color:${C.primary}; margin-bottom:8px;">${frAr("Plan de Distribution Optimal", "خطة التوزيع المثلى")}</div>
     <table style="width:100%; border-collapse:collapse; font-size:12px;">
       <thead>
         <tr style="background:${C.primary}; color:${C.white};">
           <th style="padding:8px 10px; text-align:left; border:1px solid ${C.border};">${frSlashAr("Source", "مصدر")}</th>
           <th style="padding:8px 10px; text-align:left; border:1px solid ${C.border};">${frSlashAr("Destination", "وجهة")}</th>
           <th style="padding:8px 10px; text-align:center; border:1px solid ${C.border};">${frSlashAr("Quantité", "كمية")}</th>
-          <th style="padding:8px 10px; text-align:center; border:1px solid ${C.border};">Coût unitaire</th>
-          <th style="padding:8px 10px; text-align:right; border:1px solid ${C.border};">Coût total</th>
+          <th style="padding:8px 10px; text-align:center; border:1px solid ${C.border};">${frSlashAr("Coût unit.", "تكلفة الوحدة")}</th>
+          <th style="padding:8px 10px; text-align:right; border:1px solid ${C.border};">${frSlashAr("Contribution", "المساهمة")}</th>
         </tr>
       </thead>
       <tbody>
@@ -364,29 +423,28 @@ function buildDistributionPage(problem: TransportProblem, result: MODIResult, pa
         </tr>
       </tbody>
     </table>
-    <div style="margin-top:20px;">
-      <div style="font-size:14px; font-weight:700; color:${C.primary}; margin-bottom:10px;">${frAr("Analyse de Sensibilité", "تحليل الحساسية")}</div>
+    ${dummyAlert}
+
+    <div style="margin-top:16px;">
+      <div style="font-size:14px; font-weight:700; color:${C.primary}; margin-bottom:6px;">${frAr("Analyse de Sensibilité", "تحليل الحساسية")}</div>
+      <div style="font-size:10px; color:${C.muted}; margin-bottom:8px;">
+        ${frAr(
+          "Plage de variation du coût unitaire pour laquelle la solution optimale actuelle reste valide.",
+          "نطاق تغيير التكلفة الوحدوية الذي يبقى فيه الحل الأمثل الحالي صالحاً.",
+        )}
+      </div>
       <table style="width:100%; border-collapse:collapse; font-size:11px;">
         <thead>
           <tr style="background:${C.secondary}; color:${C.white};">
-            <th style="padding:6px 8px; text-align:left; border:1px solid ${C.border};">Route</th>
-            <th style="padding:6px 8px; text-align:center; border:1px solid ${C.border};">Coût actuel</th>
-            <th style="padding:6px 8px; text-align:center; border:1px solid ${C.border};">Plage [min, max]</th>
+            <th style="padding:6px 8px; text-align:left; border:1px solid ${C.border};">${frSlashAr("Route", "المسار")}</th>
+            <th style="padding:6px 8px; text-align:center; border:1px solid ${C.border};">${frSlashAr("Alloc.", "التخصيص")}</th>
+            <th style="padding:6px 8px; text-align:center; border:1px solid ${C.border};">${frSlashAr("Coût actuel", "التكلفة الحالية")}</th>
+            <th style="padding:6px 8px; text-align:center; border:1px solid ${C.border};">${frSlashAr("Plage [min, max]", "النطاق [أدنى، أقصى]")}</th>
             <th style="padding:6px 8px; text-align:center; border:1px solid ${C.border};">Marge ↓</th>
             <th style="padding:6px 8px; text-align:center; border:1px solid ${C.border};">Marge ↑</th>
           </tr>
         </thead>
-        <tbody>
-          ${sensitivityRanges.map(r => `
-            <tr style="background:${C.white};">
-              <td style="padding:5px 8px; border:1px solid ${C.border}; font-size:10px;">${r.sourceName} → ${r.destName}</td>
-              <td style="padding:5px 8px; text-align:center; border:1px solid ${C.border}; font-weight:700;">${fmt(r.unitCost, lang)}</td>
-              <td style="padding:5px 8px; text-align:center; border:1px solid ${C.border};">[${fmt(r.lowerBound, lang, 2)}, ${r.upperBound === Infinity ? "∞" : fmt(r.upperBound, lang, 2)}]</td>
-              <td style="padding:5px 8px; text-align:center; border:1px solid ${C.border}; color:${C.orange};">${r.allowedDecrease === Infinity ? "∞" : fmt(r.allowedDecrease, lang, 2)}</td>
-              <td style="padding:5px 8px; text-align:center; border:1px solid ${C.border}; color:${C.secondary};">${r.allowedIncrease === Infinity ? "∞" : fmt(r.allowedIncrease, lang, 2)}</td>
-            </tr>
-          `).join("")}
-        </tbody>
+        <tbody>${sensitivityRows}</tbody>
       </table>
     </div>
   `;
@@ -407,7 +465,7 @@ export interface GenerateTransportPDFOptions {
 }
 
 export async function generateTransportPDF(opts: GenerateTransportPDFOptions): Promise<void> {
-  const { problem, modiResult, managerName, institutionName, language, onProgress } = opts;
+  const { problem, modiResult, initialCost, managerName, institutionName, language, onProgress } = opts;
   const lang = language;
 
   onProgress("Préparation du rapport…", 5);
@@ -423,7 +481,7 @@ export async function generateTransportPDF(opts: GenerateTransportPDFOptions): P
     buildCover(problem, modiResult, managerName, institutionName, reportId, generatedAt, TOTAL_PAGES, lang),
     buildSetupPage(problem, modiResult, 2, TOTAL_PAGES, lang),
     buildIterationsPage(modiResult, 3, TOTAL_PAGES, lang),
-    buildDistributionPage(problem, modiResult, 4, TOTAL_PAGES, lang),
+    buildDistributionPage(problem, modiResult, initialCost, 4, TOTAL_PAGES, lang),
   ];
 
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
