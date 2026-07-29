@@ -329,7 +329,7 @@ function buildAnalysisPage(
   const { activities, criticalPath, projectDuration } = result;
   const critActs    = activities.filter((a) => a.isCritical);
   const nonCritActs = activities.filter((a) => !a.isCritical);
-  const maxSlack    = Math.max(...activities.map((a) => a.slack), 0);
+  const maxSlack    = nonCritActs.length > 0 ? Math.max(...nonCritActs.map((a) => a.slack)) : 0;
   const avgSlack    = nonCritActs.length > 0
     ? nonCritActs.reduce((s, a) => s + a.slack, 0) / nonCritActs.length : 0;
 
@@ -342,38 +342,38 @@ function buildAnalysisPage(
 
   const highSlackActs = [...nonCritActs].sort((a, b) => b.slack - a.slack).slice(0, 3);
 
-  const situationParagraph = `
-    <div style="background:${C.primaryLight};border-radius:8px;padding:14px 16px;margin-bottom:16px;direction:rtl;text-align:right;">
-      <div style="font-size:12px;color:${C.text};line-height:1.8;">
-        يضم المشروع <strong>${activities.length} نشاطاً</strong>، تنتهي على مدار 
-        <strong>${mode === "PERT" ? f(projectDuration, 2) : projectDuration} أسبوع</strong>.
-        المسار الحرج يشمل <strong>${criticalPath.length} نشاطاً</strong> (${criticalPath.join("→")})
-        لا تتمتع بأي مهلة ويجب مراقبتها باستمرار.
-        ${nonCritActs.length > 0 
-          ? `أما الأنشطة الـ${nonCritActs.length} غير الحرجة فلديها مهلة متوسطة ${f(avgSlack, 1)} أسبوع، 
-             ويمكن توظيف هذه المرونة في إعادة توزيع الموارد.`
-          : "جميع الأنشطة حرجة ولا يوجد هامش للتأخير."}
-        ${mode === "PERT"
-          ? ` الانحراف المعياري للمشروع ${f(result.projectStdDev, 2)} أسبوع يعكس درجة عدم اليقين في الجدول الزمني.`
-          : ""}
-      </div>
+  // ── Situational analysis lines (mirrors PertAnalysisReport.tsx analysisLines) ──
+  const analysisLine = (icon: string, bgColor: string, borderColor: string, text: string) =>
+    `<div style="display:flex;align-items:flex-start;gap:10px;border-radius:8px;border:1px solid ${borderColor};
+      background:${bgColor};padding:10px 14px;margin-bottom:8px;">
+      <span style="font-size:16px;line-height:1.3;flex-shrink:0;">${icon}</span>
+      <span style="font-size:12px;color:${C.text};line-height:1.7;">${text}</span>
     </div>`;
 
-  const crashSection = crash && crash.steps.length > 0 ? `
-    <div style="background:${C.orangeLight};border-right:4px solid ${C.orange};border-radius:8px;padding:12px 16px;margin-bottom:16px;direction:rtl;text-align:right;">
-      <div style="font-size:11px;font-weight:700;color:${C.orange};margin-bottom:6px;">📉 نتيجة تسريع المشروع</div>
-      <div style="font-size:12px;color:${C.text};line-height:1.7;">
-        تم تقليص المدة من <strong>${f(crash.originalDuration, 2)}</strong> إلى 
-        <strong>${f(crash.achievedDuration, 2)} أسبوع</strong> (توفير ${f(crash.originalDuration - crash.achievedDuration, 2)} أسبوع)
-        بتكلفة مباشرة إضافية 
-        <strong>${fDZD(crash.steps.reduce((s, st) => s + st.addedDirectCost, 0))}</strong>.
-        ${crash.isTargetAchieved ? "المدة المستهدفة حُققت بالكامل." : `لم تُحقق المدة المستهدفة (${f(crash.targetDuration, 2)} أسبوع) — جميع إمكانيات التسريع استُنفدت.`}
-        ${crash.minCostPoint ? ` النقطة الأمثل للتكلفة الإجمالية هي ${f(crash.minCostPoint.duration, 2)} أسبوع.` : ""}
-      </div>
-    </div>` : "";
+  const line1 = analysisLine(
+    "📊", C.primaryLight, "rgba(0,77,64,0.3)",
+    `المشروع "<strong>${projectName || "—"}</strong>" يضم <strong>${activities.length} نشاطاً</strong> بمدة إجمالية <strong>${f(projectDuration, 2)} أسبوع</strong>. المسار الحرج (${criticalPath.join("→")}) يشمل <strong>${critActs.length} نشاطاً</strong> بلا أي مهلة.<br>
+    <em style="color:${C.muted};">Le projet comprend ${activities.length} activités — durée ${f(projectDuration, 2)} sem. Chemin critique: ${criticalPath.join("→")} (${critActs.length} act. sans marge).</em>`
+  );
+  const line2 = nonCritActs.length > 0 ? analysisLine(
+    "🔄", "#e8f5e9", "#a5d6a7",
+    `<strong>${nonCritActs.length} نشاط غير حرج</strong> بمهلة متوسطة ${f(avgSlack, 1)} أسبوع (أقصاها ${f(maxSlack, 1)} أسبوع) — مرونة يمكن استثمارها في توزيع الموارد.<br>
+    <em style="color:${C.muted};">${nonCritActs.length} activité(s) non critique(s) — marge moy. ${f(avgSlack, 1)} sem. (max ${f(maxSlack, 1)} sem.) — flexibilité exploitable.</em>`
+  ) : "";
+  const line3 = (mode === "PERT" && result.projectVariance !== undefined) ? analysisLine(
+    "📈", "#fff8e1", "#ffe082",
+    `في نمط PERT: التباين σ²=${f(result.projectVariance, 4)} (σ=${f(result.projectStdDev ?? 0, 4)} أسبوع) — مؤشر عدم اليقين في الجدول الزمني.<br>
+    <em style="color:${C.muted};">Mode PERT — variance σ²=${f(result.projectVariance, 4)}, écart-type σ=${f(result.projectStdDev ?? 0, 4)} sem.</em>`
+  ) : "";
+  const line4 = (crash && crash.steps.length > 0) ? analysisLine(
+    "⚡", C.orangeLight, "#ffcc80",
+    `تحليل التسريع خفّض المدة من <strong>${f(crash.originalDuration, 2)}</strong> إلى <strong>${f(crash.achievedDuration, 2)} أسبوع</strong> (وفر ${f(crash.originalDuration - crash.achievedDuration, 2)} أسبوع) بتكلفة إضافية <strong>${fDZD(crash.steps.reduce((s, st) => s + st.addedDirectCost, 0))}</strong>. ${crash.isTargetAchieved ? "تم تحقيق الهدف." : "لم يتحقق الهدف — استُنفدت إمكانيات التسريع."}<br>
+    <em style="color:${C.muted};">Crashing: durée ${f(crash.originalDuration, 2)} → ${f(crash.achievedDuration, 2)} sem. — surcoût ${fDZD(crash.steps.reduce((s, st) => s + st.addedDirectCost, 0))}. ${crash.isTargetAchieved ? "Objectif atteint." : "Objectif non atteint."}</em>`
+  ) : "";
 
+  // ── Risk activities ──────────────────────────────────────────────────────────
   const riskSection = riskActs.length > 0 ? `
-    ${subTitle("أنشطة الخطر · Activités à Risque", C.orange)}
+    ${subTitle("Activités à Risque", "أنشطة الخطر", C.orange)}
     <div style="margin-bottom:14px;">
       ${riskActs.map((a) => `
         <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:${C.orangeLight};
@@ -388,36 +388,107 @@ function buildAnalysisPage(
         </div>`).join("")}
     </div>` : "";
 
+  // ── Recommendations (mirrors suggestions in PertAnalysisReport.tsx) ──────────
   const recommItems = [
-    `<div style="background:${C.primaryLight};border-right:4px solid ${C.primary};border-radius:7px;padding:10px 14px;margin-bottom:8px;">
-      <div style="font-size:10px;font-weight:700;color:${C.primary};margin-bottom:3px;">⚠️ المسار الحرج · Surveillance Critique</div>
-      <div style="font-size:12px;color:${C.text};direction:rtl;text-align:right;">
-        يجب مراقبة الأنشطة ${critActs.map((a) => a.id).join("، ")} بصفة يومية — أي تأخر فيها يُؤخر المشروع بأكمله.
+    // 1. Monitor critical path
+    `<div style="background:${C.primaryLight};border-left:4px solid ${C.primary};border-radius:7px;padding:10px 14px;margin-bottom:8px;">
+      <div style="font-size:10px;font-weight:700;color:${C.primary};margin-bottom:3px;">⚠️ ${mode === "PERT" ? "مراقبة المسار الحرج · Surveiller le chemin critique" : "مراقبة المسار الحرج · Surveiller le chemin critique"}</div>
+      <div style="font-size:11px;color:${C.text};">
+        الأولوية القصوى لأنشطة ${critActs.map((a) => a.id).join("، ")} — أي تأخير فيها يُؤخر المشروع بالكامل.<br>
+        <em style="color:${C.muted};">Priorité max. aux activités ${critActs.map((a) => a.id).join(", ")} — tout retard impacte la fin du projet.</em>
       </div>
     </div>`,
-    mode === "PERT" && riskActs.length > 0
-      ? `<div style="background:${C.orangeLight};border-right:4px solid ${C.orange};border-radius:7px;padding:10px 14px;margin-bottom:8px;">
-          <div style="font-size:10px;font-weight:700;color:${C.orange};margin-bottom:3px;">📊 عدم اليقين PERT · Incertitude PERT</div>
-          <div style="font-size:12px;color:${C.text};direction:rtl;text-align:right;">
-            الأنشطة ${riskActs.map((a) => a.id).join("، ")} ذات تشتت عالٍ — أعد التقديرات مع الفريق لتضييق النطاق O-M-P.
-          </div>
-        </div>` : "",
+    // 2. PERT uncertainty / low-slack
+    riskActs.length > 0
+      ? (mode === "PERT"
+        ? `<div style="background:#fff8e1;border-left:4px solid #f59e0b;border-radius:7px;padding:10px 14px;margin-bottom:8px;">
+            <div style="font-size:10px;font-weight:700;color:#b45309;margin-bottom:3px;">📊 تقليص عدم اليقين PERT · Réduire l'incertitude PERT</div>
+            <div style="font-size:11px;color:${C.text};">
+              أنشطة ${riskActs.map((a) => a.id).join("، ")} ذات تشتت عالٍ — أعد تقديرات O/M/P مع الفريق.<br>
+              <em style="color:${C.muted};">Activités ${riskActs.map((a) => a.id).join(", ")} à variance élevée — révisez O/M/P.</em>
+            </div>
+          </div>`
+        : `<div style="background:#fff8e1;border-left:4px solid #f59e0b;border-radius:7px;padding:10px 14px;margin-bottom:8px;">
+            <div style="font-size:10px;font-weight:700;color:#b45309;margin-bottom:3px;">⏱️ أنشطة ذات مهلة ضيقة · Activités à marge faible</div>
+            <div style="font-size:11px;color:${C.text};">
+              أنشطة ${riskActs.map((a) => `${a.id} (${f(a.slack, 2)} أسبوع)`).join("، ")} ذات مهلة ضيقة — تستوجب متابعة دقيقة.<br>
+              <em style="color:${C.muted};">Activités ${riskActs.map((a) => `${a.id} (${f(a.slack, 2)} sem.)`).join(", ")} à surveiller de près.</em>
+            </div>
+          </div>`
+      ) : "",
+    // 3. Reallocate high-slack resources
     highSlackActs.length > 0
-      ? `<div style="background:${C.greenLight};border-right:4px solid ${C.green};border-radius:7px;padding:10px 14px;margin-bottom:8px;">
-          <div style="font-size:10px;font-weight:700;color:${C.green};margin-bottom:3px;">🔄 إعادة توزيع الموارد · Réaffectation</div>
-          <div style="font-size:12px;color:${C.text};direction:rtl;text-align:right;">
-            الأنشطة ${highSlackActs.map((a) => `${a.id} (مهلة ${f(a.slack, 1)} أسبوع)`).join("، ")} يمكن تأجيل بعض مواردها لتعزيز المسار الحرج.
+      ? `<div style="background:${C.greenLight};border-left:4px solid ${C.green};border-radius:7px;padding:10px 14px;margin-bottom:8px;">
+          <div style="font-size:10px;font-weight:700;color:${C.green};margin-bottom:3px;">🔄 إعادة توزيع الموارد غير المستغلة · Réaffecter les ressources sous-utilisées</div>
+          <div style="font-size:11px;color:${C.text};">
+            أنشطة ${highSlackActs.map((a) => `${a.id} (مهلة ${f(a.slack, 1)} أسبوع)`).join("، ")} يمكنها التنازل عن بعض مواردها للمسار الحرج.<br>
+            <em style="color:${C.muted};">Activités ${highSlackActs.map((a) => `${a.id} (marge ${f(a.slack, 1)} sem.)`).join(", ")} peuvent céder des ressources au chemin critique.</em>
           </div>
         </div>` : "",
+    // 4. Crashing feasibility (mirrors 4th suggestion in PertAnalysisReport.tsx)
+    crash
+      ? (crash.isTargetAchieved
+        ? `<div style="background:${C.greenLight};border-left:4px solid ${C.green};border-radius:7px;padding:10px 14px;margin-bottom:8px;">
+            <div style="font-size:10px;font-weight:700;color:${C.green};margin-bottom:3px;">✅ التسريع قابل للتنفيذ · Crashing réalisable</div>
+            <div style="font-size:11px;color:${C.text};">
+              المدة المستهدفة ${f(crash.targetDuration, 2)} أسبوع قابلة للتحقق في ${crash.steps.length} خطوة بتكلفة إضافية ${fDZD(crash.steps.reduce((s, st) => s + st.addedDirectCost, 0))}.<br>
+              <em style="color:${C.muted};">Durée cible ${f(crash.targetDuration, 2)} sem. atteignable en ${crash.steps.length} étapes — surcoût ${fDZD(crash.steps.reduce((s, st) => s + st.addedDirectCost, 0))}.</em>
+            </div>
+          </div>`
+        : `<div style="background:${C.orangeLight};border-left:4px solid ${C.orange};border-radius:7px;padding:10px 14px;margin-bottom:8px;">
+            <div style="font-size:10px;font-weight:700;color:${C.orange};margin-bottom:3px;">🔶 التسريع قابل للتنفيذ جزئياً · Crashing partiellement réalisable</div>
+            <div style="font-size:11px;color:${C.text};">
+              المدة الدنيا الممكنة ${f(crash.achievedDuration, 2)} أسبوع — الهدف ${f(crash.targetDuration, 2)} أسبوع يتجاوز إمكانيات التسريع.<br>
+              <em style="color:${C.muted};">Durée min. réalisable ${f(crash.achievedDuration, 2)} sem. — la cible ${f(crash.targetDuration, 2)} sem. dépasse les possibilités.</em>
+            </div>
+          </div>`
+      ) : "",
   ].filter(Boolean).join("");
 
+  // ── Managerial Report Card — KPI grid + critical path (mirrors PertAnalysisReport.tsx) ──
+  const kpiItems: [string, string][] = [
+    ["المدة الإجمالية · Durée totale", f(projectDuration, 2) + " sem."],
+    ["مجموع الأنشطة · Activités totales", String(activities.length)],
+    ["الأنشطة الحرجة · Activités critiques", `${critActs.length} / ${activities.length}`],
+    ...(result.projectStdDev !== undefined ? [["الانحراف σ(T) · Écart-type", f(result.projectStdDev, 4) + " sem."] as [string, string]] : []),
+    ...(crash && crash.steps.length > 0 ? [
+      ["المدة بعد التسريع · Durée après crashing", f(crash.achievedDuration, 2) + " sem."] as [string, string],
+      ["تكلفة التسريع · Coût de crashing", fDZD(crash.steps.reduce((s, st) => s + st.addedDirectCost, 0))] as [string, string],
+    ] : []),
+  ];
+
+  const kpiGrid = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+      ${kpiItems.map(([label, value]) => `
+        <div style="border:1px solid ${C.border};border-radius:8px;padding:9px 12px;background:${C.white};">
+          <div style="font-size:9px;color:${C.muted};margin-bottom:2px;line-height:1.3;">${label}</div>
+          <div style="font-size:13px;font-weight:800;color:${C.text};">${value}</div>
+        </div>`).join("")}
+    </div>`;
+
+  const critPathBadges = criticalPath.map((id, i) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;">
+      <span style="background:${C.primary};color:${C.white};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;font-family:monospace;">${id}</span>
+      ${i < criticalPath.length - 1 ? `<span style="color:${C.primary};font-size:12px;">→</span>` : ""}
+    </span>`
+  ).join("");
+
+  const reportCard = `
+    ${subTitle("Rapport Managérial · KPIs", "بطاقة التقرير الإداري", C.primary)}
+    ${kpiGrid}
+    <div style="border-radius:8px;background:rgba(0,77,64,0.05);border:1px solid rgba(0,77,64,0.2);padding:10px 14px;margin-bottom:8px;">
+      <div style="font-size:9px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">المسار الحرج · Chemin critique</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">${critPathBadges}</div>
+      <div style="font-size:10px;color:${C.muted};margin-top:5px;">${criticalPath.map((id) => activities.find((a) => a.id === id)?.name ?? id).join(" → ")}</div>
+    </div>`;
+
   const content = `
-    ${sectionTitle("التحليل الموقفي والتوصيات", "Analyse Situationnelle & Recommandations")}
-    ${situationParagraph}
-    ${crashSection}
-    ${subTitle("التوصيات الإدارية الأولوية", "Actions Managériales Prioritaires", C.primary)}
+    ${sectionTitle("Analyse Situationnelle & Recommandations", "التحليل الموقفي والتوصيات")}
+    ${line1}${line2}${line3}${line4}
+    ${subTitle("Actions Managériales Prioritaires", "التوصيات الإدارية الأولوية", C.primary)}
     ${recommItems}
-    ${riskSection}`;
+    ${riskSection}
+    ${reportCard}`;
 
   return pageShell(content, pageNum, totalPages, "التوصيات · Recommandations");
 }
