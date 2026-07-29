@@ -34,9 +34,9 @@ export interface VariancePDFOptions {
   objective: VarianceObjective;
   rows: VarianceRowResult[];
   totals: VarianceTotals;
-  dominantFactor: "price" | "qty" | "equal";
-  analysisLines: string[];
-  suggestions: { icon: string; title: string; desc: string }[];
+  dominantFactor: "price" | "qty" | "var3" | "var4" | "equal";
+  analysisLines: { icon: string; text: string; color: string }[];
+  suggestions: { icon: string; title: string; desc: string; color?: string; borderColor?: string }[];
   managerName?: string;
   institutionName?: string;
   onProgress?: (step: string, pct: number) => void;
@@ -82,6 +82,53 @@ function favorableColor(n: number, fav: "positive" | "negative"): string {
   if (n === 0) return C.muted;
   const isGood = fav === "positive" ? n > 0 : n < 0;
   return isGood ? C.green : C.red;
+}
+
+// Convert Tailwind bg class → inline CSS background color
+function twBg(cls: string): string {
+  const map: Record<string, string> = {
+    "bg-primary/10":    "rgba(0,77,64,0.1)",
+    "bg-primary/5":     "rgba(0,77,64,0.05)",
+    "bg-secondary/10":  "rgba(58,125,68,0.1)",
+    "bg-green-50":      "#f0fdf4",
+    "bg-red-50":        "#fef2f2",
+    "bg-orange-50":     "#fff7ed",
+    "bg-amber-50":      "#fffbeb",
+    "bg-teal-50":       "#f0fdfa",
+    "bg-slate-50":      "#f8fafc",
+  };
+  for (const [k, v] of Object.entries(map)) {
+    if (cls.includes(k)) return v;
+  }
+  return C.primaryLight;
+}
+
+// Convert Tailwind border class → inline CSS border/left-border color
+function twBorder(cls: string): string {
+  const map: Record<string, string> = {
+    "border-primary/30":   "rgba(0,77,64,0.3)",
+    "border-primary":      "#004d40",
+    "border-secondary/30": "rgba(58,125,68,0.3)",
+    "border-green-200":    "#bbf7d0",
+    "border-green-300":    "#86efac",
+    "border-red-200":      "#fecaca",
+    "border-red-300":      "#fca5a5",
+    "border-orange-300":   "#fdba74",
+    "border-amber-300":    "#fcd34d",
+    "border-teal-300":     "#5eead4",
+    "border-l-primary":    "#004d40",
+    "border-l-green-600":  "#16a34a",
+    "border-l-green-500":  "#22c55e",
+    "border-l-red-500":    "#ef4444",
+    "border-l-amber-500":  "#f59e0b",
+    "border-l-orange-500": "#f97316",
+    "border-l-teal-500":   "#14b8a6",
+    "border-l-slate-400":  "#94a3b8",
+  };
+  for (const [k, v] of Object.entries(map)) {
+    if (cls.includes(k)) return v;
+  }
+  return C.accent;
 }
 
 // ── Page shell ────────────────────────────────────────────────────────────────
@@ -321,16 +368,25 @@ function buildResultsPage(opts: VariancePDFOptions, totalPages: number) {
 
 // ── Page 3: Analysis + Recommendations ───────────────────────────────────────
 function buildAnalysisPage(opts: VariancePDFOptions, totalPages: number) {
-  const analysisHtml = opts.analysisLines.map(line => `
-    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:${C.primaryLight};border-radius:6px;margin-bottom:7px;font-size:10px;line-height:1.65;">
-      ${line}
-    </div>`).join("");
+  const analysisHtml = opts.analysisLines.map(line => {
+    const bg  = twBg(line.color);
+    const bdr = twBorder(line.color);
+    return `
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:${bg};border:1px solid ${bdr};border-radius:6px;margin-bottom:7px;font-size:10px;line-height:1.65;">
+      <span style="font-size:14px;flex-shrink:0;">${line.icon}</span>
+      <span>${line.text}</span>
+    </div>`;
+  }).join("");
 
-  const suggestionsHtml = opts.suggestions.map(s => `
-    <div style="border-left:4px solid ${C.accent};padding:8px 12px;background:${C.white};border-radius:0 6px 6px 0;margin-bottom:8px;">
+  const suggestionsHtml = opts.suggestions.map(s => {
+    const bg  = twBg(s.color ?? "bg-white");
+    const bdr = twBorder(s.borderColor ?? "border-l-amber-500");
+    return `
+    <div style="border-left:4px solid ${bdr};padding:8px 12px;background:${bg};border-radius:0 6px 6px 0;margin-bottom:8px;">
       <div style="font-size:10.5px;font-weight:700;color:${C.text};margin-bottom:3px;">${s.icon} ${s.title}</div>
       <div style="font-size:9.5px;color:${C.muted};line-height:1.65;">${s.desc}</div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 
   const lbl = objLabels(opts.objective);
   const fav = lbl.fav;
@@ -345,7 +401,12 @@ function buildAnalysisPage(opts: VariancePDFOptions, totalPages: number) {
     ...(isOverheadPage && lbl.var3Fr ? [{ label: `${lbl.var3Ar ?? ""} · ${lbl.var3Fr}`, value: fDA(tot.var3 ?? 0), color: fc(tot.var3 ?? 0) }] : []),
     { label: `${lbl.qtyAr} · ${lbl.qtyFr}`,        value: fDA(tot.qtyVariance),    color: fc(tot.qtyVariance) },
     { label: "الإجمالي · Total",                    value: fDA(tot.totalVariance),  color: fc(tot.totalVariance) },
-    { label: "العوامل المسيطرة · Facteur dominant", value: opts.dominantFactor === "price" ? lbl.priceFr : opts.dominantFactor === "qty" ? lbl.qtyFr : "Équilibrés", color: C.primary },
+    { label: "العوامل المسيطرة · Facteur dominant", value:
+        opts.dominantFactor === "price" ? lbl.priceFr :
+        opts.dominantFactor === "qty"   ? lbl.qtyFr :
+        opts.dominantFactor === "var3"  ? (lbl.var3Fr ?? lbl.qtyFr) :
+        opts.dominantFactor === "var4"  ? (lbl.var4Fr ?? lbl.priceFr) :
+        "Équilibrés", color: C.primary },
   ];
 
   const kpiGrid = kpis.map(k => `

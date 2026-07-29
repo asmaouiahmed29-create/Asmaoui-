@@ -837,9 +837,9 @@ export function VarianceAnalysisReport({ problemName, sector, objective, rows, t
         objective={objective}
         rows={rows}
         totals={totals}
-        dominantFactor={dominantFactor === "var3" || dominantFactor === "var4" ? "equal" : dominantFactor}
-        analysisLines={analysisLines.map(l => l.text)}
-        suggestions={suggestions.map(s => ({ icon: s.icon, title: s.title, desc: s.desc }))}
+        dominantFactor={dominantFactor}
+        analysisLines={analysisLines}
+        suggestions={suggestions}
       />
     </div>
   );
