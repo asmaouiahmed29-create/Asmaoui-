@@ -1193,6 +1193,7 @@ export default function Assignment() {
       await generateAssignmentPDF({
         problem: solvedProblem,
         result,
+        unit,
         managerName: "",
         institutionName: "",
         language,
