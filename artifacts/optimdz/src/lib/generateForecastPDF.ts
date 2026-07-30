@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import type { ForecastResult, ForecastMode } from "./forecastAlgorithm";
+import type { ForecastResult, ForecastMode, ForecastProduct } from "./forecastAlgorithm";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface ForecastPDFOptions {
@@ -8,6 +8,7 @@ export interface ForecastPDFOptions {
   problemName: string;
   sector: string;
   results: ForecastResult[];
+  products?: ForecastProduct[];
   analysisLines: string[];
   suggestions: { icon: string; title: string; desc: string }[];
   managerName?: string;
@@ -147,6 +148,11 @@ function buildResultsPage(opts: ForecastPDFOptions, totalPages: number): string 
   const lbl = modeLabel(opts.mode);
 
   const tablesHtml = opts.results.map(r => {
+    const prod = opts.products?.find(p => p.id === r.id);
+    const modelParam = r.mode === "moving-average"
+      ? `N = ${prod?.windowSize ?? "—"} فترات / périodes`
+      : `α = ${prod?.alpha ?? "—"}`;
+
     const rows = r.dataPoints.map((dp, i) => {
       const isNext = i === r.dataPoints.length - 1;
       const actualStr   = dp.actual   !== null ? fNum(dp.actual, 0)   : "—";
@@ -199,9 +205,15 @@ function buildResultsPage(opts: ForecastPDFOptions, totalPages: number): string 
           </thead>
           <tbody>${rows}</tbody>
         </table>
-        <div style="margin-top:6px;padding:8px 12px;background:${C.primaryLight};border-radius:6px;font-size:9.5px;">
-          <strong>تنبؤ الفترة القادمة / Prévision prochaine période :</strong>
-          <span style="color:${C.green};font-weight:800;font-size:12px;margin-left:8px;">${fNum(r.nextForecast, 1)} وحدة</span>
+        <div style="margin-top:6px;padding:8px 12px;background:${C.primaryLight};border-radius:6px;font-size:9.5px;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <strong>تنبؤ الفترة القادمة / Prévision prochaine période :</strong>
+            <span style="color:${C.green};font-weight:800;font-size:12px;margin-left:8px;">${fNum(r.nextForecast, 1)} وحدة</span>
+          </div>
+          <div style="font-size:8.5px;color:${C.muted};text-align:right;">
+            <div>نموذج / Modèle : ${r.mode === "moving-average" ? "Moyenne Mobile" : "Lissage Exponentiel"}</div>
+            <div>${modelParam}</div>
+          </div>
         </div>
       </div>`;
   }).join("");

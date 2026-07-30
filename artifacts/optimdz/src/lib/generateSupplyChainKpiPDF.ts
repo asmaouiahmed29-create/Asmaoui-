@@ -173,7 +173,7 @@ function buildCover(opts: ScKpiPDFOptions, reportId: string, generatedAt: string
 function buildResultsPage(opts: ScKpiPDFOptions, totalPages: number) {
   const lbl = makeLbl(opts.language);
   const { results } = opts;
-  const rows: { label: string; value: string; bench: string; status: KpiStatus | null; color: string; bg: string }[] = [];
+  const rows: { label: string; value: string; bench: string; status: KpiStatus | null; score: number | null; color: string; bg: string }[] = [];
 
   if (results.tauxRotation) {
     rows.push({
@@ -181,6 +181,7 @@ function buildResultsPage(opts: ScKpiPDFOptions, totalPages: number) {
       value: fRot(results.tauxRotation.value),
       bench: lbl("≥ 6 : Bon · 2–6 : Moyen · < 2 : Mauvais", "≥ ٦ : جيد · ٢–٦ : متوسط · < ٢ : ضعيف"),
       status: results.tauxRotation.status,
+      score: results.tauxRotation.score,
       color: statusColor(results.tauxRotation.status),
       bg: statusBg(results.tauxRotation.status),
     });
@@ -191,6 +192,7 @@ function buildResultsPage(opts: ScKpiPDFOptions, totalPages: number) {
       value: fPct(results.tauxService.value),
       bench: lbl("≥ 95% : Bon · 90–95% : Moyen · < 90% : Mauvais", "≥ ٩٥% : جيد · ٩٠–٩٥% : متوسط · < ٩٠% : ضعيف"),
       status: results.tauxService.status,
+      score: results.tauxService.score,
       color: statusColor(results.tauxService.status),
       bg: statusBg(results.tauxService.status),
     });
@@ -205,6 +207,7 @@ function buildResultsPage(opts: ScKpiPDFOptions, totalPages: number) {
         `نقل: ${fDA(b.coutTransport)} · تخزين: ${fDA(b.coutStockage)} · طلب: ${fDA(b.coutCommande)} · نقص: ${fDA(b.coutRupture)}`,
       ),
       status: null,
+      score: null,
       color: C.primary,
       bg: C.primaryLight,
     });
@@ -215,6 +218,7 @@ function buildResultsPage(opts: ScKpiPDFOptions, totalPages: number) {
       value: fPct(results.tauxRupture.value),
       bench: lbl("≤ 1% : Bon · 1–5% : Moyen · > 5% : Mauvais", "≤ ١% : جيد · ١–٥% : متوسط · > ٥% : ضعيف"),
       status: results.tauxRupture.status,
+      score: results.tauxRupture.score,
       color: statusColor(results.tauxRupture.status),
       bg: statusBg(results.tauxRupture.status),
     });
@@ -225,9 +229,16 @@ function buildResultsPage(opts: ScKpiPDFOptions, totalPages: number) {
     <div style="font-size:10px;color:${C.muted};margin-bottom:20px;">${results.problemName} · ${lbl("Période", "فترة")} : ${results.period}</div>
     ${rows.map(r => `
       <div style="background:${r.bg};border:1px solid ${r.color}44;border-radius:10px;padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
-        <div>
+        <div style="flex:1;min-width:0;">
           <div style="font-size:11px;font-weight:700;color:${C.text};margin-bottom:4px;">${r.label}</div>
-          <div style="font-size:9px;color:${C.muted};">${r.bench}</div>
+          <div style="font-size:9px;color:${C.muted};margin-bottom:${r.score !== null ? "8px" : "0"};">${r.bench}</div>
+          ${r.score !== null ? `
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;height:6px;background:rgba(0,0,0,0.1);border-radius:3px;overflow:hidden;max-width:200px;">
+              <div style="height:100%;width:${r.score}%;background:${r.color};border-radius:3px;"></div>
+            </div>
+            <span style="font-size:8.5px;font-weight:700;color:${r.color};">${lbl("Score", "نقاط الأداء")} : ${r.score}/100</span>
+          </div>` : ""}
         </div>
         <div style="text-align:right;flex-shrink:0;margin-left:16px;">
           <div style="font-size:22px;font-weight:800;color:${r.color};">${r.value}</div>

@@ -172,9 +172,33 @@ function buildResultsPage(opts: SupplierPDFOptions, total: number): string {
       </div>`;
   }).join("");
 
+  // ── Top Supplier Highlight (mirrors the hero card on the results page) ──────
+  const ana = opts.analysis;
+  const topHighlight = ana ? `
+    <div style="background:${C.primary};border-radius:12px;padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:16px;">
+      <div style="width:44px;height:44px;background:rgba(255,255,255,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;">🏆</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:9px;color:rgba(255,255,255,0.65);margin-bottom:3px;">المورد الموصى به · Fournisseur recommandé</div>
+        <div style="font-size:17px;font-weight:900;color:${C.white};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ana.topSupplier.name || "—"}</div>
+        ${ana.runnerUp ? `<div style="font-size:9px;color:rgba(255,255,255,0.65);margin-top:3px;">المرتبة الثانية · 2ème : ${ana.runnerUp.name} (${fNum(ana.runnerUp.totalScore, 1)}/100)</div>` : ""}
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:28px;font-weight:900;color:#fbbf24;">${fNum(ana.topSupplier.totalScore, 1)}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,0.6);">/ 100</div>
+      </div>
+    </div>
+    ${ana.tooClose && ana.runnerUp ? `
+    <div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:9px;color:${C.text};display:flex;align-items:center;gap:8px;">
+      <span style="font-size:14px;">⚠️</span>
+      <span>نقاط متقاربة جداً (فارق ${fNum(ana.gapAbsolute, 1)} نقطة — ${fNum(ana.gapPct, 1)}%) · Scores très proches — double sourcing recommandé.</span>
+    </div>` : ""}
+  ` : "";
+
   const content = `
     ${secTitle("نتائج التقييم المرجّح", "Résultats — Classement Pondéré")}
     <div style="font-size:10px;color:${C.muted};margin-bottom:14px;">${opts.problemName} — Échelle : 0–${opts.scale}</div>
+
+    ${topHighlight}
 
     <div style="overflow-x:auto;margin-bottom:20px;">
       <table style="width:100%;border-collapse:collapse;min-width:${colW * (opts.criteria.length + 2)}px;">

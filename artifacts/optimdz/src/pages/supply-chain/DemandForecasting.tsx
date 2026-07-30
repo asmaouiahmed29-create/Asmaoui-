@@ -333,6 +333,7 @@ export default function DemandForecasting() {
         problemName: problemName || t("Prévision de la Demande", "تنبؤ بالطلب"),
         sector: sector ? (SECTORS.find(s => s.id === sector)?.[isAr ? "nameAr" : "nameFr"] ?? sector) : "—",
         results,
+        products,
         analysisLines,
         suggestions,
         onProgress: (step) => setPdfProgress(step),
