@@ -11,7 +11,7 @@ export interface InventoryPDFOptions {
   reorderResults?: ReorderResult[];
   abcResults?: ABCResult[];
   analysisLines: string[];
-  suggestions: { icon: string; title: string; desc: string }[];
+  suggestions: { icon: string; title: string; desc: string; bgHex?: string; borderHex?: string }[];
   managerName?: string;
   institutionName?: string;
   onProgress?: (step: string, pct: number) => void;
@@ -32,7 +32,11 @@ const C = {
   red:          "#c62828",
   redLight:     "#ffebee",
   blue:         "#1565c0",
+  blueLight:    "#e3f2fd",
   orange:       "#e65100",
+  orangeLight:  "#fff3e0",
+  amberBorder:  "#f59e0b",
+  amberBg:      "#fffbeb",
 };
 
 function genId(): string {
@@ -63,6 +67,119 @@ function modeLabel(mode: InventoryMode) {
 
 function catColor(cat: "A" | "B" | "C") {
   return { A: C.green, B: C.blue, C: C.orange }[cat];
+}
+
+function catLightBg(cat: "A" | "B" | "C") {
+  return { A: C.greenLight, B: C.blueLight, C: C.orangeLight }[cat];
+}
+
+// ── Pareto SVG chart ──────────────────────────────────────────────────────────
+function buildParetoSvg(results: ABCResult[]): string {
+  const W = 680, H = 200;
+  const mL = 52, mR = 46, mT = 15, mB = 58;
+  const cW = W - mL - mR;
+  const cH = H - mT - mB;
+  const n = results.length;
+  const slot = cW / n;
+  const barW = Math.max(8, Math.floor(slot * 0.6));
+  const maxVal = results[0]?.annualValue ?? 1;
+
+  // Grid lines & left Y axis (values)
+  const gridAndYLeft = [0, 0.25, 0.5, 0.75, 1].map(pct => {
+    const y = mT + cH * (1 - pct);
+    const val = maxVal * pct;
+    const lbl = val >= 1_000_000 ? (val / 1_000_000).toFixed(1) + "M"
+              : val >= 1_000     ? (val / 1_000).toFixed(0) + "k"
+              : Math.round(val).toString();
+    return `<line x1="${mL}" y1="${y.toFixed(1)}" x2="${mL + cW}" y2="${y.toFixed(1)}"
+              stroke="#e0e0e0" stroke-width="0.5" stroke-dasharray="3,3"/>
+            <text x="${(mL - 4).toFixed(1)}" y="${(y + 3.5).toFixed(1)}"
+              font-size="7" text-anchor="end" fill="${C.muted}">${lbl}</text>`;
+  }).join("");
+
+  // Right Y axis (percentage)
+  const yRight = [0, 25, 50, 75, 100].map(pct => {
+    const y = mT + cH * (1 - pct / 100);
+    return `<text x="${(W - mR + 4).toFixed(1)}" y="${(y + 3.5).toFixed(1)}"
+      font-size="7" text-anchor="start" fill="${C.accent}">${pct}%</text>`;
+  }).join("");
+
+  // Bars
+  const bars = results.map((r, i) => {
+    const x = mL + i * slot + (slot - barW) / 2;
+    const bh = cH * (r.annualValue / maxVal);
+    const y = mT + cH - bh;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}"
+      width="${barW}" height="${bh.toFixed(1)}"
+      fill="${catColor(r.category)}" rx="2" opacity="0.85"/>`;
+  }).join("");
+
+  // Cumulative line
+  const pts = results.map((r, i) => {
+    const x = mL + i * slot + slot / 2;
+    const y = mT + cH * (1 - r.cumulativePercentage / 100);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const dots = results.map((r, i) => {
+    const x = mL + i * slot + slot / 2;
+    const y = mT + cH * (1 - r.cumulativePercentage / 100);
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${C.accent}" stroke="${C.white}" stroke-width="1"/>`;
+  }).join("");
+
+  // 80% and 95% reference lines
+  const y80 = mT + cH * (1 - 80 / 100);
+  const y95 = mT + cH * (1 - 95 / 100);
+  const refLines = `
+    <line x1="${mL}" y1="${y80.toFixed(1)}" x2="${mL + cW}" y2="${y80.toFixed(1)}"
+      stroke="${C.green}" stroke-width="1" stroke-dasharray="5,3" opacity="0.6"/>
+    <text x="${(mL + cW + 2).toFixed(1)}" y="${(y80 - 2).toFixed(1)}"
+      font-size="6.5" fill="${C.green}" opacity="0.8">80%</text>
+    <line x1="${mL}" y1="${y95.toFixed(1)}" x2="${mL + cW}" y2="${y95.toFixed(1)}"
+      stroke="${C.blue}" stroke-width="1" stroke-dasharray="5,3" opacity="0.5"/>
+    <text x="${(mL + cW + 2).toFixed(1)}" y="${(y95 - 2).toFixed(1)}"
+      font-size="6.5" fill="${C.blue}" opacity="0.7">95%</text>`;
+
+  // X axis labels (truncated, rotated)
+  const xLabels = results.map((r, i) => {
+    const x = mL + i * slot + slot / 2;
+    const y = mT + cH + 8;
+    const raw = r.name.replace(/\s*\/\s*.+$/, "").trim(); // keep Arabic side only
+    const lbl = raw.length > 12 ? raw.substring(0, 12) + "…" : raw;
+    return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="7"
+      text-anchor="end" fill="${C.muted}"
+      transform="rotate(-38,${x.toFixed(1)},${y.toFixed(1)})">${lbl}</text>`;
+  }).join("");
+
+  // Axes
+  const axes = `
+    <line x1="${mL}" y1="${mT}" x2="${mL}" y2="${mT + cH}" stroke="${C.muted}" stroke-width="1"/>
+    <line x1="${mL}" y1="${mT + cH}" x2="${mL + cW}" y2="${mT + cH}" stroke="${C.muted}" stroke-width="1"/>`;
+
+  // Legend
+  const legendY = H - 6;
+  const legend = `
+    <rect x="${mL}" y="${legendY - 7}" width="10" height="7" fill="${C.green}" rx="1"/>
+    <text x="${mL + 13}" y="${legendY}" font-size="7" fill="${C.muted}">A</text>
+    <rect x="${mL + 28}" y="${legendY - 7}" width="10" height="7" fill="${C.blue}" rx="1"/>
+    <text x="${mL + 41}" y="${legendY}" font-size="7" fill="${C.muted}">B</text>
+    <rect x="${mL + 56}" y="${legendY - 7}" width="10" height="7" fill="${C.orange}" rx="1"/>
+    <text x="${mL + 69}" y="${legendY}" font-size="7" fill="${C.muted}">C</text>
+    <line x1="${mL + 90}" y1="${legendY - 3.5}" x2="${mL + 105}" y2="${legendY - 3.5}"
+      stroke="${C.accent}" stroke-width="2"/>
+    <circle cx="${mL + 97}" cy="${legendY - 3.5}" r="2.5" fill="${C.accent}"/>
+    <text x="${mL + 108}" y="${legendY}" font-size="7" fill="${C.muted}">Cumulatif %</text>`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+    ${gridAndYLeft}
+    ${refLines}
+    ${bars}
+    <polyline points="${pts}" fill="none" stroke="${C.accent}" stroke-width="2"/>
+    ${dots}
+    ${yRight}
+    ${axes}
+    ${xLabels}
+    ${legend}
+  </svg>`;
 }
 
 // ── Page shell ────────────────────────────────────────────────────────────────
@@ -241,7 +358,47 @@ function buildResultsPage(opts: InventoryPDFOptions, totalPages: number) {
         </tbody>
       </table>`;
   } else if (opts.mode === "abc" && opts.abcResults?.length) {
-    tableHtml = `
+    const results = opts.abcResults;
+    const totalVal = results.reduce((s, r) => s + r.annualValue, 0);
+
+    // ── ABC summary badges ────────────────────────────────────────────────────
+    const abcSummary = `
+      ${secTitle("ملخص التصنيف", "Résumé de Classification")}
+      <div style="display:flex;gap:14px;margin-bottom:16px;">
+        ${(["A", "B", "C"] as const).map(cat => {
+          const items = results.filter(r => r.category === cat);
+          const pct = items.reduce((s, r) => s + r.percentage, 0);
+          const color = catColor(cat);
+          const bg = catLightBg(cat);
+          return `
+            <div style="flex:1;border:2px solid ${color}33;border-radius:10px;background:${bg};padding:12px 16px;text-align:center;">
+              <div style="font-size:26px;font-weight:900;color:${color};line-height:1;">${cat}</div>
+              <div style="font-size:11px;font-weight:700;color:${color};margin-top:4px;">${items.length} منتج · ${items.length} produit(s)</div>
+              <div style="font-size:10px;color:${C.muted};margin-top:2px;">${pct.toFixed(1)}% من القيمة · de la valeur</div>
+              <div style="font-size:9px;color:${C.muted};margin-top:2px;">${fDA(items.reduce((s, r) => s + r.annualValue, 0))}</div>
+            </div>`;
+        }).join("")}
+        <div style="flex:1;border:2px solid ${C.border};border-radius:10px;background:${C.primaryLight};padding:12px 16px;text-align:center;">
+          <div style="font-size:22px;font-weight:900;color:${C.primary};line-height:1;">${results.length}</div>
+          <div style="font-size:11px;font-weight:700;color:${C.primary};margin-top:4px;">إجمالي المنتجات</div>
+          <div style="font-size:10px;color:${C.muted};margin-top:2px;">Total produits</div>
+          <div style="font-size:9px;color:${C.muted};margin-top:2px;">${fDA(totalVal)}</div>
+        </div>
+      </div>`;
+
+    // ── ABC Pareto chart ──────────────────────────────────────────────────────
+    const chartHtml = `
+      ${secTitle("مخطط باريتو", "Diagramme de Pareto")}
+      <div style="margin-bottom:4px;">
+        <p style="font-size:9px;color:${C.muted};margin:0 0 6px;">
+          القيمة السنوية لكل منتج (أعمدة ملونة حسب الفئة) ونسبة القيمة التراكمية (خط برتقالي) ·
+          Valeur annuelle par produit (barres colorées par catégorie) et % cumulatif (courbe)
+        </p>
+        ${buildParetoSvg(results)}
+      </div>`;
+
+    // ── ABC table ─────────────────────────────────────────────────────────────
+    const abcTable = `
       ${secTitle("تصنيف ABC للمخزون", "Classification ABC des Stocks")}
       <table style="width:100%;border-collapse:collapse;font-size:9px;margin-bottom:16px;">
         <thead>
@@ -255,7 +412,7 @@ function buildResultsPage(opts: InventoryPDFOptions, totalPages: number) {
           </tr>
         </thead>
         <tbody>
-          ${opts.abcResults.map((r, i) => `
+          ${results.map((r, i) => `
             <tr style="background:${i % 2 === 0 ? C.white : "#f7f7f7"};">
               <td style="padding:5px 8px;border-bottom:1px solid ${C.border};text-align:center;font-weight:700;">${r.rank}</td>
               <td style="padding:5px 8px;border-bottom:1px solid ${C.border};font-weight:600;">${r.name}</td>
@@ -268,6 +425,8 @@ function buildResultsPage(opts: InventoryPDFOptions, totalPages: number) {
             </tr>`).join("")}
         </tbody>
       </table>`;
+
+    tableHtml = abcSummary + chartHtml + abcTable;
   }
 
   const content = `
@@ -287,11 +446,27 @@ function buildAnalysisPage(opts: InventoryPDFOptions, totalPages: number) {
       ${line}
     </div>`).join("");
 
-  const suggestionsHtml = opts.suggestions.map((s, i) => `
-    <div style="border:1px solid ${C.border};border-radius:8px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${i === 0 ? C.green : i === 1 ? C.accent : C.blue};">
+  // Use actual border/bg colors if provided, otherwise fall back to sensible defaults per icon
+  const iconBorderMap: Record<string, string> = {
+    "📦": C.green, "✅": C.green, "🟢": C.green, "📊": C.green,
+    "⚠️": C.amberBorder, "🛡️": C.amberBorder, "🟡": C.amberBorder,
+    "🔴": C.red, "🔵": C.blue, "🔔": C.blue,
+  };
+  const iconBgMap: Record<string, string> = {
+    "📦": C.greenLight, "✅": C.greenLight, "🟢": C.greenLight, "📊": C.greenLight,
+    "⚠️": C.amberBg, "🛡️": C.amberBg, "🟡": C.amberBg,
+    "🔴": C.redLight, "🔵": C.blueLight, "🔔": C.blueLight,
+  };
+
+  const suggestionsHtml = opts.suggestions.map((s) => {
+    const borderColor = s.borderHex ?? iconBorderMap[s.icon] ?? C.accent;
+    const bgColor = s.bgHex ?? iconBgMap[s.icon] ?? C.primaryLight;
+    return `
+    <div style="background:${bgColor};border:1px solid ${C.border};border-radius:8px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${borderColor};">
       <div style="font-size:11px;font-weight:700;margin-bottom:4px;">${s.icon} ${s.title}</div>
       <div style="font-size:9.5px;color:${C.muted};line-height:1.6;">${s.desc}</div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 
   const content = `
     ${secTitle("تحليل الوضع", "Analyse de la Situation")}
@@ -306,6 +481,8 @@ function buildAnalysisPage(opts: InventoryPDFOptions, totalPages: number) {
 export async function generateInventoryPDF(opts: InventoryPDFOptions): Promise<void> {
   const reportId = genId();
   const generatedAt = new Date().toLocaleDateString("fr-DZ");
+
+  // ABC mode gets extra content on page 2 — it fits but is taller; use same 3-page structure
   const totalPages = 3;
   const lbl = modeLabel(opts.mode);
 
