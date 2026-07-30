@@ -452,6 +452,259 @@ function buildDistributionPage(
   return pageShell(content, pageNum, totalPages, frAr("Distribution &amp; Sensibilité", "التوزيع والحساسية"));
 }
 
+// ── Analysis + Recommendations data builders ──────────────────────────────────
+// Mirrors buildSCAnalysis / buildSCRecommendations from TransportDistribution.tsx
+// (duplicated here so the PDF generator has no React dependency)
+
+interface PDFRecommendation {
+  icon:     string;
+  titleFr:  string;
+  titleAr:  string;
+  descFr:   string;
+  descAr:   string;
+  priority: "high" | "medium" | "low";
+}
+
+function buildSCAnalysisPDF(modiResult: MODIResult, initialCost: number, lang: string): string[] {
+  const { balanced, finalCost, sensitivityRanges } = modiResult;
+  const epsilonSet = new Set(modiResult.epsilonCells.map(c => `${c.i},${c.j}`));
+  const improvement = initialCost > 0 ? ((initialCost - finalCost) / initialCost) * 100 : 0;
+  const t = (fr: string, ar: string) => lang === "ar" ? ar : fr;
+  const lines: string[] = [];
+
+  // 1. Overall savings
+  if (improvement > 0.1) {
+    lines.push(t(
+      `L'optimisation MODI réduit les coûts logistiques de ${improvement.toFixed(1)}% par rapport à la solution heuristique initiale, soit une économie de ${fmt(initialCost - finalCost, lang)} DZD sur un coût total optimal de ${fmt(finalCost, lang)} DZD.`,
+      `خفّض تحسين MODI التكاليف اللوجستية بنسبة ${improvement.toFixed(1)}% مقارنة بالحل الأولي، بتوفير ${fmt(initialCost - finalCost, lang)} دج من تكلفة إجمالية مثلى تبلغ ${fmt(finalCost, lang)} دج.`,
+    ));
+  } else {
+    lines.push(t(
+      `La méthode heuristique initiale a produit une solution déjà optimale — coût total : ${fmt(finalCost, lang)} DZD. Aucun réacheminement ne peut réduire davantage les coûts logistiques.`,
+      `أنتجت الطريقة الأولية حلاً مثالياً بالفعل — التكلفة الإجمالية: ${fmt(finalCost, lang)} دج. لا يمكن لأي إعادة توجيه تقليل التكاليف اللوجستية أكثر.`,
+    ));
+  }
+
+  // 2. Top cost-driver route
+  const activeRoutes = sensitivityRanges
+    .filter(r => r.allocation > 0 && !epsilonSet.has(`${r.i},${r.j}`))
+    .sort((a, b) => (b.allocation * b.unitCost) - (a.allocation * a.unitCost));
+
+  if (activeRoutes.length > 0 && finalCost > 0) {
+    const top = activeRoutes[0];
+    const topTotal = top.allocation * top.unitCost;
+    const pct = Math.round((topTotal / finalCost) * 100);
+    lines.push(t(
+      `Le trajet ${top.sourceName} → ${top.destName} est le principal moteur de coût, concentrant ${pct}% des charges logistiques totales (${fmt(topTotal, lang)} DZD pour ${fmt(top.allocation, lang)} unités à ${top.unitCost} DZD/u).`,
+      `يُعدّ المسار ${top.sourceName} → ${top.destName} المحرّك الرئيسي للتكاليف، إذ يستأثر بـ ${pct}% من إجمالي الأعباء اللوجستية (${fmt(topTotal, lang)} دج لـ ${fmt(top.allocation, lang)} وحدة بـ${top.unitCost} دج/وحدة).`,
+    ));
+    const mostExpensive = [...activeRoutes].sort((a, b) => b.unitCost - a.unitCost)[0];
+    if (mostExpensive && mostExpensive !== top) {
+      lines.push(t(
+        `Le trajet ${mostExpensive.sourceName} → ${mostExpensive.destName} affiche le coût unitaire le plus élevé (${mostExpensive.unitCost} DZD/u) — une négociation tarifaire avec le transporteur pourrait réduire le coût global.`,
+        `يسجّل المسار ${mostExpensive.sourceName} → ${mostExpensive.destName} أعلى تكلفة وحدوية (${mostExpensive.unitCost} دج/وحدة) — قد تؤدي مفاوضة الناقل إلى خفض التكلفة الإجمالية.`,
+      ));
+    }
+  }
+
+  // 3. Balance status
+  if (balanced.dummySourceIndex !== null) {
+    const dummySupply = balanced.sources[balanced.dummySourceIndex]?.supply ?? 0;
+    lines.push(t(
+      `Déséquilibre offre-demande détecté : la demande client dépasse la capacité disponible de ${fmt(dummySupply, lang)} unités. Une source fictive a été ajoutée automatiquement — ${fmt(dummySupply, lang)} unités restent non satisfaites.`,
+      `تم اكتشاف عدم توازن بين العرض والطلب: يتجاوز طلب العملاء الطاقة المتاحة بـ ${fmt(dummySupply, lang)} وحدة. تمت إضافة مصدر وهمي تلقائياً — تبقى ${fmt(dummySupply, lang)} وحدة غير مُلبَّاة.`,
+    ));
+  } else if (balanced.dummyDestIndex !== null) {
+    const dummyDemand = balanced.destinations[balanced.dummyDestIndex]?.demand ?? 0;
+    lines.push(t(
+      `Déséquilibre offre-demande détecté : la capacité des entrepôts dépasse la demande de ${fmt(dummyDemand, lang)} unités. Une destination fictive a été ajoutée — ${fmt(dummyDemand, lang)} unités restent en stock non distribué.`,
+      `تم اكتشاف عدم توازن: تتجاوز طاقة المستودعات الطلب بـ ${fmt(dummyDemand, lang)} وحدة. تمت إضافة وجهة وهمية — تبقى ${fmt(dummyDemand, lang)} وحدة في مخزون غير موزَّع.`,
+    ));
+  } else {
+    lines.push(t(
+      "Le réseau de distribution est parfaitement équilibré : la capacité totale des entrepôts correspond exactement à la demande agrégée des clients. Zéro gaspillage de capacité.",
+      "شبكة التوزيع متوازنة تماماً: تتطابق الطاقة الإجمالية للمستودعات مع الطلب المجمَّع للعملاء. صفر هدر في الطاقة.",
+    ));
+  }
+
+  // 4. Route utilization
+  const rawM = balanced.dummySourceIndex !== null ? balanced.sources.length - 1 : balanced.sources.length;
+  const rawN = balanced.dummyDestIndex   !== null ? balanced.destinations.length - 1 : balanced.destinations.length;
+  const totalPossible = rawM * rawN;
+  const activeCount = activeRoutes.length;
+  if (activeCount > 0 && totalPossible > 0) {
+    const utilPct = Math.round((activeCount / totalPossible) * 100);
+    lines.push(t(
+      `${activeCount} trajet${activeCount > 1 ? "s actifs" : " actif"} sur ${totalPossible} possibles (${utilPct}% du réseau utilisé). Un réseau logistique concentré réduit les coûts de coordination et facilite le suivi des livraisons.`,
+      `${activeCount} مسار${activeCount > 1 ? " نشط" : " نشط"} من أصل ${totalPossible} ممكناً (${utilPct}% من الشبكة مستخدمة). تُسهّل الشبكة اللوجستية المركّزة تقليل تكاليف التنسيق ومتابعة التسليمات.`,
+    ));
+  }
+
+  return lines;
+}
+
+function buildSCRecsPDF(modiResult: MODIResult, initialCost: number, lang: string): PDFRecommendation[] {
+  const { balanced, sensitivityRanges, hasAlternativeOptima, finalCost } = modiResult;
+  const epsilonSet = new Set(modiResult.epsilonCells.map(c => `${c.i},${c.j}`));
+  const improvement = initialCost > 0 ? ((initialCost - finalCost) / initialCost) * 100 : 0;
+  const recs: PDFRecommendation[] = [];
+
+  const activeRoutes = sensitivityRanges.filter(r => r.allocation > 0 && !epsilonSet.has(`${r.i},${r.j}`));
+
+  // 1. Implement optimal plan
+  if (improvement > 0.1) {
+    recs.push({
+      icon: "🚚", priority: "high",
+      titleFr: "Déployer immédiatement le plan de distribution optimal",
+      titleAr: "تطبيق خطة التوزيع المثلى فوراً",
+      descFr: `Le plan MODI économise ${fmt(initialCost - finalCost, lang)} DZD (${improvement.toFixed(1)}%) par rapport à la méthode heuristique. Transmettez le plan révisé aux équipes transport et planifiez le réacheminement dès la prochaine campagne de livraison.`,
+      descAr: `توفّر خطة MODI مبلغ ${fmt(initialCost - finalCost, lang)} دج (${improvement.toFixed(1)}%) مقارنة بالطريقة الأولية. وزّع الخطة المحدّثة على فِرَق النقل وخطّط لإعادة التوجيه منذ حملة التسليم القادمة.`,
+    });
+  }
+
+  // 2. Renegotiate most expensive route
+  const mostExpensive = [...activeRoutes].sort((a, b) => b.unitCost - a.unitCost)[0];
+  if (mostExpensive && mostExpensive.unitCost > 0) {
+    const allowedInc = mostExpensive.allowedIncrease === Infinity ? null : mostExpensive.allowedIncrease;
+    recs.push({
+      icon: "💰", priority: "high",
+      titleFr: `Renégocier le contrat de transport ${mostExpensive.sourceName} → ${mostExpensive.destName}`,
+      titleAr: `إعادة التفاوض على عقد النقل ${mostExpensive.sourceName} → ${mostExpensive.destName}`,
+      descFr: `Ce trajet affiche le coût unitaire le plus élevé (${mostExpensive.unitCost} DZD/u).${allowedInc !== null ? ` La solution reste optimale jusqu'à ${fmt(mostExpensive.unitCost + allowedInc, lang, 1)} DZD/u.` : ""} Sollicitez plusieurs transporteurs concurrents ou envisagez un transport groupé pour réduire ce poste.`,
+      descAr: `يسجّل هذا المسار أعلى تكلفة وحدوية (${mostExpensive.unitCost} دج/وحدة).${allowedInc !== null ? ` يبقى الحل مثالياً حتى ${fmt(mostExpensive.unitCost + allowedInc, lang, 1)} دج/وحدة.` : ""} استعرض عروض ناقلين متعددين أو فكّر في الشحن الجماعي لخفض هذا البند.`,
+    });
+  }
+
+  // 3. Balance-specific
+  if (balanced.dummySourceIndex !== null) {
+    const dummySupply = balanced.sources[balanced.dummySourceIndex]?.supply ?? 0;
+    recs.push({
+      icon: "🏭", priority: "medium",
+      titleFr: "Augmenter la capacité de stockage ou diversifier les fournisseurs",
+      titleAr: "زيادة طاقة التخزين أو تنويع الموردين",
+      descFr: `${fmt(dummySupply, lang)} unités de demande client ne peuvent être satisfaites. Évaluez l'ouverture d'un nouvel entrepôt, l'expansion d'une ligne de production ou la sous-traitance à un prestataire logistique tiers (3PL).`,
+      descAr: `${fmt(dummySupply, lang)} وحدة من طلب العملاء لا يمكن تلبيتها. قيّم فتح مستودع جديد أو توسيع خط إنتاج أو التعاقد مع مزود لوجستي خارجي (3PL).`,
+    });
+  } else if (balanced.dummyDestIndex !== null) {
+    const dummyDemand = balanced.destinations[balanced.dummyDestIndex]?.demand ?? 0;
+    recs.push({
+      icon: "📊", priority: "medium",
+      titleFr: "Réduire la surproduction ou prospecter de nouveaux marchés",
+      titleAr: "تقليص الإنتاج الزائد أو التنقيب عن أسواق جديدة",
+      descFr: `${fmt(dummyDemand, lang)} unités resteront en stock non distribué. Adaptez les niveaux de production à la demande réelle ou développez de nouveaux segments clients pour absorber l'excédent et réduire les coûts de détention.`,
+      descAr: `${fmt(dummyDemand, lang)} وحدة ستبقى في مخزون غير موزَّع. اضبط مستويات الإنتاج على الطلب الفعلي أو طوّر شرائح عملاء جديدة لامتصاص الفائض وتخفيض تكاليف الاحتفاظ.`,
+    });
+  }
+
+  // 4. Consolidation (many active routes)
+  if (activeRoutes.length > 4) {
+    recs.push({
+      icon: "📦", priority: "medium",
+      titleFr: "Consolider les expéditions et créer des points de regroupement",
+      titleAr: "توحيد الشحنات وإنشاء نقاط تجميع",
+      descFr: `${activeRoutes.length} routes actives génèrent des coûts de coordination élevés (suivi, documentation, interfaces). Envisagez des plateformes de groupage ou des tournées mutualisées pour réduire la complexité opérationnelle.`,
+      descAr: `${activeRoutes.length} مسارات نشطة تُولّد تكاليف تنسيق مرتفعة (متابعة، توثيق، واجهات). فكّر في منصات التجميع أو الجولات المشتركة لتخفيض التعقيد التشغيلي.`,
+    });
+  }
+
+  // 5. Alternative optima → route flexibility
+  if (hasAlternativeOptima) {
+    recs.push({
+      icon: "↔️", priority: "low",
+      titleFr: "Exploiter la flexibilité des solutions équivalentes pour d'autres critères",
+      titleAr: "استغلال مرونة الحلول المتكافئة لمعايير أخرى",
+      descFr: `Des plans de distribution alternatifs existent au même coût optimal. Utilisez cette flexibilité pour choisir selon des critères secondaires : délais de livraison, fiabilité des transporteurs, réduction de l'empreinte carbone ou contraintes contractuelles existantes.`,
+      descAr: `توجد خطط توزيع بديلة بنفس التكلفة المثلى. استغل هذه المرونة للاختيار وفق معايير ثانوية: مواعيد التسليم، موثوقية الناقلين، تقليص البصمة الكربونية، أو القيود التعاقدية القائمة.`,
+    });
+  }
+
+  return recs;
+}
+
+// ── Page 5: Analysis + Recommendations ───────────────────────────────────────
+function buildAnalysisRecsPage(
+  modiResult: MODIResult,
+  initialCost: number,
+  pageNum: number,
+  totalPages: number,
+  lang: string,
+): string {
+  const t = (fr: string, ar: string) => lang === "ar" ? ar : fr;
+  const analysisLines = buildSCAnalysisPDF(modiResult, initialCost, lang);
+  const recs = buildSCRecsPDF(modiResult, initialCost, lang);
+
+  // ── Analysis bullet rows ──────────────────────────────────────────────────
+  const analysisHtml = analysisLines.map(line => `
+    <div style="display:flex; align-items:flex-start; gap:10px; padding:11px 14px;
+      background:${C.primaryLight}; border:1px solid rgba(0,77,64,0.15); border-radius:8px; margin-bottom:7px;">
+      <span style="color:${C.primary}; font-size:13px; flex-shrink:0; margin-top:1px; font-weight:700;">✓</span>
+      <p style="font-size:11px; line-height:1.65; margin:0; color:${C.text};">${line}</p>
+    </div>
+  `).join("");
+
+  // ── Priority styling helpers ──────────────────────────────────────────────
+  const borderColor = (p: string) =>
+    p === "high" ? C.red : p === "medium" ? C.accent : C.blue;
+  const bgColor = (p: string) =>
+    p === "high" ? C.redLight : p === "medium" ? C.orangeLight : C.blueLight;
+  const badgeBg = (p: string) =>
+    p === "high" ? C.red : p === "medium" ? C.orange : C.blue;
+  const priorityLabel = (p: string) => t(
+    p === "high" ? "Priorité haute" : p === "medium" ? "Priorité moyenne" : "Priorité basse",
+    p === "high" ? "أولوية عالية"  : p === "medium" ? "أولوية متوسطة"  : "أولوية منخفضة",
+  );
+
+  const recsHtml = recs.map((rec, i) => `
+    <div style="border-radius:10px; padding:13px 16px; margin-bottom:9px;
+      border-left:4px solid ${borderColor(rec.priority)}; background:${bgColor(rec.priority)};">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px; flex-wrap:wrap;">
+        <span style="font-size:17px; line-height:1;">${rec.icon}</span>
+        <strong style="font-size:11.5px; color:${C.text}; flex:1; min-width:0;">
+          ${t(rec.titleFr, rec.titleAr)}
+        </strong>
+        <span style="font-size:8.5px; background:${badgeBg(rec.priority)}; color:${C.white};
+          padding:2px 8px; border-radius:10px; font-weight:700; white-space:nowrap;">
+          ${priorityLabel(rec.priority)}
+        </span>
+        <span style="font-size:9px; color:${C.muted}; flex-shrink:0;">#${i + 1}</span>
+      </div>
+      <p style="font-size:10.5px; line-height:1.6; color:${C.muted}; margin:0;">
+        ${t(rec.descFr, rec.descAr)}
+      </p>
+    </div>
+  `).join("");
+
+  const content = `
+    <div style="font-size:18px; font-weight:800; color:${C.primary}; margin-bottom:4px;">
+      ${frAr("Analyse &amp; Recommandations", "التحليل والتوصيات")}
+    </div>
+    <div style="font-size:11px; color:${C.muted}; margin-bottom:18px;">
+      ${frAr("Analyse logistique complète et recommandations managériales", "تحليل لوجستي شامل وتوصيات إدارية")}
+    </div>
+
+    <div style="font-size:13px; font-weight:700; color:${C.primary}; margin-bottom:10px;
+      display:flex; align-items:center; gap:8px;">
+      <span style="width:4px; height:18px; background:${C.accent}; border-radius:2px; display:inline-block;"></span>
+      ${frAr("Analyse de la Situation Logistique", "تحليل الوضع اللوجستي")}
+    </div>
+    <div style="margin-bottom:20px;">
+      ${analysisHtml}
+    </div>
+
+    ${recs.length > 0 ? `
+    <div style="font-size:13px; font-weight:700; color:${C.primary}; margin-bottom:10px;
+      display:flex; align-items:center; gap:8px;">
+      <span style="width:4px; height:18px; background:${C.accent}; border-radius:2px; display:inline-block;"></span>
+      ${frAr("Recommandations Managériales — Distribution", "التوصيات الإدارية للتوزيع")}
+    </div>
+    ${recsHtml}
+    ` : ""}
+  `;
+
+  return pageShell(content, pageNum, totalPages,
+    frAr("Analyse &amp; Recommandations", "التحليل والتوصيات"));
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export interface GenerateTransportPDFOptions {
@@ -475,13 +728,14 @@ export async function generateTransportPDF(opts: GenerateTransportPDFOptions): P
     day: "numeric", month: "long", year: "numeric",
   });
 
-  const TOTAL_PAGES = 4;
+  const TOTAL_PAGES = 5;
 
   const pageHtmls: string[] = [
     buildCover(problem, modiResult, managerName, institutionName, reportId, generatedAt, TOTAL_PAGES, lang),
     buildSetupPage(problem, modiResult, 2, TOTAL_PAGES, lang),
     buildIterationsPage(modiResult, 3, TOTAL_PAGES, lang),
     buildDistributionPage(problem, modiResult, initialCost, 4, TOTAL_PAGES, lang),
+    buildAnalysisRecsPage(modiResult, initialCost, 5, TOTAL_PAGES, lang),
   ];
 
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
