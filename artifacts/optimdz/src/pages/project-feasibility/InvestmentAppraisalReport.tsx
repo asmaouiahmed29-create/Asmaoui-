@@ -272,7 +272,21 @@ export function InvestmentAppraisalReport({ result, projectName, sector }: Props
   async function handlePdfExport() {
     setPdfLoading(true);
     try {
-      await generateInvestmentAppraisalPDFReport({ result, projectName, sector: sector ?? undefined, managerName, institutionName });
+      await generateInvestmentAppraisalPDFReport({
+        result,
+        projectName,
+        sector: sector ?? undefined,
+        managerName,
+        institutionName,
+        analysisLines,
+        suggestions: suggestions.map(s => ({
+          icon: s.icon,
+          title: s.title,
+          desc: s.desc,
+          color: s.color,
+          borderColor: s.borderColor,
+        })),
+      });
       setPdfOpen(false);
     } catch (err) {
       console.error("PDF error:", err);

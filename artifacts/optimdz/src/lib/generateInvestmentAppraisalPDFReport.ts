@@ -87,6 +87,34 @@ function suggestionRow(icon: string, title: string, desc: string, borderColor: s
   </div>`;
 }
 
+// ── Tailwind → inline CSS colour helpers (same as variance PDF) ───────────────
+function twBg(cls: string): string {
+  const map: Record<string, string> = {
+    "bg-primary/10": "rgba(0,77,64,0.1)", "bg-primary/5": "rgba(0,77,64,0.05)",
+    "bg-secondary/10": "rgba(58,125,68,0.1)",
+    "bg-green-50": "#f0fdf4", "bg-red-50": "#fef2f2",
+    "bg-orange-50": "#fff7ed", "bg-amber-50": "#fffbeb",
+    "bg-teal-50": "#f0fdfa",  "bg-slate-50": "#f8fafc",
+    "bg-white": "#ffffff",
+  };
+  for (const [k, v] of Object.entries(map)) if (cls.includes(k)) return v;
+  return C.primaryLight;
+}
+function twBorder(cls: string): string {
+  const map: Record<string, string> = {
+    "border-primary/30": "rgba(0,77,64,0.3)", "border-primary": "#004d40",
+    "border-secondary/30": "rgba(58,125,68,0.3)",
+    "border-green-300": "#86efac", "border-red-300": "#fca5a5",
+    "border-orange-300": "#fdba74", "border-amber-300": "#fcd34d",
+    "border-l-primary": "#004d40",
+    "border-l-green-600": "#16a34a", "border-l-green-500": "#22c55e",
+    "border-l-red-500": "#ef4444", "border-l-amber-500": "#f59e0b",
+    "border-l-orange-500": "#f97316",
+  };
+  for (const [k, v] of Object.entries(map)) if (cls.includes(k)) return v;
+  return C.accent;
+}
+
 // ── Page 1 — Cover ────────────────────────────────────────────────────────────
 function buildCover(
   result: InvestmentAppraisalResult, projectName: string, sector: string | undefined,
@@ -242,79 +270,106 @@ function buildCashFlowPage(result: InvestmentAppraisalResult, totalPages: number
 }
 
 // ── Page 3 — Evaluation & Recommendations ─────────────────────────────────────
-function buildEvaluationPage(
-  result: InvestmentAppraisalResult, projectName: string, sector: string | undefined, totalPages: number
-) {
+function buildEvaluationPage(opts: InvestmentAppraisalPDFOptions, totalPages: number) {
+  const { result, analysisLines = [], suggestions = [] } = opts;
   const { npv, irr, simplePayback, discountedPayback, profitabilityIndex, input: inp } = result;
   const r = inp.discountRate;
   const n = inp.duration;
 
-  const goCount = [npv > 0, irr !== null && irr >= r, profitabilityIndex >= 1, discountedPayback !== null && discountedPayback < n].filter(Boolean).length;
-  const verdict = goCount >= 3 ? "GO ✅ — الاستثمار موصى به" : goCount >= 2 ? "CONDITIONNEL ⚠️ — استكمال التحليل" : "NO-GO 🔴 — مراجعة الاستثمار";
-  const verdictBg = goCount >= 3 ? C.greenLight : goCount >= 2 ? C.orangeLight : "#ffebee";
-  const verdictBorder = goCount >= 3 ? C.green : goCount >= 2 ? C.orange : C.red;
+  const goCount = [
+    npv > 0,
+    irr !== null && irr >= r,
+    profitabilityIndex >= 1,
+    discountedPayback !== null && discountedPayback < n,
+  ].filter(Boolean).length;
 
-  const analysisItems: [string, string, string, string][] = [
-    ["💰",
-     `الاستثمار الأولي ${fDA(inp.initialInvestment)} على ${n} سنوات بمعدل خصم ${f(r, 1)}% يُولّد قيمة حالية إجمالية ${fDA(result.totalPV)}. ` +
-     `صافي القيمة الحالية (VAN) = ${fDA(npv)} → الاستثمار ${npv >= 0 ? "يُنشئ قيمة مضافة ✅" : "يُدمّر قيمة 🔴"}.`,
-     C.primaryLight, C.primary + "50"],
-    [npv >= 0 ? "✅" : "🔴",
-     `مؤشر الربحية (IP) = ${f(profitabilityIndex, 3)} — كل دينار مستثمر يُولّد ${f(profitabilityIndex, 3)} دينار من القيمة الحالية. ` +
-     (profitabilityIndex >= 1 ? "IP > 1: الاستثمار يُغطي تكلفة رأس المال ويُنشئ قيمة إضافية." : "IP < 1: الاستثمار لا يُغطي تكلفة رأس المال بمعدل الخصم المحدد."),
-     npv >= 0 ? C.greenLight : "#ffebee", npv >= 0 ? C.green + "50" : C.red + "50"],
-    [irr !== null ? (irr >= r ? "📊" : "⚠️") : "❓",
-     irr !== null
-       ? `معدل العائد الداخلي TRI = ${f(irr, 2)}% مقابل المعدل المطلوب ${f(r, 1)}% — الفرق: ${irr >= r ? "+" : ""}${f(irr - r, 2)} نقطة مئوية. ` +
-         (irr >= r ? "TRI أعلى من المعدل المطلوب ✅: الاستثمار يتجاوز الحد الأدنى للمردودية."
-                   : "TRI أدنى من المعدل المطلوب ⚠️: الاستثمار لا يُحقق المردودية الدنيا عند هذا المعدل.")
-       : "لم يُمكن حساب TRI في النطاق القياسي. قد تكون التدفقات غير تقليدية.",
-     irr !== null ? (irr >= r ? C.greenLight : C.orangeLight) : "#f5f5f5",
-     irr !== null ? (irr >= r ? C.green + "50" : C.orange + "50") : "#9e9e9e"],
-    [simplePayback !== null && simplePayback < n ? "⏱️" : "⚠️",
-     simplePayback !== null
-       ? `فترة الاسترداد البسيطة: ${fmtYears(simplePayback, "fr")} | المخصومة: ${discountedPayback !== null ? fmtYears(discountedPayback, "fr") : "غير محققة"} من أصل ${n} سنوات. ` +
-         (discountedPayback !== null && discountedPayback < n ? "رأس المال يُسترَد ضمن مدة المشروع عند حساب القيمة الزمنية للنقود ✅."
-                                                              : "الاسترداد المخصوم لا يتحقق ضمن مدة المشروع — مخاطر إضافية.")
-       : `رأس المال (${fDA(inp.initialInvestment)}) لا يُسترَد ضمن ${n} سنوات. خطر مرتفع لتجميد رأس المال.`,
-     simplePayback !== null && simplePayback < n ? C.greenLight : C.orangeLight,
-     simplePayback !== null && simplePayback < n ? C.green + "50" : C.orange + "50"],
+  const verdictLabel = goCount >= 3
+    ? "GO ✅ — الاستثمار موصى به · Investissement recommandé"
+    : goCount >= 2
+    ? "CONDITIONNEL ⚠️ — استكمال التحليل · Approfondir l'analyse"
+    : "NO-GO 🔴 — مراجعة الاستثمار · À revoir";
+  const verdictBg     = goCount >= 3 ? C.greenLight : goCount >= 2 ? C.orangeLight : "#ffebee";
+  const verdictBorder = goCount >= 3 ? C.green      : goCount >= 2 ? C.orange      : C.red;
+
+  // Criterion badge pills
+  const criteria = [
+    { ok: npv > 0,                                             label: "VAN > 0" },
+    { ok: irr !== null && irr >= r,                            label: `TRI ≥ ${f(r, 1)}%` },
+    { ok: profitabilityIndex >= 1,                             label: "IP ≥ 1" },
+    { ok: discountedPayback !== null && discountedPayback < n, label: "Récup. act." },
   ];
+  const badgesHtml = criteria.map(c =>
+    `<span style="display:inline-block;background:${c.ok ? C.greenLight : "#ffebee"};` +
+    `color:${c.ok ? C.green : C.red};` +
+    `border:1px solid ${c.ok ? C.green + "55" : C.red + "55"};` +
+    `border-radius:6px;padding:3px 9px;font-size:9px;font-weight:700;` +
+    `white-space:nowrap;margin-right:4px;margin-bottom:3px;">` +
+    `${c.ok ? "✅" : "❌"} ${c.label}</span>`
+  ).join("");
 
-  const suggestions: [string, string, string, string, string][] = [
-    ["🔍", "اختبار الحساسية للفرضيات · Analyse de sensibilité",
-     `الـ VAN ${fDA(npv)} تعتمد على التدفقات التقديرية. اختبر تغيير ±10% في التدفقات وفي معدل الخصم لمعرفة مدى هشاشة القرار.`,
-     C.primary, C.primaryLight],
-    ...(npv < 0 ? [["🔴", "VAN سالبة — مراجعة المتغيرات الجوهرية · Revoir les paramètres",
-     `ادرس: (1) تخفيض الاستثمار الأولي، (2) تحسين التدفقات عبر خفض تكاليف التشغيل، (3) تمديد مدة المشروع لاستيعاب تدفقات أعلى.`,
-     C.red, "#ffebee"] as [string, string, string, string, string]] : []),
-    ...(discountedPayback === null || discountedPayback >= n ? [["⏰", "خطر تجميد رأس المال · Risque d'immobilisation",
-     `فترة الاسترداد المخصومة تتجاوز مدة الاستثمار. احسب القيمة المتبقية بصورة أكثر واقعية أو ابحث عن تمديد مدة الاستغلال الاقتصادي.`,
-     C.orange, C.orangeLight] as [string, string, string, string, string]] : []),
-    ["🏦", "تحسين هيكل التمويل · Optimiser le financement",
-     `تمويل مختلط (ذاتي + بنكي) يُخفّض WACC ويُحسّن VAN. استكشف أجهزة ANSEJ / ANADE / ANGEM أو قروض التجهيز البنكي لتخفيض الجهد الذاتي.`,
-     C.secondary, C.greenLight],
+  // Analysis lines — passed from results page (language-aware, same text as screen)
+  const analysisHtml = analysisLines.map(line =>
+    analysisRow(line.icon, line.text, twBg(line.color), twBorder(line.color))
+  ).join("");
+
+  // Suggestion cards — passed from results page (all cards, bilingual, correct colors)
+  const suggestionsHtml = suggestions.map(s =>
+    suggestionRow(s.icon, s.title, s.desc, twBorder(s.borderColor), twBg(s.color))
+  ).join("");
+
+  // KPI report card grid — mirrors "Rapport d'Évaluation" section on results page
+  const kpis = [
+    { label: "الاستثمار الأولي · Investissement initial", value: fDA(inp.initialInvestment) },
+    { label: "مدة المشروع · Durée du projet",             value: `${n} ans` },
+    { label: "معدل الخصم · Taux d'actualisation",         value: `${f(r, 1)} %` },
+    { label: "صافي القيمة الحالية · VAN",                 value: fDA(npv) },
+    { label: "معدل العائد الداخلي · TRI",                 value: irr !== null ? `${f(irr, 2)} %` : "—" },
+    { label: "مؤشر الربحية · IP",                         value: f(profitabilityIndex, 3) },
+    { label: "فترة الاسترداد البسيطة · Délai simple",     value: simplePayback  !== null ? fmtYears(simplePayback,  "fr") : "—" },
+    { label: "فترة الاسترداد المخصومة · Délai actualisé", value: discountedPayback !== null ? fmtYears(discountedPayback, "fr") : "—" },
+    { label: "إجمالي التدفقات · Total flux",              value: fDA(result.totalCashFlow) },
+    { label: "إجمالي القيم الحالية · Total VP",           value: fDA(result.totalPV) },
+    ...(inp.salvageValue ? [{ label: "القيمة المتبقية · Valeur résiduelle", value: fDA(inp.salvageValue) }] : []),
   ];
+  const kpiGridHtml = kpis.map(k =>
+    `<div style="background:${C.white};border:1px solid ${C.border};border-radius:8px;padding:9px 11px;">` +
+    `<div style="font-size:8px;color:${C.muted};margin-bottom:3px;line-height:1.3;">${k.label}</div>` +
+    `<div style="font-size:13px;font-weight:800;color:${C.text};">${k.value}</div>` +
+    `</div>`
+  ).join("");
 
-  const analysisHtml = analysisItems.map(([icon, text, bg, border]) => analysisRow(icon, text, bg, border)).join("");
-  const suggestionsHtml = suggestions.map(([icon, title, desc, border, bg]) => suggestionRow(icon, title, desc, border, bg)).join("");
+  // Formula reminder — mirrors formula box on results page
+  const formulaHtml =
+    `<div style="background:${C.primaryLight};border:1px solid ${C.primary}33;border-radius:8px;` +
+    `padding:11px 14px;font-size:9.5px;line-height:1.8;font-family:monospace;margin-top:10px;">` +
+    `<div style="font-family:'Cairo','Inter',sans-serif;font-size:8.5px;font-weight:700;` +
+    `color:${C.muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">` +
+    `الصيغ المُطبَّقة · Formules appliquées</div>` +
+    `VAN = −I₀ + Σ [CFₜ/(1+r)ᵗ] = −${fDA(inp.initialInvestment)} + ${fDA(result.totalPV)} = ${fDA(npv)}<br/>` +
+    `IP  = Σ VA / I₀ = ${fDA(result.totalPV)} / ${fDA(inp.initialInvestment)} = ${f(profitabilityIndex, 4)}<br/>` +
+    `TRI : résoudre VAN(r*) = 0  →  r* = ${irr !== null ? f(irr, 2) + " %" : "—"}<br/>` +
+    `r = ${f(r, 1)} %  ·  I₀ = ${fDA(inp.initialInvestment)}  ·  n = ${n} ans` +
+    `${inp.salvageValue ? `  ·  VR = ${fDA(inp.salvageValue)}` : ""}` +
+    `</div>`;
 
   const content = `
     ${sectionTitle("التقييم والتوصيات الاستراتيجية", "Évaluation & Recommandations Stratégiques")}
-    <div style="border:2px solid ${verdictBorder};background:${verdictBg};border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
-      <div style="font-size:28px;">${goCount >= 3 ? "✅" : goCount >= 2 ? "⚠️" : "🔴"}</div>
-      <div>
-        <div style="font-size:14px;font-weight:800;color:${C.text};">${verdict}</div>
-        <div style="font-size:11px;color:${C.muted};margin-top:3px;">
-          ${goCount}/4 critères favorables : VAN ${npv >= 0 ? "✅" : "❌"} · TRI ${irr !== null && irr >= r ? "✅" : "❌"} · IP ${profitabilityIndex >= 1 ? "✅" : "❌"} · Récup. act. ${discountedPayback !== null && discountedPayback < n ? "✅" : "❌"}
-        </div>
+    <div style="border:2px solid ${verdictBorder};background:${verdictBg};border-radius:10px;
+      padding:12px 16px;margin-bottom:14px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="font-size:28px;flex-shrink:0;">${goCount >= 3 ? "✅" : goCount >= 2 ? "⚠️" : "🔴"}</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:800;color:${C.text};margin-bottom:6px;">${verdictLabel}</div>
+        <div style="display:flex;flex-wrap:wrap;">${badgesHtml}</div>
       </div>
     </div>
-    ${analysisHtml}
-    <div style="margin-top:16px;">
-      ${sectionTitle("التوصيات الاستراتيجية · Recommandations", "Go / No-Go")}
-      ${suggestionsHtml}
-    </div>`;
+    ${sectionTitle("Analyse de Viabilité", "تحليل الجدوى")}
+    <div style="margin-bottom:14px;">${analysisHtml || `<div style="color:${C.muted};font-size:10px;">—</div>`}</div>
+    ${sectionTitle("Recommandations Stratégiques", "التوصيات الاستراتيجية")}
+    <div style="margin-bottom:16px;">${suggestionsHtml || `<div style="color:${C.muted};font-size:10px;">—</div>`}</div>
+    ${sectionTitle("Rapport d'Évaluation · بطاقة التقييم الإداري", "")}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;">${kpiGridHtml}</div>
+    ${formulaHtml}`;
+
   return pageShell(content, 3, totalPages, "التقييم والتوصيات · Évaluation Go/No-Go");
 }
 
@@ -372,6 +427,10 @@ export interface InvestmentAppraisalPDFOptions {
   sector?: string;
   managerName?: string;
   institutionName?: string;
+  /** Pre-rendered analysis lines from the results page (language-aware) */
+  analysisLines?: { icon: string; text: string; color: string }[];
+  /** Pre-rendered suggestion cards from the results page (language-aware) */
+  suggestions?: { icon: string; title: string; desc: string; color: string; borderColor: string }[];
 }
 
 export async function generateInvestmentAppraisalPDFReport(opts: InvestmentAppraisalPDFOptions): Promise<void> {
@@ -385,7 +444,7 @@ export async function generateInvestmentAppraisalPDFReport(opts: InvestmentAppra
 
   const coverHtml      = buildCover(result, projectName, sector, managerName, institutionName, reportId, generatedAt, totalPages);
   const cashFlowHtml   = buildCashFlowPage(result, totalPages);
-  const evaluationHtml = buildEvaluationPage(result, projectName, sector, totalPages);
+  const evaluationHtml = buildEvaluationPage(opts, totalPages);
   const stampHtml      = buildStampPage(reportId, generatedAt, totalPages);
 
   // Render cover
