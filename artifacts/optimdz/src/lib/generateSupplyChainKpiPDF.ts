@@ -169,75 +169,200 @@ function buildCover(opts: ScKpiPDFOptions, reportId: string, generatedAt: string
 </div>`;
 }
 
+// ── Radar SVG builder ─────────────────────────────────────────────────────────
+function buildRadarSvg(points: { label: string; score: number }[]): string {
+  const n = points.length;
+  if (n < 2) return "";
+  const cx = 130, cy = 120, r = 85;
+  const angle = (k: number) => (k * 2 * Math.PI / n) - Math.PI / 2;
+  const px = (k: number, dist: number) => (cx + dist * Math.cos(angle(k))).toFixed(1);
+  const py = (k: number, dist: number) => (cy + dist * Math.sin(angle(k))).toFixed(1);
+
+  const grid = [0.25, 0.5, 0.75, 1.0].map(f => {
+    const pts = points.map((_, k) => `${px(k, r * f)},${py(k, r * f)}`).join(" ");
+    return `<polygon points="${pts}" fill="none" stroke="#e5e7eb" stroke-width="${f === 1 ? 1.5 : 0.8}"/>`;
+  }).join("");
+
+  const axes = points.map((_, k) =>
+    `<line x1="${cx}" y1="${cy}" x2="${px(k, r)}" y2="${py(k, r)}" stroke="#d1d5db" stroke-width="1"/>`
+  ).join("");
+
+  const scorePoly = points.map((p, k) =>
+    `${px(k, r * p.score / 100)},${py(k, r * p.score / 100)}`
+  ).join(" ");
+
+  const dots = points.map((p, k) =>
+    `<circle cx="${px(k, r * p.score / 100)}" cy="${py(k, r * p.score / 100)}" r="3.5" fill="#004d40"/>`
+  ).join("");
+
+  const labels = points.map((p, k) => {
+    const lx = (cx + (r + 20) * Math.cos(angle(k))).toFixed(1);
+    const ly = (cy + (r + 20) * Math.sin(angle(k))).toFixed(1);
+    return `<text x="${lx}" y="${ly}" font-size="10" fill="#374151" text-anchor="middle" dominant-baseline="middle" font-weight="600">${p.label} (${p.score})</text>`;
+  }).join("");
+
+  const gridLabels = [25, 50, 75].map(v => {
+    const lx = (cx + r * v / 100 * Math.cos(angle(0)) + 6).toFixed(1);
+    const ly = (cy + r * v / 100 * Math.sin(angle(0))).toFixed(1);
+    return `<text x="${lx}" y="${ly}" font-size="7" fill="#9ca3af" text-anchor="start">${v}</text>`;
+  }).join("");
+
+  return `<svg width="290" height="260" viewBox="0 0 290 260" style="overflow:visible;">
+    ${grid}${axes}
+    <polygon points="${scorePoly}" fill="rgba(0,77,64,0.18)" stroke="#004d40" stroke-width="2"/>
+    ${dots}${labels}${gridLabels}
+  </svg>`;
+}
+
 // ── Results page ──────────────────────────────────────────────────────────────
 function buildResultsPage(opts: ScKpiPDFOptions, totalPages: number) {
   const lbl = makeLbl(opts.language);
   const { results } = opts;
-  const rows: { label: string; value: string; bench: string; status: KpiStatus | null; score: number | null; color: string; bg: string }[] = [];
+
+  const periodLabels: Record<string, string> = {
+    mois:      lbl("Mensuel",      "شهري"),
+    trimestre: lbl("Trimestriel",  "ربع سنوي"),
+    annee:     lbl("Annuel",       "سنوي"),
+  };
+
+  // ── KPI rows ────────────────────────────────────────────────────────────────
+  type KpiRow = {
+    label: string; value: string; bench: string | null;
+    status: KpiStatus | null; badge?: string;
+    score: number | null; color: string; bg: string; borderColor: string;
+    breakdown?: { label: string; value: string }[];
+  };
+  const rows: KpiRow[] = [];
 
   if (results.tauxRotation) {
     rows.push({
       label: lbl("Taux de Rotation des Stocks", "معدل دوران المخزون"),
       value: fRot(results.tauxRotation.value),
-      bench: lbl("≥ 6 : Bon · 2–6 : Moyen · < 2 : Mauvais", "≥ ٦ : جيد · ٢–٦ : متوسط · < ٢ : ضعيف"),
+      bench: lbl("Seuil excellent : ≥ 6× · ≥ 2 : Moyen · < 2 : Mauvais",
+                 "المعيار الجيد: ≥ ٦× · ٢–٦: متوسط · < ٢: ضعيف"),
       status: results.tauxRotation.status,
       score: results.tauxRotation.score,
       color: statusColor(results.tauxRotation.status),
       bg: statusBg(results.tauxRotation.status),
+      borderColor: statusColor(results.tauxRotation.status) + "44",
     });
   }
   if (results.tauxService) {
     rows.push({
       label: lbl("Taux de Service", "نسبة الخدمة"),
       value: fPct(results.tauxService.value),
-      bench: lbl("≥ 95% : Bon · 90–95% : Moyen · < 90% : Mauvais", "≥ ٩٥% : جيد · ٩٠–٩٥% : متوسط · < ٩٠% : ضعيف"),
+      bench: lbl("Seuil excellent : ≥ 95% · 90–95% : Moyen · < 90% : Mauvais",
+                 "المعيار الجيد: ≥ ٩٥% · ٩٠–٩٥%: متوسط · < ٩٠%: ضعيف"),
       status: results.tauxService.status,
       score: results.tauxService.score,
       color: statusColor(results.tauxService.status),
       bg: statusBg(results.tauxService.status),
+      borderColor: statusColor(results.tauxService.status) + "44",
     });
   }
   if (results.coutTotal) {
     const b = results.coutTotal.breakdown;
+    const components: [string, string, number][] = [
+      [lbl("Transport", "النقل"),  lbl("Transport",  "النقل"),  b.coutTransport],
+      [lbl("Stockage",  "التخزين"), lbl("Stockage",  "التخزين"), b.coutStockage],
+      [lbl("Commande",  "الطلب"),  lbl("Commande",  "الطلب"),   b.coutCommande],
+      [lbl("Rupture",   "النقص"),  lbl("Rupture",   "النقص"),   b.coutRupture],
+    ];
     rows.push({
-      label: lbl("Coût d'Approvisionnement Total", "تكلفة الإمداد الإجمالية"),
+      label: lbl("Coût d'Approvisionnement", "تكلفة الإمداد"),
       value: fDA(results.coutTotal.value),
-      bench: lbl(
-        `Transport : ${fDA(b.coutTransport)} · Stockage : ${fDA(b.coutStockage)} · Commande : ${fDA(b.coutCommande)} · Rupture : ${fDA(b.coutRupture)}`,
-        `نقل: ${fDA(b.coutTransport)} · تخزين: ${fDA(b.coutStockage)} · طلب: ${fDA(b.coutCommande)} · نقص: ${fDA(b.coutRupture)}`,
-      ),
+      bench: null,
+      badge: lbl("Calculé", "محسوب"),
       status: null,
       score: null,
-      color: C.primary,
-      bg: C.primaryLight,
+      color: "#1565c0",
+      bg: "#eff6ff",
+      borderColor: "#bfdbfe",
+      breakdown: components
+        .filter(([,, v]) => v > 0)
+        .map(([label,, v]) => ({ label, value: fDA(v) })),
     });
   }
   if (results.tauxRupture) {
     rows.push({
       label: lbl("Taux de Rupture de Stock", "نسبة النقص من المخزون"),
       value: fPct(results.tauxRupture.value),
-      bench: lbl("≤ 1% : Bon · 1–5% : Moyen · > 5% : Mauvais", "≤ ١% : جيد · ١–٥% : متوسط · > ٥% : ضعيف"),
+      bench: lbl("Seuil excellent : ≤ 1% · 1–5% : Moyen · > 5% : Mauvais",
+                 "المعيار الجيد: ≤ ١% · ١–٥%: متوسط · > ٥%: ضعيف"),
       status: results.tauxRupture.status,
       score: results.tauxRupture.score,
       color: statusColor(results.tauxRupture.status),
       bg: statusBg(results.tauxRupture.status),
+      borderColor: statusColor(results.tauxRupture.status) + "44",
     });
   }
 
+  // ── Radar chart data (rotation/service/rupture scores) ───────────────────
+  const radarPoints: { label: string; score: number }[] = [];
+  if (results.tauxRotation) radarPoints.push({ label: lbl("Rotation", "الدوران"), score: results.tauxRotation.score });
+  if (results.tauxService)  radarPoints.push({ label: lbl("Service",  "الخدمة"),  score: results.tauxService.score });
+  if (results.tauxRupture)  radarPoints.push({ label: lbl("Rupture",  "النقص"),   score: results.tauxRupture.score });
+  const showRadar = radarPoints.length >= 2;
+
+  // ── Bar chart data (raw KPI values, excluding cost) ───────────────────────
+  const barData: { name: string; value: number; color: string; unit: string }[] = [];
+  if (results.tauxRotation) barData.push({ name: lbl("Rotation (×)", "الدوران (×)"), value: parseFloat(results.tauxRotation.value.toFixed(2)), color: statusColor(results.tauxRotation.status), unit: "×" });
+  if (results.tauxService)  barData.push({ name: lbl("Service (%)",  "الخدمة (%)"),  value: parseFloat(results.tauxService.value.toFixed(1)),  color: statusColor(results.tauxService.status),  unit: "%" });
+  if (results.tauxRupture)  barData.push({ name: lbl("Rupture (%)",  "النقص (%)"),   value: parseFloat(results.tauxRupture.value.toFixed(1)),   color: statusColor(results.tauxRupture.status),  unit: "%" });
+
+  const maxBarVal = Math.max(...barData.map(d => d.value), 1);
+  const barsHtml = barData.map(d => {
+    const w = Math.round((d.value / maxBarVal) * 280);
+    return `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+        <div style="width:90px;font-size:9px;font-weight:600;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.name}</div>
+        <div style="height:20px;background:${d.color};border-radius:3px;width:${w}px;min-width:4px;"></div>
+        <div style="font-size:9px;font-weight:700;color:${d.color};">${d.value}${d.unit}</div>
+      </div>`;
+  }).join("");
+
+  const chartsSection = (showRadar || barData.length > 0) ? `
+    ${secTitle(lbl("Visualisation des Indicateurs", "تمثيل بياني للمؤشرات"))}
+    <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+      ${showRadar ? `
+      <div style="background:${C.white};border:1px solid ${C.border};border-radius:10px;padding:14px 16px;flex:1;min-width:260px;">
+        <div style="font-size:10px;font-weight:700;color:${C.primary};margin-bottom:8px;">${lbl("Radar de Performance", "رادار الأداء")}</div>
+        ${buildRadarSvg(radarPoints)}
+      </div>` : ""}
+      ${barData.length > 0 ? `
+      <div style="background:${C.white};border:1px solid ${C.border};border-radius:10px;padding:14px 16px;flex:1;min-width:240px;">
+        <div style="font-size:10px;font-weight:700;color:${C.primary};margin-bottom:12px;">${lbl("Valeurs des Indicateurs", "قيم المؤشرات")}</div>
+        ${barsHtml}
+        <div style="font-size:8px;color:${C.muted};margin-top:4px;">${lbl("Barres proportionnelles à la valeur maximale", "الأعمدة نسبية بالقيمة القصوى")}</div>
+      </div>` : ""}
+    </div>` : "";
+
   const content = `
     ${secTitle(lbl("Tableau de Bord — KPI", "لوحة المؤشرات — KPI"))}
-    <div style="font-size:10px;color:${C.muted};margin-bottom:20px;">${results.problemName} · ${lbl("Période", "فترة")} : ${results.period}</div>
+    <div style="font-size:10px;color:${C.muted};margin-bottom:16px;">${results.problemName} · ${lbl("Période", "فترة")} : ${periodLabels[results.period] ?? results.period} · ${results.activeCount} ${lbl("indicateur(s) analysé(s)", "مؤشر محلَّل")}</div>
     ${rows.map(r => `
-      <div style="background:${r.bg};border:1px solid ${r.color}44;border-radius:10px;padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="background:${r.bg};border:1px solid ${r.borderColor};border-radius:10px;padding:13px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
         <div style="flex:1;min-width:0;">
-          <div style="font-size:11px;font-weight:700;color:${C.text};margin-bottom:4px;">${r.label}</div>
-          <div style="font-size:9px;color:${C.muted};margin-bottom:${r.score !== null ? "8px" : "0"};">${r.bench}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:${r.color};flex-shrink:0;"></div>
+            <span style="font-size:11px;font-weight:700;color:${C.text};">${r.label}</span>
+            ${r.badge ? `<span style="font-size:8px;font-weight:700;background:${r.bg};color:${r.color};border:1px solid ${r.color}44;border-radius:999px;padding:1px 6px;">${r.badge}</span>` : ""}
+          </div>
+          ${r.bench ? `<div style="font-size:8.5px;color:${C.muted};margin-bottom:${r.score !== null ? "8px" : "0"};">${r.bench}</div>` : ""}
+          ${r.breakdown && r.breakdown.length > 0 ? `
+          <div style="margin-top:4px;">
+            ${r.breakdown.map(bd => `
+              <div style="display:flex;justify-content:space-between;font-size:8.5px;margin-bottom:2px;">
+                <span style="color:${C.muted};">${bd.label}</span>
+                <span style="font-family:monospace;font-weight:600;color:${r.color};">${bd.value}</span>
+              </div>`).join("")}
+          </div>` : ""}
           ${r.score !== null ? `
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div style="flex:1;height:6px;background:rgba(0,0,0,0.1);border-radius:3px;overflow:hidden;max-width:200px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+            <div style="flex:1;height:6px;background:rgba(0,0,0,0.1);border-radius:3px;overflow:hidden;max-width:180px;">
               <div style="height:100%;width:${r.score}%;background:${r.color};border-radius:3px;"></div>
             </div>
-            <span style="font-size:8.5px;font-weight:700;color:${r.color};">${lbl("Score", "نقاط الأداء")} : ${r.score}/100</span>
+            <span style="font-size:8px;font-weight:700;color:${r.color};">${lbl("Score", "نقاط الأداء")} : ${r.score}/100</span>
           </div>` : ""}
         </div>
         <div style="text-align:right;flex-shrink:0;margin-left:16px;">
@@ -246,7 +371,8 @@ function buildResultsPage(opts: ScKpiPDFOptions, totalPages: number) {
             r.status === "good" ? lbl("Bon", "جيد") : r.status === "medium" ? lbl("Moyen", "متوسط") : lbl("Mauvais", "ضعيف")
           }</div>` : ""}
         </div>
-      </div>`).join("")}`;
+      </div>`).join("")}
+    ${chartsSection}`;
 
   return pageShell(content, 2, totalPages, lbl("Résultats KPI", "نتائج المؤشرات"), opts.language);
 }
