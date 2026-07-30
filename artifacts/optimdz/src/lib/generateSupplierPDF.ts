@@ -142,19 +142,29 @@ function buildResultsPage(opts: SupplierPDFOptions, total: number): string {
 
   const rows = opts.results.map((r, i) => {
     const isTop = i === 0;
-    const scoreCells = opts.criteria.map(c =>
-      `<td style="padding:4px 6px;border-bottom:1px solid ${C.border};text-align:center;font-family:monospace;font-size:8.5px;">
-        ${fNum(r.scores[c.id] ?? 0, 0)}
-        <span style="color:${C.muted};font-size:7px;"> (${fNum(r.weightedScores[c.id] ?? 0, 1)})</span>
-      </td>`
-    ).join("");
+    const scoreCells = opts.criteria.map(c => {
+      const raw     = r.scores[c.id] ?? 0;
+      const contrib = r.weightedScores[c.id] ?? 0;
+      const pct     = Math.round((raw / opts.scale) * 100);
+      const barColor = pct < 50 ? C.red : C.green;
+      return `<td style="padding:4px 6px;border-bottom:1px solid ${C.border};text-align:center;font-family:monospace;font-size:8.5px;">
+        <div style="font-weight:600;">${fNum(raw, 0)}</div>
+        <div style="color:${C.muted};font-size:7px;">+${fNum(contrib, 1)}</div>
+        <div style="width:36px;height:3px;background:#e0e0e0;border-radius:2px;margin:2px auto 0;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px;"></div>
+        </div>
+      </td>`;
+    }).join("");
     return `<tr style="background:${isTop ? "#e8f5e9" : i % 2 === 0 ? C.white : "#f7f7f7"};">
+      <td style="padding:5px 8px;border-bottom:1px solid ${C.border};text-align:center;font-size:13px;white-space:nowrap;">
+        ${rankMedal(r.rank)}
+      </td>
       <td style="padding:5px 8px;border-bottom:1px solid ${C.border};font-weight:${isTop ? "800" : "600"};font-size:9px;white-space:nowrap;">
-        ${rankMedal(r.rank)} ${r.name}
+        ${r.name}
       </td>
       ${scoreCells}
-      <td style="padding:5px 8px;border-bottom:1px solid ${C.border};text-align:center;font-family:monospace;font-weight:800;font-size:10px;color:${isTop ? C.green : C.primary};">
-        ${fNum(r.totalScore, 1)}
+      <td style="padding:5px 8px;border-bottom:1px solid ${C.border};text-align:center;font-family:monospace;font-weight:800;font-size:10px;color:${isTop ? C.green : C.primary};white-space:nowrap;">
+        ${fNum(r.totalScore, 1)}<span style="font-size:7px;color:${C.muted};font-weight:400;">/100</span>
       </td>
     </tr>`;
   }).join("");
@@ -204,6 +214,7 @@ function buildResultsPage(opts: SupplierPDFOptions, total: number): string {
       <table style="width:100%;border-collapse:collapse;min-width:${colW * (opts.criteria.length + 2)}px;">
         <thead>
           <tr style="background:${C.primary};color:${C.white};">
+            <th style="padding:6px 8px;text-align:center;font-size:9px;font-weight:700;width:30px;">الرتبة / Rang</th>
             <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;">المورد / Fournisseur</th>
             ${criteriaHeaderCells}
             <th style="padding:6px 8px;text-align:center;font-size:9px;font-weight:700;background:${C.accent};color:${C.text};">النقاط / Score Total</th>
@@ -213,7 +224,7 @@ function buildResultsPage(opts: SupplierPDFOptions, total: number): string {
       </table>
     </div>
     <div style="font-size:8px;color:${C.muted};margin-bottom:16px;">
-      ملاحظة · Note : القيم بين قوسين = المساهمة المرجّحة لكل معيار / Les valeurs entre parenthèses = contribution pondérée par critère.
+      ملاحظة · Note : الأرقام الصغيرة (+X.X) = المساهمة المرجّحة لكل معيار / Les petits chiffres (+X.X) = contribution pondérée par critère.
     </div>
 
     ${secTitle("مقارنة بيانية", "Comparaison Graphique")}
@@ -232,9 +243,15 @@ function buildAnalysisPage(opts: SupplierPDFOptions, total: number): string {
       ${line}
     </div>`).join("");
 
+  const suggBgColors  = ["#f0fdf4", "#eff6ff", "#fffbeb"];
+  const suggBdrColors = [C.green, C.blue, C.accent];
   const suggestionsHtml = opts.suggestions.map((s, i) => `
-    <div style="border:1px solid ${C.border};border-radius:8px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${i === 0 ? C.green : i === 1 ? C.accent : C.blue};">
-      <div style="font-size:11px;font-weight:700;margin-bottom:4px;">${s.icon} ${s.title}</div>
+    <div style="border:1px solid ${C.border};border-radius:8px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${suggBdrColors[i] ?? C.primary};background:${suggBgColors[i] ?? C.white};">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <span style="font-size:14px;">${s.icon}</span>
+        <span style="font-size:11px;font-weight:700;flex:1;">${s.title}</span>
+        <span style="font-size:8px;font-weight:700;background:${C.primaryLight};color:${C.primary};border-radius:999px;padding:1px 7px;">#${i + 1}</span>
+      </div>
       <div style="font-size:9.5px;color:${C.muted};line-height:1.6;">${s.desc}</div>
     </div>`).join("");
 
