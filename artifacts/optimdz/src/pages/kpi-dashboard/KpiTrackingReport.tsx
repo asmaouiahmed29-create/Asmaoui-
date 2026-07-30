@@ -274,8 +274,8 @@ export function KpiTrackingReport({ result, sector }: Props) {
     try {
       await generateKpiPDFReport({
         result,
-        analysisLines: analysisLines.map(l => l.text),
-        suggestions: suggestions.map(s => ({ icon: s.icon, title: s.title, desc: s.desc })),
+        analysisLines,
+        suggestions,
         managerName,
         institutionName,
       });

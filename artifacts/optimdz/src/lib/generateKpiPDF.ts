@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import type { KpiTrackingResult, PeriodResult } from "./kpiTrackingAlgorithm";
-import { fmtDAFull, fmtPct, fmtPctAbs, fmtN } from "./kpiTrackingAlgorithm";
+import type { KpiTrackingResult } from "./kpiTrackingAlgorithm";
+import { fmtPct, fmtPctAbs } from "./kpiTrackingAlgorithm";
 
 const C = {
   primary: "#004d40", primaryLight: "#e0f2f1",
@@ -33,6 +33,50 @@ function fDA(n: number | null | undefined): string {
 }
 function genId() {
   return `KPI-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+// ── Tailwind class → CSS colour helpers ──────────────────────────────────────
+function twBg(cls = ""): string {
+  if (cls.includes("bg-red"))      return C.redLight;
+  if (cls.includes("bg-amber"))    return C.orangeLight;
+  if (cls.includes("bg-green"))    return C.greenLight;
+  if (cls.includes("bg-blue"))     return "#eff6ff";
+  if (cls.includes("bg-purple"))   return "#f5f3ff";
+  if (cls.includes("bg-secondary"))return "#e8f5f1";
+  if (cls.includes("bg-primary"))  return C.primaryLight;
+  if (cls.includes("bg-muted"))    return "#f5f5f5";
+  return C.primaryLight;
+}
+function twBorder(cls = ""): string {
+  if (cls.includes("red-500"))     return C.red;
+  if (cls.includes("red-300"))     return C.red + "88";
+  if (cls.includes("amber-500"))   return C.orange;
+  if (cls.includes("amber-300"))   return C.orange + "88";
+  if (cls.includes("green-600"))   return C.green;
+  if (cls.includes("green-300"))   return C.green + "88";
+  if (cls.includes("blue-500"))    return "#3b82f6";
+  if (cls.includes("blue-300"))    return "#93c5fd";
+  if (cls.includes("purple-500"))  return "#8b5cf6";
+  if (cls.includes("secondary"))   return "#2e7d6a";
+  if (cls.includes("primary"))     return C.primary;
+  return C.border;
+}
+
+// ── Row renderers ─────────────────────────────────────────────────────────────
+function analysisRow(icon: string, text: string, bg: string, borderColor: string) {
+  return `<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;` +
+    `background:${bg};border:1px solid ${borderColor};border-radius:6px;` +
+    `margin-bottom:7px;font-size:10px;line-height:1.65;">` +
+    `<span style="font-size:13px;flex-shrink:0;line-height:1.3;">${icon}</span>` +
+    `<span style="flex:1;">${text}</span>` +
+    `</div>`;
+}
+function suggestionRow(icon: string, title: string, desc: string, borderColor: string, bg: string) {
+  return `<div style="border-left:4px solid ${borderColor};padding:8px 12px;background:${bg};` +
+    `border-radius:0 6px 6px 0;margin-bottom:8px;">` +
+    `<div style="font-size:10.5px;font-weight:700;color:${C.text};margin-bottom:3px;">${icon} ${title}</div>` +
+    `<div style="font-size:9.5px;color:${C.muted};line-height:1.65;">${desc}</div>` +
+    `</div>`;
 }
 
 function pageShell(content: string, pageNum: number, total: number, title: string) {
@@ -76,8 +120,6 @@ function buildCover(
 
   const trendIcon = (t: "up" | "down" | "stable") =>
     t === "up" ? "📈" : t === "down" ? "📉" : "➡️";
-  const trendColor = (t: "up" | "down" | "stable") =>
-    t === "up" ? C.green : t === "down" ? C.red : C.muted;
 
   const kpiCards = [
     { label: "آخر CA / Dernier CA", value: fDA(summary.latestRevenue), trend: summary.revenueTrend, color: C.revenue },
@@ -224,13 +266,51 @@ function buildTrendsPage(result: KpiTrackingResult, totalPages: number) {
 // ── Page 3 — Analysis, Targets & Suggestions ─────────────────────────────────
 function buildAnalysisPage(
   result: KpiTrackingResult,
-  analysis: string[], suggestions: { title: string; desc: string; icon: string }[],
+  analysisLines: { icon: string; text: string; color: string }[],
+  suggestions: { icon: string; title: string; desc: string; color: string; border: string }[],
   totalPages: number
 ) {
   const { summary, periods } = result;
   const hasTargets = summary.hasTargets;
 
-  // Actual vs Target table (if targets exist)
+  // ── Alerts strip — mirrors results page (same conditions) ─────────────────
+  let alertsSection = "";
+  const showAlerts = summary.consecutiveProfitDeclines >= 2 || summary.costGrowthFasterThanRevenue;
+  if (showAlerts) {
+    const alertItems: string[] = [];
+    if (summary.consecutiveProfitDeclines >= 2) {
+      alertItems.push(
+        `صافي الربح في انخفاض منذ ${summary.consecutiveProfitDeclines} فترات متتالية · ` +
+        `Bénéfice net en baisse depuis ${summary.consecutiveProfitDeclines} périodes consécutives`
+      );
+    }
+    if (summary.costGrowthFasterThanRevenue) {
+      alertItems.push(
+        `الأعباء تتصاعد أسرع من رقم الأعمال · Les charges progressent plus vite que le chiffre d'affaires`
+      );
+    }
+    if (summary.marginDeclineStreak >= 3) {
+      alertItems.push(
+        `هامش الربح في تراجع منذ ${summary.marginDeclineStreak} فترات · ` +
+        `Marge bénéficiaire en déclin depuis ${summary.marginDeclineStreak} périodes`
+      );
+    }
+    alertsSection = `
+      <div style="display:flex;align-items:flex-start;gap:10px;border-radius:10px;border:2px solid ${C.red}55;
+        background:${C.redLight};padding:12px 14px;margin-bottom:14px;">
+        <span style="font-size:16px;flex-shrink:0;">⚠️</span>
+        <div>
+          <div style="font-size:11px;font-weight:800;color:${C.red};margin-bottom:5px;">
+            تنبيهات أداء مكتشفة · Alertes de performance détectées
+          </div>
+          ${alertItems.map(a =>
+            `<div style="font-size:9.5px;color:#7f1d1d;margin-bottom:3px;">• ${a}</div>`
+          ).join("")}
+        </div>
+      </div>`;
+  }
+
+  // ── Actual vs Target table ────────────────────────────────────────────────
   let targetSection = "";
   if (hasTargets) {
     const targetRows = periods
@@ -272,23 +352,63 @@ function buildAnalysisPage(
       </table>`;
   }
 
-  const analysisHtml = analysis.map(line => `
-    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:${C.primaryLight};border-radius:6px;margin-bottom:7px;font-size:10px;line-height:1.65;">
-      ${line}
-    </div>`).join("");
+  // ── Analysis lines — icon + text + per-line color (same as screen) ────────
+  const analysisHtml = analysisLines.map(line =>
+    analysisRow(line.icon, line.text, twBg(line.color), twBorder(line.color))
+  ).join("");
 
-  const suggestionsHtml = suggestions.map(s => `
-    <div style="border-left:4px solid ${C.accent};padding:8px 12px;background:${C.white};border-radius:0 6px 6px 0;margin-bottom:8px;">
-      <div style="font-size:10.5px;font-weight:700;color:${C.text};margin-bottom:3px;">${s.icon} ${s.title}</div>
-      <div style="font-size:9.5px;color:${C.muted};line-height:1.65;">${s.desc}</div>
-    </div>`).join("");
+  // ── Suggestions — per-card color + border (same as screen) ───────────────
+  const suggestionsHtml = suggestions.map(s =>
+    suggestionRow(s.icon, s.title, s.desc, twBorder(s.border), twBg(s.color))
+  ).join("");
+
+  // ── Managerial performance summary — mirrors "Rapport de Performance" card ─
+  const avgMarginPct = periods.reduce((a, b) => a + b.profitMarginPct, 0) / periods.length;
+  const perfMinis = [
+    { label: "أفضل فترة · Meilleure période", value: summary.bestPeriodLabel,              icon: "🏆", bg: "#fffbeb", border: C.orange + "55" },
+    { label: "أصعب فترة · Période difficile",  value: summary.worstPeriodLabel,             icon: "⚠️", bg: C.white,  border: C.border },
+    { label: "متوسط الهامش · Marge moyenne",   value: fmtPctAbs(avgMarginPct),             icon: "📊", bg: C.white,  border: C.border },
+    { label: "متوسط نمو الربح · Croiss. bén.", value: fmtPct(summary.avgProfitGrowthPct),  icon: "📈", bg: C.white,  border: C.border },
+  ];
+  const perfMinisHtml = perfMinis.map(m =>
+    `<div style="background:${m.bg};border:1px solid ${m.border};border-radius:8px;padding:9px 11px;">` +
+    `<div style="font-size:8px;color:${C.muted};margin-bottom:3px;line-height:1.3;">${m.icon} ${m.label}</div>` +
+    `<div style="font-size:13px;font-weight:800;color:${C.text};">${m.value}</div>` +
+    `</div>`
+  ).join("");
+
+  const trendLabel = summary.overallProfitTrend === "up"
+    ? `📈 في تحسن · En progression`
+    : summary.overallProfitTrend === "down"
+    ? `📉 في تراجع · En recul`
+    : `➡️ مستقر · Stable`;
+  const trendBg     = summary.overallProfitTrend === "up" ? C.greenLight : summary.overallProfitTrend === "down" ? C.redLight : "#f5f5f5";
+  const trendBorder = summary.overallProfitTrend === "up" ? C.green      : summary.overallProfitTrend === "down" ? C.red      : C.muted;
+
+  const perfSection = `
+    ${sectionTitle("Rapport de Performance · تقرير الأداء", "")}
+    <div style="border:1px solid ${C.border};border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-size:13px;font-weight:800;color:${C.text};">${result.businessName || "Suivi des KPI"}</div>
+          <div style="font-size:9px;color:${C.muted};margin-top:2px;">
+            ${periods.length} ${result.periodType === "monthly" ? "période(s) mensuelle(s)" : "trimestre(s)"} · ${periods[0].label} → ${periods[periods.length - 1].label}
+          </div>
+        </div>
+        <span style="background:${trendBg};color:${trendBorder};border:1px solid ${trendBorder}55;
+          border-radius:6px;padding:4px 10px;font-size:9.5px;font-weight:700;">${trendLabel}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:7px;">${perfMinisHtml}</div>
+    </div>`;
 
   const content = `
+    ${alertsSection}
     ${targetSection}
     ${sectionTitle("Analyse Automatique de la Situation", "التحليل التلقائي للوضع")}
     <div style="margin-bottom:14px;">${analysisHtml}</div>
     ${sectionTitle("Recommandations", "التوصيات")}
-    <div>${suggestionsHtml}</div>`;
+    <div style="margin-bottom:16px;">${suggestionsHtml}</div>
+    ${perfSection}`;
 
   return pageShell(content, 3, totalPages, "التحليل والتوصيات · Analyse & Recommandations");
 }
@@ -343,8 +463,10 @@ async function addHtmlPage(pdf: jsPDF, html: string, pageWidth: number) {
 // ── Main export ───────────────────────────────────────────────────────────────
 export interface KpiPDFOptions {
   result: KpiTrackingResult;
-  analysisLines: string[];
-  suggestions: { title: string; desc: string; icon: string }[];
+  /** Pre-rendered analysis lines from the results page (language-aware, with icon and color) */
+  analysisLines: { icon: string; text: string; color: string }[];
+  /** Pre-rendered suggestion cards from the results page (language-aware, with color and border) */
+  suggestions: { icon: string; title: string; desc: string; color: string; border: string }[];
   managerName?: string;
   institutionName?: string;
 }
