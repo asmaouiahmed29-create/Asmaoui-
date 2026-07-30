@@ -152,7 +152,9 @@ function buildResultsPage(opts: ForecastPDFOptions, totalPages: number): string 
     const modelParam = r.mode === "moving-average"
       ? `N = ${prod?.windowSize ?? "—"} فترات / périodes`
       : `α = ${prod?.alpha ?? "—"}`;
+    const productName = r.name || `Produit ${r.id}`;
 
+    // ── 1. Data table rows ───────────────────────────────────────────────────
     const rows = r.dataPoints.map((dp, i) => {
       const isNext = i === r.dataPoints.length - 1;
       const actualStr   = dp.actual   !== null ? fNum(dp.actual, 0)   : "—";
@@ -180,40 +182,93 @@ function buildResultsPage(opts: ForecastPDFOptions, totalPages: number): string 
       low:    "منخفض / Faible",
     };
 
-    return `
-      <div style="margin-bottom:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="background:${C.primary};color:${C.white};width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;">${r.id}</span>
-            <span style="font-size:13px;font-weight:700;">${r.name}</span>
+    // ── 2. Bar chart (CSS — replaces Recharts line chart on screen) ──────────
+    const allVals = r.dataPoints.flatMap(dp => [dp.actual, dp.forecast]).filter((v): v is number => v !== null);
+    const maxVal  = Math.max(...allVals, 1);
+    const BAR_H   = 50; // px — chart area height
+
+    const chartBars = r.dataPoints.map((dp, idx) => {
+      const isNext = idx === r.dataPoints.length - 1;
+      const aH = dp.actual   !== null ? Math.max(2, Math.round((dp.actual   / maxVal) * BAR_H)) : 0;
+      const fH = dp.forecast !== null ? Math.max(2, Math.round((dp.forecast / maxVal) * BAR_H)) : 0;
+      const fColor = isNext ? C.green : C.accent;
+      return `
+        <div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;">
+          <div style="display:flex;align-items:flex-end;gap:1px;height:${BAR_H}px;">
+            ${dp.actual   !== null
+              ? `<div style="width:7px;height:${aH}px;background:${C.primary};border-radius:2px 2px 0 0;"></div>`
+              : `<div style="width:7px;"></div>`}
+            ${dp.forecast !== null
+              ? `<div style="width:7px;height:${fH}px;background:${fColor};border-radius:2px 2px 0 0;"></div>`
+              : `<div style="width:7px;"></div>`}
           </div>
-          <div style="display:flex;gap:8px;font-size:9px;">
-            <span style="background:${C.primaryLight};padding:3px 8px;border-radius:4px;">MAE: ${fNum(r.mae, 1)}</span>
-            <span style="background:${C.primaryLight};padding:3px 8px;border-radius:4px;">MAPE: ${fNum(r.mape, 1)}%</span>
-            <span style="background:${C.primaryLight};padding:3px 8px;border-radius:4px;">${trendMap[r.trend]}</span>
-            <span style="background:${C.primaryLight};padding:3px 8px;border-radius:4px;">تقلب: ${volMap[r.volatility]}</span>
+          <div style="font-size:6px;color:${C.muted};text-align:center;width:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">${dp.period}</div>
+        </div>`;
+    }).join("");
+
+    const chartHtml = `
+      <div style="border:1px solid ${C.border};border-radius:7px;padding:8px 12px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:8.5px;font-weight:600;color:${C.muted};">مخطط الطلب الفعلي مقابل التنبؤ · Graphique : Réel vs Prévision</span>
+          <div style="display:flex;gap:10px;font-size:8px;color:${C.text};">
+            <span><span style="display:inline-block;width:8px;height:8px;background:${C.primary};border-radius:2px;margin-right:3px;"></span>الفعلي / Réel</span>
+            <span><span style="display:inline-block;width:8px;height:8px;background:${C.accent};border-radius:2px;margin-right:3px;"></span>التنبؤ / Prévision</span>
+            <span><span style="display:inline-block;width:8px;height:8px;background:${C.green};border-radius:2px;margin-right:3px;"></span>★ الفترة القادمة</span>
           </div>
         </div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr style="background:${C.primary};color:${C.white};">
-              <th style="padding:5px 8px;text-align:center;font-weight:700;font-size:9px;">الفترة / Période</th>
-              <th style="padding:5px 8px;text-align:right;font-weight:700;font-size:9px;">الفعلي / Réel</th>
-              <th style="padding:5px 8px;text-align:right;font-weight:700;font-size:9px;background:${C.accent};color:${C.text};">التنبؤ / Prévision</th>
-              <th style="padding:5px 8px;text-align:right;font-weight:700;font-size:9px;">الخطأ المطلق / Erreur abs.</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <div style="margin-top:6px;padding:8px 12px;background:${C.primaryLight};border-radius:6px;font-size:9.5px;display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <strong>تنبؤ الفترة القادمة / Prévision prochaine période :</strong>
-            <span style="color:${C.green};font-weight:800;font-size:12px;margin-left:8px;">${fNum(r.nextForecast, 1)} وحدة</span>
+        <div style="display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid ${C.border};padding-bottom:2px;">
+          ${chartBars}
+        </div>
+      </div>`;
+
+    return `
+      <div style="margin-bottom:24px;border:1px solid ${C.border};border-radius:10px;overflow:hidden;">
+
+        <!-- Product header -->
+        <div style="background:${C.primaryLight};padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid ${C.border};">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="background:${C.primary};color:${C.white};width:26px;height:26px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">${r.id}</span>
+            <span style="font-size:13px;font-weight:700;">${productName}</span>
           </div>
-          <div style="font-size:8.5px;color:${C.muted};text-align:right;">
-            <div>نموذج / Modèle : ${r.mode === "moving-average" ? "Moyenne Mobile" : "Lissage Exponentiel"}</div>
-            <div>${modelParam}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:8.5px;">
+            <span style="background:${C.white};border:1px solid ${C.border};padding:2px 7px;border-radius:4px;">MAE: ${fNum(r.mae, 1)}</span>
+            <span style="background:${C.white};border:1px solid ${C.border};padding:2px 7px;border-radius:4px;">MAPE: ${fNum(r.mape, 1)}%</span>
+            <span style="background:${C.white};border:1px solid ${C.border};padding:2px 7px;border-radius:4px;">${trendMap[r.trend]}</span>
+            <span style="background:${C.white};border:1px solid ${C.border};padding:2px 7px;border-radius:4px;">تقلب: ${volMap[r.volatility]}</span>
           </div>
+        </div>
+
+        <div style="padding:12px 14px;">
+
+          <!-- Forecast highlight (matches screen "prévision prochaine période" box) -->
+          <div style="background:${C.primaryLight};border:1px solid ${C.border};border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div>
+              <div style="font-size:8.5px;color:${C.muted};margin-bottom:3px;">تنبؤ الفترة القادمة · Prévision de la prochaine période</div>
+              <div style="font-size:26px;font-weight:900;color:${C.primary};line-height:1;">${fNum(r.nextForecast, 1)}</div>
+              <div style="font-size:8.5px;color:${C.muted};margin-top:2px;">وحدة / unités</div>
+            </div>
+            <div style="text-align:right;font-size:8.5px;color:${C.muted};">
+              <div style="margin-bottom:2px;">نموذج / Modèle : <strong style="color:${C.text};">${r.mode === "moving-average" ? "Moyenne Mobile" : "Lissage Exponentiel"}</strong></div>
+              <div>${modelParam}</div>
+            </div>
+          </div>
+
+          <!-- Bar chart (replaces Recharts line chart) -->
+          ${chartHtml}
+
+          <!-- Data table -->
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:${C.primary};color:${C.white};">
+                <th style="padding:5px 8px;text-align:center;font-weight:700;font-size:9px;">الفترة / Période</th>
+                <th style="padding:5px 8px;text-align:right;font-weight:700;font-size:9px;">الفعلي / Réel</th>
+                <th style="padding:5px 8px;text-align:right;font-weight:700;font-size:9px;background:${C.accent};color:${C.text};">التنبؤ / Prévision</th>
+                <th style="padding:5px 8px;text-align:right;font-weight:700;font-size:9px;">الخطأ المطلق / Erreur abs.</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+
         </div>
       </div>`;
   }).join("");
@@ -233,9 +288,15 @@ function buildAnalysisPage(opts: ForecastPDFOptions, totalPages: number): string
       ${line}
     </div>`).join("");
 
+  const suggBorderColors = [C.green, C.accent, C.blue];
+  const suggBgColors     = ["#f0fdf4", "#fffbeb", "#eff6ff"];
   const suggestionsHtml = opts.suggestions.map((s, i) => `
-    <div style="border:1px solid ${C.border};border-radius:8px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${i === 0 ? C.green : i === 1 ? C.accent : C.blue};">
-      <div style="font-size:11px;font-weight:700;margin-bottom:4px;">${s.icon} ${s.title}</div>
+    <div style="background:${suggBgColors[i] ?? C.white};border:1px solid ${C.border};border-radius:8px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${suggBorderColors[i] ?? C.blue};">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+        <span style="font-size:15px;">${s.icon}</span>
+        <span style="font-size:11px;font-weight:700;flex:1;">${s.title}</span>
+        <span style="font-size:9px;font-weight:700;background:${C.primaryLight};color:${C.primary};border-radius:999px;padding:2px 8px;">#${i + 1}</span>
+      </div>
       <div style="font-size:9.5px;color:${C.muted};line-height:1.6;">${s.desc}</div>
     </div>`).join("");
 
@@ -260,9 +321,12 @@ export async function generateForecastPDF(opts: ForecastPDFOptions): Promise<voi
     buildAnalysisPage(opts, totalPages),
   ];
 
-  const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-  const W   = 794;
-  const H   = 1123;
+  const W     = 794;
+  const A4_H  = 1123;  // pixels — A4 proportions at this width
+  const PDF_W = 595.28;
+  const PDF_H = 841.89;
+
+  let pdf: jsPDF | null = null;
 
   for (let i = 0; i < pages.length; i++) {
     opts.onProgress?.(`${i + 1}/${totalPages}`);
@@ -272,12 +336,22 @@ export async function generateForecastPDF(opts: ForecastPDFOptions): Promise<voi
     document.body.appendChild(container);
 
     try {
+      // Use the element's natural height so nothing is ever clipped
+      const naturalH = Math.max(A4_H, container.scrollHeight || A4_H);
       const canvas = await html2canvas(container, {
         scale: 2, useCORS: true, backgroundColor: null,
-        width: W, height: H, logging: false,
+        width: W, height: naturalH, logging: false,
       });
-      if (i > 0) pdf.addPage();
-      pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 595.28, 841.89);
+
+      // Convert pixel height to PDF points (same ratio as width)
+      const pdfPageH = Math.max(PDF_H, (naturalH / W) * PDF_W);
+
+      if (i === 0) {
+        pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: [PDF_W, pdfPageH] });
+      } else {
+        pdf!.addPage([PDF_W, pdfPageH]);
+      }
+      pdf!.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, PDF_W, pdfPageH);
     } finally {
       document.body.removeChild(container);
     }
