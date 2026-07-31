@@ -195,15 +195,15 @@ export default function Home() {
                   <div className="space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-secondary">{t("Optimal", "أمثل")}</span>
-                      <span className="font-medium">{stats?.byStatus['optimal'] || 0}</span>
+                      <span className="font-medium">{stats?.byStatus?.['optimal'] || 0}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-destructive">{t("Inréalisable", "غير ممكن")}</span>
-                      <span className="font-medium">{stats?.byStatus['infeasible'] || 0}</span>
+                      <span className="font-medium">{stats?.byStatus?.['infeasible'] || 0}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-accent-foreground">{t("Non borné", "غير محدود")}</span>
-                      <span className="font-medium">{stats?.byStatus['unbounded'] || 0}</span>
+                      <span className="font-medium">{stats?.byStatus?.['unbounded'] || 0}</span>
                     </div>
                   </div>
                 </div>
