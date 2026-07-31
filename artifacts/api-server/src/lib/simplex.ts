@@ -466,22 +466,99 @@ export function solveSimplex(input: ProblemInput): SolveResult {
     };
   });
 
-  // Build managerial summary
-  const topVars = variables
-    .map((v, i) => ({ name: v.name, value: solution[i], unit: v.unit }))
+  // Build managerial summary — rich, analyst-quality prose
+  const fmtNum = (n: number) =>
+    n.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+  const fmtNumAr = (n: number) =>
+    n.toLocaleString("ar-DZ", { maximumFractionDigits: 2 });
+
+  const activeVars = variables
+    .map((v, i) => ({
+      name: v.name,
+      value: round(solution[i]),
+      unit: v.unit,
+      coef: v.coefficient,
+      contribution: round(v.coefficient * solution[i]),
+    }))
     .filter((v) => v.value > 1e-6);
 
-  const criticalConstraints = constraintSensitivity.filter((c) => c.isCritical).map((c) => c.name);
+  const totalContribCalc = activeVars.reduce((s, v) => s + Math.abs(v.contribution), 0);
+  const isMax = objectiveType === "maximize";
 
-  const summary =
-    objectiveType === "maximize"
-      ? `Optimal plan: Produce ${topVars.map((v) => `${round(v.value)} ${v.unit ?? "units"} of ${v.name}`).join(", ")}. Maximum ${variables[0]?.unit ? "profit" : "objective"} = ${round(optimalValue, 2)}.${criticalConstraints.length ? ` Critical constraints: ${criticalConstraints.join(", ")}.` : ""}`
-      : `Optimal plan: Use ${topVars.map((v) => `${round(v.value)} ${v.unit ?? "units"} of ${v.name}`).join(", ")}. Minimum cost = ${round(optimalValue, 2)}.${criticalConstraints.length ? ` Critical constraints: ${criticalConstraints.join(", ")}.` : ""}`;
+  const bindingConstraints = constraintSensitivity.filter(
+    (c) => c.isCritical && c.shadowPrice !== null && Math.abs(c.shadowPrice!) > 1e-4
+  );
 
-  const summaryAr =
-    objectiveType === "maximize"
-      ? `الخطة المثلى: إنتاج ${topVars.map((v) => `${round(v.value)} ${v.unit ?? "وحدة"} من ${v.name}`).join(", ")}. الحد الأقصى ${variables[0]?.unit ? "للربح" : "للهدف"} = ${round(optimalValue, 2)}.${criticalConstraints.length ? ` القيود الحرجة: ${criticalConstraints.join(", ")}.` : ""}`
-      : `الخطة المثلى: استخدام ${topVars.map((v) => `${round(v.value)} ${v.unit ?? "وحدة"} من ${v.name}`).join(", ")}. الحد الأدنى للتكلفة = ${round(optimalValue, 2)}.${criticalConstraints.length ? ` القيود الحرجة: ${criticalConstraints.join(", ")}.` : ""}`;
+  // Helper to find constraint unit from input
+  const cUnit = (name: string) => constraints.find((c) => c.name === name)?.unit ?? "";
+
+  // --- French summary ---
+  let summary = "";
+
+  // Sentence 1: the result
+  summary += isMax
+    ? `Avec vos ressources actuelles, le profit maximal réalisable est de ${fmtNum(optimalValue)} DZD.`
+    : `Avec vos ressources actuelles, le coût minimal réalisable est de ${fmtNum(optimalValue)} DZD.`;
+
+  // Sentence 2: the production plan with per-variable contributions and percentages
+  if (activeVars.length > 0) {
+    const planParts = activeVars.map((v) => {
+      const pct =
+        totalContribCalc > 1e-6
+          ? ` — ${Math.round((Math.abs(v.contribution) / totalContribCalc) * 100)} % ${isMax ? "du profit" : "du coût"}`
+          : "";
+      return `${fmtNum(v.value)} ${v.unit ?? "unités"} de ${v.name} à ${fmtNum(v.coef)} DZD/${v.unit ?? "unité"} = ${fmtNum(v.contribution)} DZD${pct}`;
+    });
+    const verb = isMax ? "de produire" : "d'allouer";
+    summary += ` Le plan optimal recommande ${verb} : ${planParts.join(" ; ")}.`;
+  }
+
+  // Sentence 3: binding constraints and their shadow prices
+  if (bindingConstraints.length > 0) {
+    const parts = bindingConstraints.map((c) => {
+      const u = cUnit(c.name);
+      return `"${c.name}" (capacité actuelle : ${fmtNum(c.currentValue)}${u ? " " + u : ""}, chaque ${u ? u.replace(/s$/, "") : "unité"} supplémentaire rapporte ${fmtNum(Math.abs(c.shadowPrice!))} DZD)`;
+    });
+    const noun = bindingConstraints.length === 1 ? "La contrainte saturée" : "Les contraintes saturées";
+    summary += ` ${noun} qui plafonne${bindingConstraints.length > 1 ? "nt" : ""} votre ${isMax ? "profit" : "efficacité"} : ${parts.join(", ")}. Augmenter ${bindingConstraints.length === 1 ? "cette capacité" : "ces capacités"} est l'action prioritaire à impact maximal.`;
+  } else {
+    summary += ` Aucune ressource n'est saturée — votre plan dispose de marges sur toutes les contraintes.`;
+  }
+
+  // --- Arabic summary ---
+  let summaryAr = "";
+
+  // Sentence 1
+  summaryAr += isMax
+    ? `الربح الأقصى القابل للتحقيق بمواردك الحالية هو ${fmtNumAr(optimalValue)} دج.`
+    : `التكلفة الدنيا القابلة للتحقيق بمواردك الحالية هي ${fmtNumAr(optimalValue)} دج.`;
+
+  // Sentence 2
+  if (activeVars.length > 0) {
+    const planParts = activeVars.map((v) => {
+      const pct =
+        totalContribCalc > 1e-6
+          ? ` — ${Math.round((Math.abs(v.contribution) / totalContribCalc) * 100)}% ${isMax ? "من الربح" : "من التكلفة"}`
+          : "";
+      return `${fmtNumAr(v.value)} ${v.unit ?? "وحدة"} من ${v.name} بسعر ${fmtNumAr(v.coef)} دج/${v.unit ?? "وحدة"} = ${fmtNumAr(v.contribution)} دج${pct}`;
+    });
+    summaryAr += ` تُوصي الخطة المثلى بـ${isMax ? "إنتاج" : "تخصيص"}: ${planParts.join(" ؛ ")}.`;
+  }
+
+  // Sentence 3
+  if (bindingConstraints.length > 0) {
+    const parts = bindingConstraints.map((c) => {
+      const u = cUnit(c.name);
+      return `"${c.name}" (الطاقة الحالية: ${fmtNumAr(c.currentValue)}${u ? " " + u : ""}، كل ${u ? u : "وحدة"} إضافية تُدرّ ${fmtNumAr(Math.abs(c.shadowPrice!))} دج)`;
+    });
+    const noun = bindingConstraints.length === 1 ? "القيد المُقيِّد" : "القيود المُقيِّدة";
+    summaryAr += ` ${noun} الذي يُحدّ من ${isMax ? "ربحك" : "كفاءتك"}: ${parts.join("، ")}. رفع ${bindingConstraints.length === 1 ? "هذه الطاقة" : "هذه الطاقات"} هو الإجراء ذو الأثر الأعلى.`;
+  } else {
+    summaryAr += ` لا يوجد أي مورد مستنفد بالكامل — تتمتع خطتك بهامش كافٍ على جميع القيود.`;
+  }
+
+  // keep legacy name for alert building below
+  const criticalConstraints = bindingConstraints.map((c) => c.name);
 
   if (criticalConstraints.length > 0) {
     alerts.push({

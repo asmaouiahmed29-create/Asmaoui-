@@ -158,6 +158,11 @@ export function ManagerialRecommendations({ input, result }: Props) {
     });
   }, [input, result]);
 
+  const totalContrib = useMemo(
+    () => variableContributions.reduce((s, v) => s + Math.abs(v.contribution), 0),
+    [variableContributions]
+  );
+
   const prioritizedActions = useMemo(
     () => buildPrioritizedActions(variableContributions, constraintStatuses, input, language),
     [variableContributions, constraintStatuses, input, language]
@@ -234,16 +239,23 @@ export function ManagerialRecommendations({ input, result }: Props) {
                       v.value > 1e-4 ? "text-green-600" : "text-muted-foreground"
                     )}
                   />
-                  <div className="flex-1 space-y-0.5">
-                    <p className={cn("font-semibold", language === "ar" && "text-right")}>
-                      {language === "ar"
-                        ? `${input.objectiveType === "maximize" ? "أنتج" : "استخدم"} ${fmt(v.value, language)} ${v.unit ?? "وحدة"} من "${v.name}"`
-                        : `${input.objectiveType === "maximize" ? "Produire" : "Utiliser"} ${fmt(v.value, language)} ${v.unit ?? "unités"} de "${v.name}"`}
-                    </p>
-                    <p className={cn("text-sm text-muted-foreground", language === "ar" && "text-right")}>
-                      {language === "ar"
-                        ? `مساهمة في ${objectiveLabel}: ${fmt(v.contribution, language)} دج (المعامل: ${fmt(v.coefficient, language)} دج/${v.unit ?? "وحدة"})`
-                        : `Contribution au ${objectiveLabel}: ${fmt(v.contribution, language)} DZD (coefficient: ${fmt(v.coefficient, language)} DZD/${v.unit ?? "unité"})`}
+                  <div className="flex-1">
+                    <p className={cn("text-sm font-medium leading-relaxed", language === "ar" && "text-right")}>
+                      {v.value > 1e-4 ? (
+                        language === "ar"
+                          ? (() => {
+                              const pct = totalContrib > 1e-6 ? Math.round((Math.abs(v.contribution) / totalContrib) * 100) : 0;
+                              return `${input.objectiveType === "maximize" ? "إنتاج" : "تخصيص"} ${fmt(v.value, language)} ${v.unit ?? "وحدة"} من ${v.name} بسعر ${fmt(v.coefficient, language)} دج/${v.unit ?? "وحدة"} يُولّد ${fmt(v.contribution, language)} دج — أي ${pct}% من ${objectiveLabel}.`;
+                            })()
+                          : (() => {
+                              const pct = totalContrib > 1e-6 ? Math.round((Math.abs(v.contribution) / totalContrib) * 100) : 0;
+                              return `${input.objectiveType === "maximize" ? "Produire" : "Allouer"} ${fmt(v.value, language)} ${v.unit ?? "unités"} de ${v.name} à ${fmt(v.coefficient, language)} DZD/${v.unit ?? "unité"} génère ${fmt(v.contribution, language)} DZD — soit ${pct} % du ${objectiveLabel}.`;
+                            })()
+                      ) : (
+                        language === "ar"
+                          ? `لا يدخل ${v.name} في الخطة المثلى — معامله (${fmt(v.coefficient, language)} دج/${v.unit ?? "وحدة"}) غير كافٍ للحصول على تخصيص في ظل الموارد المتاحة.`
+                          : `${v.name} n'est pas inclus dans le plan — son coefficient de ${input.objectiveType === "maximize" ? "profit" : "coût"} (${fmt(v.coefficient, language)} DZD/${v.unit ?? "unité"}) est insuffisant pour obtenir une allocation avec les ressources disponibles.`
+                      )}
                     </p>
                   </div>
                   <span className={cn(
@@ -284,25 +296,43 @@ export function ManagerialRecommendations({ input, result }: Props) {
                   ) : (
                     <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
                   )}
-                  <div className="flex-1 space-y-0.5">
+                  <div className="flex-1">
                     <p className={cn(
-                      "font-semibold",
+                      "font-semibold mb-1",
                       cs.isBinding ? "text-orange-800" : "text-green-800",
                       language === "ar" && "text-right"
                     )}>
                       {cs.name}
                     </p>
                     {cs.isBinding ? (
-                      <p className={cn("text-sm text-orange-700", language === "ar" && "text-right")}>
-                        {language === "ar"
-                          ? `⚠️ هذا المورد استُنفد بالكامل — أي زيادة فيه ستزيد ${input.objectiveType === "maximize" ? "ربحك" : "كفاءتك"} مباشرة${cs.shadowPrice !== null ? ` بمعدل ${fmt(Math.abs(cs.shadowPrice ?? 0), language)} دج لكل وحدة` : ""}.`
-                          : `⚠️ Cette ressource est entièrement saturée — toute augmentation de sa capacité améliorera directement votre ${input.objectiveType === "maximize" ? "profit" : "efficacité"}${cs.shadowPrice !== null ? ` de ${fmt(Math.abs(cs.shadowPrice ?? 0), language)} DZD par unité` : ""}.`}
+                      <p className={cn("text-sm text-orange-700 leading-relaxed", language === "ar" && "text-right")}>
+                        {(() => {
+                          const cInputUnit = input.constraints.find(c => c.name === cs.name)?.unit ?? "";
+                          const unitLabel = cInputUnit ? ` ${cInputUnit}` : " unités";
+                          const unitLabelAr = cInputUnit ? ` ${cInputUnit}` : " وحدة";
+                          const spVal = cs.shadowPrice !== null ? fmt(Math.abs(cs.shadowPrice ?? 0), language) : null;
+                          if (language === "ar") {
+                            return spVal
+                              ? `"${cs.name}" مستنفَد بالكامل — جميع الـ${fmt(cs.rhs, language)}${unitLabelAr} متاحة مُوظَّفة بالكامل. كل وحدة إضافية من هذا المورد ستُضيف ${spVal} دج مباشرةً إلى ${input.objectiveType === "maximize" ? "ربحك" : "كفاءتك"} — فهو أولى الموارد بالتوسعة.`
+                              : `"${cs.name}" مستنفَد بالكامل — جميع الـ${fmt(cs.rhs, language)}${unitLabelAr} متاحة مُوظَّفة. زيادة طاقته ستحسّن ${input.objectiveType === "maximize" ? "ربحك" : "كفاءتك"} مباشرةً.`;
+                          }
+                          return spVal
+                            ? `"${cs.name}" est entièrement saturé — les ${fmt(cs.rhs, language)}${unitLabel} disponibles sont toutes utilisées. Chaque${unitLabel.trimStart().replace(/s$/, "")} supplémentaire ajouterait ${spVal} DZD directement à votre ${input.objectiveType === "maximize" ? "profit" : "efficacité"} — c'est la ressource à prioriser en expansion.`
+                            : `"${cs.name}" est entièrement saturé — toutes les${unitLabel} disponibles sont consommées. Augmenter cette capacité améliorerait directement votre ${input.objectiveType === "maximize" ? "profit" : "efficacité"}.`;
+                        })()}
                       </p>
                     ) : (
-                      <p className={cn("text-sm text-green-700", language === "ar" && "text-right")}>
-                        {language === "ar"
-                          ? `✅ لديك فائض ${fmt(cs.slack, language)} وحدة من هذا المورد — يمكن تقليله لتوفير التكاليف الثابتة.`
-                          : `✅ Vous avez un surplus de ${fmt(cs.slack, language)} unités sur cette ressource — envisagez de réduire son allocation pour économiser.`}
+                      <p className={cn("text-sm text-green-700 leading-relaxed", language === "ar" && "text-right")}>
+                        {(() => {
+                          const cInputUnit = input.constraints.find(c => c.name === cs.name)?.unit ?? "";
+                          const unitLabel = cInputUnit ? ` ${cInputUnit}` : " unités";
+                          const unitLabelAr = cInputUnit ? ` ${cInputUnit}` : " وحدة";
+                          const used = cs.rhs - cs.slack;
+                          if (language === "ar") {
+                            return `من الطاقة الإجمالية البالغة ${fmt(cs.rhs, language)}${unitLabelAr}، يستخدم الحل المثلى ${fmt(used, language)}${unitLabelAr} فقط — وتبقى ${fmt(cs.slack, language)}${unitLabelAr} غير مُستغَلة. تخفيض التوريد بمقدار ${fmt(cs.slack, language)}${unitLabelAr} لن يؤثر على ${input.objectiveType === "maximize" ? "الربح" : "التكلفة"}.`;
+                          }
+                          return `Sur une capacité totale de ${fmt(cs.rhs, language)}${unitLabel}, le plan optimal n'en utilise que ${fmt(used, language)} — les ${fmt(cs.slack, language)}${unitLabel} restantes demeurent inactives. Réduire votre approvisionnement de ${fmt(cs.slack, language)}${unitLabel} n'aurait aucun effet sur votre ${input.objectiveType === "maximize" ? "profit" : "coût"}.`;
+                        })()}
                       </p>
                     )}
                   </div>
