@@ -626,7 +626,7 @@ function TransportAnalysis({
       color: "bg-blue-50 border-blue-300",
       text: t(
         `Des solutions optimales alternatives existent : ${modiResult.alternativeOptimaCells.length} cellule${modiResult.alternativeOptimaCells.length > 1 ? "s" : ""} hors-base avec un coût d'opportunité Δ = 0. D'autres plans de distribution atteignent le même coût optimal de ${fmt(modiResult.finalCost, language)} DZD.`,
-        `توجد حلول مثلى بديلة: ${modiResult.alternativeOptimaCells.length} خلية خارج الأساس بتكلفة فرصة Δ = 0. خطط توزيع أخرى تحقق نفس التكلفة المثلى ${fmt(modiResult.finalCost, language)} دج.`
+        `توجد ${modiResult.alternativeOptimaCells.length > 1 ? `${modiResult.alternativeOptimaCells.length} حلول مثلى بديلة` : "حل مثالي بديل"}: ${modiResult.alternativeOptimaCells.length > 1 ? `${modiResult.alternativeOptimaCells.length} خلايا خارج الأساس` : "خلية خارج الأساس"} تكلفة فرصتها تساوي صفراً — خطط توزيع أخرى تحقق نفس التكلفة المثلى البالغة ${fmt(modiResult.finalCost, language)} دج.`
       ),
     }] : []),
   ];
@@ -645,7 +645,9 @@ function TransportAnalysis({
             ? `La route ${topRoutes[0].sourceName} → ${topRoutes[0].destName} porte la majeure partie du flux optimal — toute perturbation sur cette liaison aura un impact direct sur le coût total.`
             : "Surveillez les routes actives du plan de distribution optimal.",
         topRoutes.length >= 2
-          ? `المسارات ${topRoutes.slice(0, 2).map(r => `${r.sourceName} → ${r.destName}`).join(" و")} تركّز معظم التدفق المثالي — أي اضطراب فيها سيؤثر مباشرة على التكلفة الإجمالية.`
+          ? (topRoutes[0].sourceName === topRoutes[1].sourceName
+              ? `مساري ${topRoutes[0].sourceName} نحو ${topRoutes[0].destName} و${topRoutes[1].destName} يركّزان معظم التدفق المثالي — أي اضطراب فيهما سيؤثر مباشرة على التكلفة الإجمالية.`
+              : `المسارات ${topRoutes.slice(0, 2).map(r => `${r.sourceName} → ${r.destName}`).join(" و")} تركّز معظم التدفق المثالي — أي اضطراب فيها سيؤثر مباشرة على التكلفة الإجمالية.`)
           : topRoutes.length === 1
             ? `المسار ${topRoutes[0].sourceName} → ${topRoutes[0].destName} يحمل معظم التدفق المثالي — أي اضطراب فيه سيؤثر مباشرة على التكلفة الإجمالية.`
             : "راقب المسارات النشطة في خطة التوزيع المثلى."
@@ -686,7 +688,7 @@ function TransportAnalysis({
       title: t("Explorer les solutions alternatives disponibles", "استكشاف الحلول البديلة المتاحة"),
       desc: t(
         "Des plans de distribution alternatifs au même coût optimal existent. Ils peuvent être préférables pour des raisons opérationnelles : répartition de la charge, contraintes de délai ou diversification des risques logistiques.",
-        "توجد خطط توزيع بديلة بنفس التكلفة المثلى. قد تكون مفضلة لأسباب تشغيلية: توزيع الحمل، قيود المهل الزمنية، أو تنويع المخاطر اللوجستية."
+        "يوجد خطط توزيع بديلة بنفس التكلفة المثلى. قد تكون مفضلة لأسباب تشغيلية: توزيع الحمل، قيود المهل الزمنية، أو تنويع المخاطر اللوجستية."
       ),
     }] : []),
     {
