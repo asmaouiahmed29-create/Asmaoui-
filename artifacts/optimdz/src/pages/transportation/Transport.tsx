@@ -587,46 +587,113 @@ function TransportAnalysis({
   const totalDemand  = problem.destinations.reduce((s, x) => s + x.demand, 0);
   const isBalanced   = totalSupply === totalDemand;
 
-  // ── Situational analysis ────────────────────────────────────────────────────
+  // ── Pre-compute route cost shares ─────────────────────────────────────────
+  const routeShares = [...activeRoutes]
+    .map(r => ({ ...r, cost: r.allocation * r.unitCost }))
+    .sort((a, b) => b.cost - a.cost);
+  const routePct = (cost: number) =>
+    modiResult.finalCost > 0 ? Math.round((cost / modiResult.finalCost) * 100) : 0;
+  const savings = initialCost - modiResult.finalCost;
+  const totalRoutes = problem.sources.length * problem.destinations.length;
+  const altN = modiResult.alternativeOptimaCells.length;
+
+  // ── Situational analysis — 3 flowing paragraphs ───────────────────────────
   const analysisLines: { icon: string; text: string; color: string }[] = [
     {
+      // ¶1 — Overall solution quality
       icon: "🚛",
       color: "bg-primary/10 border-primary/30",
       text: t(
-        `Le problème "${problem.name}" comprend ${problem.sources.length} source${problem.sources.length > 1 ? "s" : ""} et ${problem.destinations.length} destination${problem.destinations.length > 1 ? "s" : ""} avec ${isBalanced ? "un réseau parfaitement équilibré" : "un réseau déséquilibré rééquilibré automatiquement"} (offre totale : ${fmt(totalSupply, language)} u., demande totale : ${fmt(totalDemand, language)} u.).`,
-        `مسألة "${problem.name}" تضم ${problem.sources.length} مصادر و${problem.destinations.length} وجهات مع شبكة ${isBalanced ? "متوازنة تماماً" : "غير متوازنة تم موازنتها تلقائياً"} (إجمالي العرض: ${fmt(totalSupply, language)} وحدة، إجمالي الطلب: ${fmt(totalDemand, language)} وحدة).`
+        (() => {
+          const balance = isBalanced
+            ? `une offre totale de ${fmt(totalSupply, language)} unités parfaitement équilibrée à la demande`
+            : `une offre de ${fmt(totalSupply, language)} unités face à une demande de ${fmt(totalDemand, language)} — le déséquilibre a été corrigé automatiquement`;
+          const modiNote = improvement > 0
+            ? `En ${totalIters} itération${totalIters > 1 ? "s" : ""}, MODI a ensuite affiné ce plan, réduisant le ${isMax ? "profit initial" : "coût initial"} de ${improvement.toFixed(1)}% pour atteindre ${fmt(modiResult.finalCost, language)} DZD${savings > 0 ? ` — une économie nette de ${fmt(savings, language)} DZD` : ""}.`
+            : `MODI a confirmé cette solution comme globalement optimale sans aucune itération supplémentaire.`;
+          return `Le réseau "${problem.name}" couvre ${problem.sources.length} source${problem.sources.length > 1 ? "s" : ""} et ${problem.destinations.length} destination${problem.destinations.length > 1 ? "s" : ""} avec ${balance}. Parmi les trois méthodes d'initialisation testées, ${METHOD_META[bestMethod].shortFr} produit la meilleure solution de départ à ${fmt(initialCost, language)} DZD. ${modiNote} Le plan optimal retenu ${isMax ? "maximise le profit" : "minimise le coût"} à ${fmt(modiResult.finalCost, language)} DZD en activant ${activeRoutes.length} liaison${activeRoutes.length > 1 ? "s" : ""} sur les ${totalRoutes} possibles du réseau.`;
+        })(),
+        (() => {
+          const balance = isBalanced
+            ? `عرض إجمالي ${fmt(totalSupply, language)} وحدة يتوازن تماماً مع الطلب`
+            : `عرض ${fmt(totalSupply, language)} وحدة في مقابل طلب ${fmt(totalDemand, language)} — تم تصحيح الاختلال تلقائياً`;
+          const modiNote = improvement > 0
+            ? `في ${totalIters} تكرار${totalIters > 1 ? "ات" : ""}، حسّنت MODI هذا الحل بنسبة ${improvement.toFixed(1)}% ليبلغ ${fmt(modiResult.finalCost, language)} دج${savings > 0 ? ` — وفراً صافياً قدره ${fmt(savings, language)} دج` : ""}.`
+            : `أكدت MODI هذا الحل باعتباره مثالياً عاماً دون أي تكرار إضافي.`;
+          return `شبكة "${problem.name}" تغطي ${problem.sources.length} مصادر و${problem.destinations.length} وجهات، مع ${balance}. من بين الطرق الثلاث المقارنة، أعطت ${METHOD_META[bestMethod].shortFr} أفضل نقطة انطلاق بتكلفة ${fmt(initialCost, language)} دج. ${modiNote} الخطة المُعتمدة ${isMax ? "تعظّم الربح" : "تُقلّل التكلفة"} إلى ${fmt(modiResult.finalCost, language)} دج عبر ${activeRoutes.length} من أصل ${totalRoutes} مسار ممكن في الشبكة.`;
+        })()
       ),
     },
-    {
+    ...(routeShares.length > 0 ? [{
+      // ¶2 — Cost breakdown by route
       icon: "📊",
       color: "bg-secondary/10 border-secondary/30",
       text: t(
-        `La comparaison des trois méthodes montre que ${METHOD_META[bestMethod].shortFr} offre la meilleure solution initiale avec ${fmt(results[bestMethod].totalCost, language)} DZD — ${improvement > 0 ? `puis l'algorithme MODI l'a améliorée de ${improvement.toFixed(1)}% pour atteindre ${fmt(modiResult.finalCost, language)} DZD en ${totalIters} itération${totalIters > 1 ? "s" : ""}.` : "cette solution était déjà optimale."}`,
-        `مقارنة الثلاث طرق تُظهر أن ${METHOD_META[bestMethod].shortFr} يعطي أفضل حل أولي بـ ${fmt(results[bestMethod].totalCost, language)} دج — ${improvement > 0 ? `ثم حسّنته خوارزمية MODI بنسبة ${improvement.toFixed(1)}% ليصل إلى ${fmt(modiResult.finalCost, language)} دج في ${totalIters} تكرار.` : "وهذا الحل كان مثالياً بالفعل."}`
-      ),
-    },
-    {
-      icon: "✅",
-      color: "bg-green-50 border-green-300",
-      text: t(
-        `Le plan de distribution optimal ${isMax ? "maximise le profit" : "minimise le coût"} à ${fmt(modiResult.finalCost, language)} DZD sur ${activeRoutes.length} route${activeRoutes.length > 1 ? "s" : ""} active${activeRoutes.length > 1 ? "s" : ""}${topRoutes.length > 0 ? `. La route la plus ${isMax ? "rentable" : "coûteuse"} est ${topRoutes[0].sourceName} → ${topRoutes[0].destName} (${fmt(topRoutes[0].allocation * topRoutes[0].unitCost, language)} DZD)` : ""}.`,
-        `خطة التوزيع المثلى ${isMax ? "تعظّم الربح" : "تقلّل التكلفة"} إلى ${fmt(modiResult.finalCost, language)} دج عبر ${activeRoutes.length} مسار${activeRoutes.length > 1 ? " نشط" : " نشط"}${topRoutes.length > 0 ? `. المسار الأكثر ${isMax ? "ربحية" : "تكلفة"} هو ${topRoutes[0].sourceName} → ${topRoutes[0].destName} (${fmt(topRoutes[0].allocation * topRoutes[0].unitCost, language)} دج)` : ""}.`
-      ),
-    },
-    ...(modiResult.degeneracyHandled ? [{
-      icon: "⚠️",
-      color: "bg-amber-50 border-amber-300",
-      text: t(
-        "La solution initiale était dégénérée (nombre de variables de base insuffisant). Une ε-perturbation a été appliquée automatiquement pour garantir la convergence de MODI sans boucle infinie.",
-        "كان الحل الأولي متدهوراً (عدد متغيرات الأساس غير كافٍ). تم تطبيق اضطراب-ε تلقائياً لضمان تقارب MODI دون تكرار لا نهائي."
+        (() => {
+          const r0 = routeShares[0];
+          const p0 = routePct(r0.cost);
+          const costWord = isMax ? "profit" : "coût";
+          let txt = `La liaison ${r0.sourceName} → ${r0.destName} est la plus ${isMax ? "rentable" : "coûteuse"} du plan : ${fmt(r0.allocation, language)} unités transportées à ${fmt(r0.unitCost, language)} DZD/unité représentent ${fmt(r0.cost, language)} DZD, soit ${p0}% du ${costWord} total optimal.`;
+          if (routeShares.length >= 2) {
+            const r1 = routeShares[1];
+            const p1 = routePct(r1.cost);
+            txt += ` La liaison suivante, ${r1.sourceName} → ${r1.destName}, contribue ${p1}% (${fmt(r1.cost, language)} DZD) — ces deux liaisons concentrent ensemble ${p0 + p1}% du flux.`;
+          }
+          if (routeShares.length >= 3) {
+            const others = routeShares.slice(2);
+            const otherPct = others.reduce((s, r) => s + routePct(r.cost), 0);
+            txt += ` Les ${others.length} liaison${others.length > 1 ? "s" : ""} restante${others.length > 1 ? "s" : ""} se partagent les ${otherPct}% restants.`;
+          }
+          txt += ` ${isMax ? "Renforcer les volumes sur les liaisons à fort rendement amplifiera directement le résultat." : "Négocier le tarif unitaire sur la liaison dominante est le levier de réduction budgétaire le plus direct."}`;
+          return txt;
+        })(),
+        (() => {
+          const r0 = routeShares[0];
+          const p0 = routePct(r0.cost);
+          const costWord = isMax ? "الربح" : "التكلفة";
+          let txt = `المسار ${r0.sourceName} → ${r0.destName} هو الأكثر ${isMax ? "ربحية" : "تكلفة"} في الخطة: نقل ${fmt(r0.allocation, language)} وحدة بسعر ${fmt(r0.unitCost, language)} دج/وحدة يُولّد ${fmt(r0.cost, language)} دج، أي ${p0}% من إجمالي ${costWord} المثالي.`;
+          if (routeShares.length >= 2) {
+            const r1 = routeShares[1];
+            const p1 = routePct(r1.cost);
+            txt += ` المسار التالي، ${r1.sourceName} → ${r1.destName}، يُمثّل ${p1}% إضافية (${fmt(r1.cost, language)} دج) — وهذان المساران يجمعان معاً ${p0 + p1}% من التدفق الكلي.`;
+          }
+          if (routeShares.length >= 3) {
+            const others = routeShares.slice(2);
+            const otherPct = others.reduce((s, r) => s + routePct(r.cost), 0);
+            txt += ` تتقاسم المسارات الـ${others.length} المتبقية نسبة ${otherPct}% الباقية.`;
+          }
+          txt += ` ${isMax ? "تعزيز حجم التدفق على المسارات عالية العائد سيُضاعف الربح مباشرة." : "إعادة التفاوض على السعر الوحدوي للمسار المهيمن هو أكثر الأدوات أثراً على الميزانية الإجمالية."}`;
+          return txt;
+        })()
       ),
     }] : []),
-    ...(modiResult.hasAlternativeOptima ? [{
-      icon: "🔀",
-      color: "bg-blue-50 border-blue-300",
+    ...(modiResult.hasAlternativeOptima || modiResult.degeneracyHandled ? [{
+      // ¶3 — Alternatives / degeneracy
+      icon: modiResult.hasAlternativeOptima ? "🔀" : "⚠️",
+      color: modiResult.hasAlternativeOptima ? "bg-blue-50 border-blue-300" : "bg-amber-50 border-amber-300",
       text: t(
-        `Des solutions optimales alternatives existent : ${modiResult.alternativeOptimaCells.length} cellule${modiResult.alternativeOptimaCells.length > 1 ? "s" : ""} hors-base avec un coût d'opportunité Δ = 0. D'autres plans de distribution atteignent le même coût optimal de ${fmt(modiResult.finalCost, language)} DZD.`,
-        `توجد ${modiResult.alternativeOptimaCells.length > 1 ? `${modiResult.alternativeOptimaCells.length} حلول مثلى بديلة` : "حل مثالي بديل"}: ${modiResult.alternativeOptimaCells.length > 1 ? `${modiResult.alternativeOptimaCells.length} خلايا خارج الأساس` : "خلية خارج الأساس"} تكلفة فرصتها تساوي صفراً — خطط توزيع أخرى تحقق نفس التكلفة المثلى البالغة ${fmt(modiResult.finalCost, language)} دج.`
+        (() => {
+          let txt = "";
+          if (modiResult.hasAlternativeOptima) {
+            txt += `Le solveur a identifié ${altN} plan${altN > 1 ? "s" : ""} de distribution alternatif${altN > 1 ? "s" : ""} atteignant exactement le même ${isMax ? "profit" : "coût"} optimal de ${fmt(modiResult.finalCost, language)} DZD. Cette flexibilité est un atout opérationnel : si une liaison prioritaire subit une contrainte (congestion, délai, surcharge), l'un de ces plans alternatifs peut être adopté sans aucune pénalité de ${isMax ? "profit" : "coût"}.`;
+          }
+          if (modiResult.degeneracyHandled) {
+            if (txt) txt += " ";
+            txt += `La solution initiale présentait un phénomène de dégénérescence — résolu automatiquement pour garantir la convergence. Ce cas n'affecte pas la qualité du résultat final, mais peut signaler des contraintes redondantes dans votre réseau.`;
+          }
+          return txt;
+        })(),
+        (() => {
+          let txt = "";
+          if (modiResult.hasAlternativeOptima) {
+            txt += `رصد المحلّل ${altN} خطة${altN > 1 ? " توزيع بديلة" : " توزيع بديلة"} تُحقق نفس ${isMax ? "الربح" : "التكلفة"} المثالي البالغ ${fmt(modiResult.finalCost, language)} دج بالضبط. هذه المرونة ميزة تشغيلية قيّمة: إذا تعذّر تشغيل مسار رئيسي (ازدحام، تأخير، طاقة زائدة)، يمكن اعتماد إحدى الخطط البديلة دون أي خسارة في ${isMax ? "الربح" : "الكفاءة"}.`;
+          }
+          if (modiResult.degeneracyHandled) {
+            if (txt) txt += " ";
+            txt += `الحل الأولي كان متدهوراً (عدد متغيرات الأساس غير كافٍ) — وقد عولج تلقائياً لضمان التقارب. هذه الحالة لا تؤثر على جودة النتيجة النهائية، غير أنها قد تُشير إلى قيود زائدة في شبكة التوزيع.`;
+          }
+          return txt;
+        })()
       ),
     }] : []),
   ];
@@ -640,7 +707,9 @@ function TransportAnalysis({
       title: t("Surveiller les routes à forte contribution", "مراقبة المسارات ذات المساهمة العالية"),
       desc: t(
         topRoutes.length >= 2
-          ? `Les routes ${topRoutes.slice(0, 2).map(r => `${r.sourceName} → ${r.destName}`).join(" et ")} concentrent la majeure partie du flux optimal — toute perturbation sur ces liaisons aura un impact direct sur le coût total.`
+          ? (topRoutes[0].sourceName === topRoutes[1].sourceName
+              ? `Les liaisons au départ de ${topRoutes[0].sourceName} vers ${topRoutes[0].destName} et ${topRoutes[1].destName} concentrent la majeure partie du flux optimal — toute perturbation sur ces liaisons aura un impact direct sur le coût total.`
+              : `Les routes ${topRoutes.slice(0, 2).map(r => `${r.sourceName} → ${r.destName}`).join(" et ")} concentrent la majeure partie du flux optimal — toute perturbation sur ces liaisons aura un impact direct sur le coût total.`)
           : topRoutes.length === 1
             ? `La route ${topRoutes[0].sourceName} → ${topRoutes[0].destName} porte la majeure partie du flux optimal — toute perturbation sur cette liaison aura un impact direct sur le coût total.`
             : "Surveillez les routes actives du plan de distribution optimal.",
