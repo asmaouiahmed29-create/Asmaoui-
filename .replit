@@ -51,6 +51,7 @@ waitForPort = 21757
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
+ignorePatterns = ["**/node_modules/**", "**/venv/**", "**/.git/**", "**/__pycache__/**", "**/dist/**", "**/build/**"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
