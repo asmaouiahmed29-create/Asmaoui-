@@ -310,6 +310,173 @@ function StepExplanation({ step, language, isMax }: { step: DisplayStep; languag
   );
 }
 
+// ── Situation analysis (connected paragraphs) ─────────────────────────────────
+function SituationAnalysis({
+  result, language, isMax,
+}: {
+  result: HungarianResult;
+  language: string;
+  isMax: boolean;
+}) {
+  const t = (fr: string, ar: string) => language === "ar" ? ar : fr;
+  const {
+    m, n, resourceNames, taskNames, originalCosts, finalAssignment,
+    unassignedResources, unassignedTasks, hasAlternativeOptima, alternativeZeroCells,
+    isInfeasible, iterations, totalCostReal,
+  } = result;
+
+  const realPairs = finalAssignment.filter(({ i, j }) => i < m && j < n);
+
+  // ── Para 1: overall quality ───────────────────────────────────────────────
+  const coveringSteps = iterations.length;
+  const efficiencyNote =
+    coveringSteps === 1
+      ? t("dès la première itération de couverture", "منذ التكرار الأول للتغطية")
+      : t(`après ${coveringSteps} itérations de couverture`, `بعد ${coveringSteps} تكرارات للتغطية`);
+
+  const para1 = isMax
+    ? t(
+        `L'algorithme hongrois a établi une affectation optimale de maximisation entre ${m} ressource${m > 1 ? "s" : ""} et ${n} tâche${n > 1 ? "s" : ""}, atteignant un score global de ${fmt(totalCostReal, language)} — la valeur la plus élevée réalisable avec la configuration actuelle. La solution a été trouvée ${efficiencyNote}.${isInfeasible ? " Attention : une interdiction a dû être levée pour compléter l'affectation — les contraintes en place la rendaient autrement infaisable ; il est recommandé de revoir les cellules bloquées." : ""}`,
+        `حدّد الخوارزم الهنغاري توزيعاً أمثل للتعظيم بين ${m} مورد و${n} مهمة، محققاً نقاطاً إجمالية تبلغ ${fmt(totalCostReal, language)} — وهي أعلى قيمة ممكنة بالتكوين الحالي. تم التوصل إلى الحل ${efficiencyNote}.${isInfeasible ? " تنبيه: اضطرت الخوارزمية إلى تجاوز قيد منع لإتمام التوزيع، إذ كانت القيود القائمة تجعل المسألة غير قابلة للحل بخلاف ذلك؛ يُنصح بمراجعة الخلايا المحظورة." : ""}`
+      )
+    : t(
+        `L'algorithme hongrois a identifié une affectation optimale de minimisation entre ${m} ressource${m > 1 ? "s" : ""} et ${n} tâche${n > 1 ? "s" : ""}, pour un coût total de ${fmt(totalCostReal, language)} — le minimum atteignable avec les données saisies. Cette solution a été obtenue ${efficiencyNote}.${isInfeasible ? " Attention : une cellule interdite a dû être utilisée pour compléter l'affectation, car les restrictions imposées rendaient le problème infaisable ; il convient de vérifier les contraintes d'exclusion." : ""}`,
+        `حدّد الخوارزم الهنغاري توزيعاً أمثل للتقليل بين ${m} مورد و${n} مهمة، بتكلفة إجمالية تبلغ ${fmt(totalCostReal, language)} — وهي أدنى قيمة ممكنة بالبيانات المُدخَلة. تم الحصول على هذا الحل ${efficiencyNote}.${isInfeasible ? " تنبيه: اضطرت الخوارزمية إلى استخدام خلية محظورة لإتمام التوزيع نظراً لأن القيود المفروضة جعلت المسألة غير قابلة للحل؛ يُوصى بمراجعة قيود الاستبعاد." : ""}`
+      );
+
+  // ── Para 2: per-assignment breakdown ────────────────────────────────────
+  let para2 = "";
+  if (realPairs.length > 0) {
+    const sortedByValue = [...realPairs].sort(
+      (a, b) => (isMax ? -1 : 1) * (originalCosts[a.i][a.j] - originalCosts[b.i][b.j])
+    );
+    const best  = sortedByValue[0];
+    const worst = sortedByValue[sortedByValue.length - 1];
+    const hasManyPairs = realPairs.length > 1;
+
+    const pairsFr = realPairs
+      .map(({ i, j }) => `${resourceNames[i]} → ${taskNames[j]} (${fmt(originalCosts[i][j], language)})`)
+      .join(", ");
+    const pairsAr = realPairs
+      .map(({ i, j }) => `${resourceNames[i]} ← ${taskNames[j]} (${fmt(originalCosts[i][j], language)})`)
+      .join("، ");
+
+    const highlightFr = hasManyPairs
+      ? ` L'affectation la plus ${isMax ? "performante" : "coûteuse"} est ${resourceNames[best.i]} → ${taskNames[best.j]} avec ${fmt(originalCosts[best.i][best.j], language)}${isMax ? " points" : " unités de coût"}` +
+        (best.i !== worst.i || best.j !== worst.j
+          ? `, tandis que la moins ${isMax ? "performante" : "coûteuse"} est ${resourceNames[worst.i]} → ${taskNames[worst.j]} avec ${fmt(originalCosts[worst.i][worst.j], language)}.`
+          : ".")
+      : "";
+    const highlightAr = hasManyPairs
+      ? ` التوزيع ${isMax ? "الأعلى أداءً" : "الأعلى تكلفةً"} هو ${resourceNames[best.i]} ← ${taskNames[best.j]} بقيمة ${fmt(originalCosts[best.i][best.j], language)}` +
+        (best.i !== worst.i || best.j !== worst.j
+          ? `، فيما يُعدّ ${resourceNames[worst.i]} ← ${taskNames[worst.j]} بقيمة ${fmt(originalCosts[worst.i][worst.j], language)} الأقل ${isMax ? "أداءً" : "تكلفةً"}.`
+          : ".")
+      : "";
+
+    para2 = t(
+      `Les ${realPairs.length} affectation${realPairs.length > 1 ? "s" : ""} retenue${realPairs.length > 1 ? "s" : ""} se répartissent ainsi : ${pairsFr}.${highlightFr}`,
+      `التوزيعات الـ${realPairs.length} المُختارة موزّعة على النحو التالي: ${pairsAr}.${highlightAr}`
+    );
+  }
+
+  // ── Para 3: alternatives / balance ──────────────────────────────────────
+  const parts3Fr: string[] = [];
+  const parts3Ar: string[] = [];
+
+  if (hasAlternativeOptima) {
+    // Build unique resource→task alternative pairs (real cells only), deduplicated
+    const seenKey = new Set<string>();
+    const altPairs = alternativeZeroCells
+      .filter(c => c.i < m && c.j < n)
+      .filter(c => {
+        const key = `${c.i}|${c.j}`;
+        if (seenKey.has(key)) return false;
+        seenKey.add(key);
+        return true;
+      });
+
+    if (altPairs.length > 0) {
+      // Group by resource to avoid repeating same resource name
+      const byResource = new Map<number, number[]>();
+      for (const { i, j } of altPairs) {
+        if (!byResource.has(i)) byResource.set(i, []);
+        byResource.get(i)!.push(j);
+      }
+      const altDescFr = Array.from(byResource.entries())
+        .map(([i, js]) => `${resourceNames[i]} pourrait aussi être affecté${js.length > 1 ? " à " + js.map(j => taskNames[j]).join(" ou ") : " à " + taskNames[js[0]]}`)
+        .join("; ");
+      const altDescAr = Array.from(byResource.entries())
+        .map(([i, js]) => `${resourceNames[i]} يمكن أن يُخصَّص أيضاً ${js.length > 1 ? "لـ" + js.map(j => taskNames[j]).join(" أو ") : "لـ" + taskNames[js[0]]}`)
+        .join("؛ ");
+
+      parts3Fr.push(
+        `Il existe au moins une autre affectation optimale donnant exactement le même total de ${fmt(totalCostReal, language)} : ${altDescFr}. Ce n'est pas un défaut — c'est une marge de flexibilité opérationnelle que vous pouvez exploiter selon d'autres critères (disponibilité, préférence, urgence).`
+      );
+      parts3Ar.push(
+        `يوجد توزيع أمثل بديل واحد على الأقل يُعطي نفس الإجمالي البالغ ${fmt(totalCostReal, language)} تماماً: ${altDescAr}. هذا ليس قصوراً، بل هامش مرونة تشغيلية يمكنك توظيفه وفق معايير أخرى (التوفر، التفضيل، الإلحاح).`
+      );
+    } else {
+      parts3Fr.push(
+        `Il existe au moins une autre affectation atteignant le même total optimal de ${fmt(totalCostReal, language)}. Cette flexibilité peut être utilisée pour adapter la solution à d'autres contraintes opérationnelles.`
+      );
+      parts3Ar.push(
+        `يوجد توزيع بديل يحقق نفس الإجمالي الأمثل البالغ ${fmt(totalCostReal, language)}. يمكن توظيف هذه المرونة لتكييف الحل مع قيود تشغيلية أخرى.`
+      );
+    }
+  }
+
+  if (unassignedResources.length > 0) {
+    const uniqueUnassignedRes = [...new Set(unassignedResources.map(i => resourceNames[i]))];
+    parts3Fr.push(
+      `La matrice était déséquilibrée (plus de tâches que de ressources). ${uniqueUnassignedRes.join(", ")} ${uniqueUnassignedRes.length > 1 ? "ne sont affectés à aucune tâche réelle" : "n'est affecté à aucune tâche réelle"} dans cette solution — une ressource fictive a été introduite pour rééquilibrer le calcul, sans impact sur le coût total.`
+    );
+    parts3Ar.push(
+      `كانت المصفوفة غير متوازنة (عدد المهام أكبر من عدد الموارد). ${uniqueUnassignedRes.join("، ")} ${uniqueUnassignedRes.length > 1 ? "لا يحصلون على أي مهمة فعلية" : "لا يحصل على أي مهمة فعلية"} في هذا الحل — أُدرج مورد وهمي لإعادة التوازن دون أي تأثير على التكلفة الإجمالية.`
+    );
+  }
+
+  if (unassignedTasks.length > 0) {
+    const uniqueUnassignedTasks = [...new Set(unassignedTasks.map(j => taskNames[j]))];
+    parts3Fr.push(
+      `La matrice était déséquilibrée (plus de ressources que de tâches). ${uniqueUnassignedTasks.join(", ")} ${uniqueUnassignedTasks.length > 1 ? "n'ont été attribuées à aucune ressource" : "n'a été attribuée à aucune ressource"} dans cette solution — une tâche fictive a comblé l'écart pour permettre le calcul, sans alourdir le total.`
+    );
+    parts3Ar.push(
+      `كانت المصفوفة غير متوازنة (عدد الموارد أكبر من عدد المهام). ${uniqueUnassignedTasks.join("، ")} ${uniqueUnassignedTasks.length > 1 ? "لم تُخصَّص لأي مورد" : "لم تُخصَّص لأي مورد"} في هذا الحل — أُدرجت مهمة وهمية لسد الفارق وإجراء الحساب دون زيادة في الإجمالي.`
+    );
+  }
+
+  const para3Fr = parts3Fr.join(" ");
+  const para3Ar = parts3Ar.join(" ");
+
+  return (
+    <Card className="border border-primary/20">
+      <CardHeader className="pb-2 pt-4 px-4">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <Info className="w-4 h-4 text-primary" />
+          {t("Analyse de la situation", "تحليل الوضع")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 space-y-3 text-sm text-foreground leading-relaxed">
+        {isInfeasible && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-destructive text-xs">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{t(
+              "Infaisabilité détectée — une cellule interdite a été utilisée.",
+              "تم رصد تعذّر — استُخدمت خلية محظورة."
+            )}</span>
+          </div>
+        )}
+        <p>{para1}</p>
+        {para2 && <p>{para2}</p>}
+        {(para3Fr || para3Ar) && (
+          <p className="text-muted-foreground">{t(para3Fr, para3Ar)}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Analysis Tab ──────────────────────────────────────────────────────────────
 function AnalysisTab({
   result, language, isMax, onSave, onPDF, isSaved, isExporting,
@@ -324,9 +491,7 @@ function AnalysisTab({
 }) {
   const t = (fr: string, ar: string) => language === "ar" ? ar : fr;
   const {
-    m, n, resourceNames, taskNames, originalCosts, finalAssignment,
-    unassignedResources, unassignedTasks, hasAlternativeOptima, alternativeZeroCells,
-    isInfeasible, iterations,
+    m, n, finalAssignment, iterations,
   } = result;
 
   const realPairs = finalAssignment.filter(({ i, j }) => i < m && j < n);
@@ -378,59 +543,8 @@ function AnalysisTab({
         ))}
       </div>
 
-      {/* Alerts */}
-      {isInfeasible && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>{t("Attention — affectation interdite détectée", "تنبيه — تم اكتشاف توزيع محظور")}</AlertTitle>
-          <AlertDescription className="text-xs">
-            {t(
-              "L'algorithme a dû utiliser une cellule marquée comme interdite pour compléter l'affectation, car les contraintes rendaient le problème infaisable autrement. Vérifiez vos interdictions.",
-              "اضطرت الخوارزمية لاستخدام خلية محظورة لإكمال التوزيع، لأن القيود جعلت المسألة غير قابلة للحل بطريقة أخرى. يرجى مراجعة الممنوعات."
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
-      {hasAlternativeOptima && (
-        <Alert className="border-blue-200 bg-blue-50">
-          <Info className="h-4 w-4 text-blue-600" />
-          <AlertTitle className="text-blue-800 text-sm">
-            {t("Solutions optimales alternatives détectées", "تم اكتشاف حلول مثلى بديلة")}
-          </AlertTitle>
-          <AlertDescription className="text-blue-700 text-xs">
-            {t(
-              `D'autres cellules à coût réduit nul (${alternativeZeroCells.map(c => `(${c.i+1},${c.j+1})`).join(", ")}) n'ont pas été utilisées dans cette affectation. Il existe donc au moins une autre affectation optimale avec exactement la même valeur totale — ce n'est pas une erreur, seulement une information.`,
-              `توجد خلايا أخرى بتكلفة مختزلة صفرية (${alternativeZeroCells.map(c => `(${c.i+1},${c.j+1})`).join(", ")}) لم تُستخدم في هذا التوزيع. لذلك يوجد توزيع أمثل بديل واحد على الأقل بنفس القيمة الإجمالية تماماً — هذه ليست خطأً، بل مجرد معلومة.`
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
-      {(unassignedResources.length > 0 || unassignedTasks.length > 0) && (
-        <Alert className="border-orange-200 bg-orange-50">
-          <Info className="h-4 w-4 text-orange-600" />
-          <AlertTitle className="text-orange-800 text-sm">
-            {t("Ressources / tâches fictives — affectation incomplète", "موارد/مهام وهمية — توزيع غير كامل")}
-          </AlertTitle>
-          <AlertDescription className="text-orange-700 text-xs">
-            {unassignedResources.length > 0 && (
-              <div>
-                {t(
-                  `${unassignedResources.map(i => resourceNames[i]).join(", ")} ${unassignedResources.length > 1 ? "ne reçoivent" : "ne reçoit"} aucune tâche : le nombre de tâches était supérieur au nombre de ressources, une ressource fictive a comblé l'écart.`,
-                  `${unassignedResources.map(i => resourceNames[i]).join(", ")} لا ${unassignedResources.length > 1 ? "يحصلون" : "يحصل"} على أي مهمة: كان عدد المهام أكبر من عدد الموارد، فسدّ مورد وهمي الفارق.`
-                )}
-              </div>
-            )}
-            {unassignedTasks.length > 0 && (
-              <div>
-                {t(
-                  `${unassignedTasks.map(j => taskNames[j]).join(", ")} ${unassignedTasks.length > 1 ? "ne sont assignées" : "n'est assignée"} à aucune ressource : le nombre de ressources était supérieur au nombre de tâches, une tâche fictive a comblé l'écart.`,
-                  `${unassignedTasks.map(j => taskNames[j]).join(", ")} لا ${unassignedTasks.length > 1 ? "تُخصَّص" : "تُخصَّص"} لأي مورد: كان عدد الموارد أكبر من عدد المهام، فسدّت مهمة وهمية الفارق.`
-                )}
-              </div>
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Situation analysis */}
+      <SituationAnalysis result={result} language={language} isMax={isMax} />
 
       {/* Assignment table */}
       <Card>

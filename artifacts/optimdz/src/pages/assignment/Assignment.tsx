@@ -678,17 +678,17 @@ function buildRecommendations(
     recs.push(isMax ? {
       icon: "📈",
       priority: "medium",
-      titleFr: `Renforcer les compétences de ${resourceNames[weakest.i]} sur ${taskNames[weakest.j]}`,
-      titleAr: `تعزيز كفاءة ${resourceNames[weakest.i]} على ${taskNames[weakest.j]}`,
-      descFr: `La paire ${resourceNames[weakest.i]} → ${taskNames[weakest.j]} affiche le score le plus faible du plan (${weakVal}${us}). Un programme de formation ciblé ou un accompagnement par la ressource la plus performante permettrait d'élever le niveau global et d'améliorer la valeur optimale lors du prochain cycle d'affectation.`,
-      descAr: `الزوج ${resourceNames[weakest.i]} → ${taskNames[weakest.j]} يُسجّل أدنى نتيجة في الخطة (${weakVal}${us}). برنامج تدريب مستهدف أو إرشاد من المورد الأعلى أداءً سيرفع المستوى العام ويُحسّن القيمة المثلى في دورة التوزيع القادمة.`,
+      titleFr: `Renforcer la paire la moins performante du plan`,
+      titleAr: `تعزيز أضعف ثنائي أداء في الخطة`,
+      descFr: `${resourceNames[weakest.i]} affecté à ${taskNames[weakest.j]} affiche le score le plus bas (${weakVal}${us}). Un programme de formation ciblé ou un accompagnement par la ressource la plus performante permettrait d'élever le niveau global et d'améliorer la valeur optimale lors du prochain cycle.`,
+      descAr: `${resourceNames[weakest.i]} المخصَّص لـ${taskNames[weakest.j]} يُسجّل أدنى نتيجة في الخطة (${weakVal}${us}). برنامج تدريب مستهدف أو إرشاد من المورد الأعلى أداءً سيرفع المستوى العام ويُحسّن القيمة المثلى في دورة التوزيع القادمة.`,
     } : {
       icon: "💰",
       priority: "medium",
-      titleFr: `Réduire le coût du poste ${resourceNames[weakest.i]} → ${taskNames[weakest.j]}`,
-      titleAr: `تخفيض تكلفة البند ${resourceNames[weakest.i]} → ${taskNames[weakest.j]}`,
-      descFr: `Cette affectation représente le coût unitaire le plus élevé du plan (${weakVal}${us}). Analysez les causes (distance, durée, complexité) et évaluez si une formation, une réorganisation du poste ou un meilleur outillage peut réduire ce coût lors du prochain cycle.`,
-      descAr: `يمثل هذا التوزيع أعلى تكلفة وحدوية في الخطة (${weakVal}${us}). حلّل الأسباب (المسافة، المدة، التعقيد) وقيّم إمكانية تخفيض هذا البند عبر التدريب أو إعادة تنظيم الوظيفة أو تحسين الأدوات في الدورة القادمة.`,
+      titleFr: `Réduire le coût de l'affectation la plus onéreuse`,
+      titleAr: `تخفيض تكلفة أغلى بند في الخطة`,
+      descFr: `${resourceNames[weakest.i]} affecté à ${taskNames[weakest.j]} représente le coût unitaire le plus élevé du plan (${weakVal}${us}). Analysez les causes (distance, durée, complexité) et évaluez si une formation, une réorganisation ou un meilleur outillage peut réduire ce coût lors du prochain cycle.`,
+      descAr: `${resourceNames[weakest.i]} المخصَّص لـ${taskNames[weakest.j]} يمثل أعلى تكلفة وحدوية في الخطة (${weakVal}${us}). حلّل الأسباب (المسافة، المدة، التعقيد) وقيّم إمكانية تخفيض هذا البند عبر التدريب أو إعادة التنظيم أو تحسين الأدوات في الدورة القادمة.`,
     });
   }
 
@@ -706,27 +706,29 @@ function buildRecommendations(
 
   // 5a. Medium — unassigned resources (idle capacity)
   if (!isSquare && unassignedResources.length > 0) {
-    const names = unassignedResources.map(i => resourceNames[i]).join(", ");
+    const uniqueResNames = [...new Set(unassignedResources.map(i => resourceNames[i]))].join(", ");
+    const plural = unassignedResources.length > 1;
     recs.push({
       icon: "🏗️",
       priority: "medium",
-      titleFr: `Valoriser la capacité disponible de : ${names}`,
-      titleAr: `توظيف الطاقة المتاحة لـ : ${names}`,
-      descFr: `${names} ne reçoit aucune tâche dans ce cycle (matrice non carrée). Envisagez de lui confier des tâches transversales, une action de formation, un soutien à une autre équipe, ou planifiez une rotation pour éviter tout sous-emploi prolongé.`,
-      descAr: `${names} غير مخصَّصة لأي مهمة في هذه الدورة (مصفوفة غير مربعة). فكّر في تكليفها بمهام عرضية، تدريب، دعم فريق آخر، أو تخطيط تناوب لتفادي البطالة المطوّلة.`,
+      titleFr: `Valoriser ${plural ? "les ressources sans affectation" : "la ressource sans affectation"} dans ce cycle`,
+      titleAr: `توظيف ${plural ? "الموارد غير الموزّعة" : "المورد غير الموزّع"} في هذه الدورة`,
+      descFr: `${uniqueResNames} ${plural ? "ne reçoivent" : "ne reçoit"} aucune tâche dans ce cycle (matrice non carrée — rééquilibrage par ressource fictive). Envisagez des tâches transversales, une formation, un soutien à une autre équipe, ou planifiez une rotation pour éviter tout sous-emploi prolongé.`,
+      descAr: `${uniqueResNames} ${plural ? "لا يحصلون" : "لا يحصل"} على أي مهمة في هذه الدورة (مصفوفة غير مربعة — موزّع وهمي أُدرج للتوازن). فكّر في تكليفه بمهام عرضية، تدريب، دعم فريق آخر، أو خطّط لتناوب لتفادي البطالة المطوّلة.`,
     });
   }
 
   // 5b. Medium — unassigned tasks (resource gap)
   if (!isSquare && unassignedTasks.length > 0) {
-    const names = unassignedTasks.map(j => taskNames[j]).join(", ");
+    const uniqueTaskNames = [...new Set(unassignedTasks.map(j => taskNames[j]))].join(", ");
+    const plural = unassignedTasks.length > 1;
     recs.push({
       icon: "📋",
       priority: "medium",
-      titleFr: `Pourvoir la tâche non couverte : ${names}`,
-      titleAr: `توفير مورد لتغطية المهمة غير المسندة : ${names}`,
-      descFr: `La tâche ${names} n'a été assignée à aucune ressource dans ce cycle. Évaluez un recrutement temporaire, un recours à la sous-traitance, ou réorganisez la priorité des tâches pour couvrir ce besoin lors de la prochaine période.`,
-      descAr: `المهمة ${names} لم تُسند لأي مورد في هذه الدورة. قيّم التوظيف المؤقت، الاستعانة بمقاول خارجي، أو أعد ترتيب أولويات المهام لتغطية هذه الحاجة في الفترة القادمة.`,
+      titleFr: `Pourvoir ${plural ? "les tâches non couvertes" : "la tâche non couverte"} dans ce cycle`,
+      titleAr: `تغطية ${plural ? "المهام غير المسندة" : "المهمة غير المسندة"} في هذه الدورة`,
+      descFr: `${uniqueTaskNames} ${plural ? "n'ont été assignées" : "n'a été assignée"} à aucune ressource (matrice non carrée — tâche fictive introduite pour équilibrer). Évaluez un recrutement temporaire, un recours à la sous-traitance, ou réorganisez la priorité des tâches pour couvrir ce besoin lors de la prochaine période.`,
+      descAr: `${uniqueTaskNames} ${plural ? "لم تُسند" : "لم تُسند"} لأي مورد (مصفوفة غير مربعة — مهمة وهمية أُدرجت للتوازن). قيّم التوظيف المؤقت، الاستعانة بمقاول خارجي، أو أعد ترتيب أولويات المهام لتغطية هذه الحاجة في الفترة القادمة.`,
     });
   }
 
@@ -844,10 +846,28 @@ function AnalysisTab({
           <Info className="h-4 w-4 text-blue-600" />
           <AlertTitle className="text-blue-800 text-sm">{tl("Solutions optimales alternatives détectées", "تم اكتشاف حلول مثلى بديلة")}</AlertTitle>
           <AlertDescription className="text-blue-700 text-xs">
-            {tl(
-              `D'autres cellules à coût réduit nul (${alternativeZeroCells.map(c => `(${c.i+1},${c.j+1})`).join(", ")}) n'ont pas été utilisées dans cette affectation. Il existe donc au moins une autre affectation optimale avec exactement la même valeur totale.`,
-              `توجد خلايا أخرى بتكلفة مختزلة صفرية (${alternativeZeroCells.map(c => `(${c.i+1},${c.j+1})`).join(", ")}) لم تُستخدم في هذا التوزيع. لذلك يوجد توزيع أمثل بديل بنفس القيمة الإجمالية تماماً.`
-            )}
+            {(() => {
+              // Build deduplicated resource→task alternative pairs (real cells only)
+              const seenKey = new Set<string>();
+              const altPairs = alternativeZeroCells
+                .filter(c => c.i < m && c.j < n)
+                .filter(c => { const k = `${c.i}|${c.j}`; if (seenKey.has(k)) return false; seenKey.add(k); return true; });
+              const byResource = new Map<number, number[]>();
+              for (const { i, j } of altPairs) {
+                if (!byResource.has(i)) byResource.set(i, []);
+                byResource.get(i)!.push(j);
+              }
+              const descFr = Array.from(byResource.entries())
+                .map(([i, js]) => `${resourceNames[i]} pourrait aussi être affecté à ${js.map(j => taskNames[j]).join(" ou ")}`)
+                .join(", ");
+              const descAr = Array.from(byResource.entries())
+                .map(([i, js]) => `${resourceNames[i]} يمكن تخصيصه لـ${js.map(j => taskNames[j]).join(" أو ")}`)
+                .join("، ");
+              return tl(
+                `Il existe au moins une autre affectation atteignant le même total optimal${descFr ? ` — ${descFr}` : ""}. Cette flexibilité peut être utilisée pour des critères qualitatifs (équité, disponibilité, préférences) sans rien sacrifier sur l'objectif.`,
+                `يوجد توزيع أمثل بديل واحد على الأقل يبلغ نفس الإجمالي${descAr ? ` — ${descAr}` : ""}. يمكن توظيف هذه المرونة لأغراض نوعية (الإنصاف، التوفر، التفضيلات) دون أي تنازل عن الهدف.`
+              );
+            })()}
           </AlertDescription>
         </Alert>
       )}
@@ -925,13 +945,23 @@ function AnalysisTab({
             {tl("Analyse de la Situation", "تحليل الوضع")}
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4 space-y-2">
-          {analysisLines.map((line, i) => (
-            <div key={i} className="flex items-start gap-3 rounded-lg bg-primary/5 border border-primary/15 p-3">
-              <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-              <p className="text-sm leading-relaxed">{isAr ? line.ar : line.fr}</p>
-            </div>
+        <CardContent className={cn("px-4 pb-4 space-y-3 text-sm leading-relaxed text-foreground", isAr && "text-right")}>
+          {/* Para 1: scope + value — first two lines */}
+          {analysisLines.slice(0, 2).map((line, i) => (
+            <p key={i}>{isAr ? line.ar : line.fr}</p>
           ))}
+          {/* Para 2: complexity + balance + forbidden — middle lines */}
+          {analysisLines.slice(2, analysisLines.length - (analysisLines.length > 4 ? 1 : 0)).length > 0 && (
+            <p className="text-muted-foreground">
+              {analysisLines.slice(2, analysisLines.length - (analysisLines.length > 4 ? 1 : 0))
+                .map(line => isAr ? line.ar : line.fr)
+                .join(isAr ? " " : " ")}
+            </p>
+          )}
+          {/* Para 3: best/worst pair + alternatives — last line(s) */}
+          {analysisLines.length > 4 && (
+            <p>{isAr ? analysisLines[analysisLines.length - 1].ar : analysisLines[analysisLines.length - 1].fr}</p>
+          )}
         </CardContent>
       </Card>
 
