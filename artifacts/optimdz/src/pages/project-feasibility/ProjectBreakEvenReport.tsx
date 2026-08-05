@@ -42,82 +42,73 @@ export function ProjectBreakEvenReport({ result, projectName, sector }: Props) {
           contributionMarginPerUnit: cm } = result;
 
   // ── Situational analysis — project-framed ─────────────────────────────────
-  const riskLabelFr = cmr < 30 ? "élevé 🔴"   : cmr < 50 ? "modéré ⚠️" : "faible ✅";
-  const riskLabelAr = cmr < 30 ? "عالية 🔴"    : cmr < 50 ? "متوسطة ⚠️" : "منخفضة ✅";
+  // Para 1: break-even mechanics explained for this specific project (always)
+  const cmQual = cmr >= 50
+    ? t("un taux solide qui permet d'atteindre l'équilibre avec un volume de ventes raisonnable",
+        "نسبة قوية تُتيح بلوغ التعادل بحجم مبيعات معتدل")
+    : cmr >= 30
+    ? t("un taux acceptable, mais qui exige de valider soigneusement la capacité du marché avant de s'engager dans les charges fixes",
+        "نسبة مقبولة، غير أنها تستوجب التحقق الدقيق من قدرة السوق قبل الالتزام بالأعباء الثابتة")
+    : t("un taux serré qui impose un volume de ventes élevé — le risque de pertes prolongées avant le seuil est réel",
+        "نسبة ضيقة تفرض حجم مبيعات مرتفعاً — خطر الخسائر المطوّلة قبل التعادل حقيقي");
 
-  const analysisLines: { icon: string; text: string; color: string }[] = [
-    {
-      icon: "🏗️",
-      color: "bg-primary/10 border-primary/30",
-      text: t(
-        `Le projet "${inp.productName}" prévoit un prix de vente de ${fmtDA(inp.sellingPrice)} / unité, ` +
-        `un coût variable unitaire de ${fmtDA(inp.variableCost)} et des charges fixes dédiées au projet de ${fmtDA(inp.fixedCosts)}.`,
-        `المشروع "${inp.productName}": سعر البيع ${fmtDA(inp.sellingPrice)}/وحدة، التكلفة المتغيرة ${fmtDA(inp.variableCost)}، الأعباء الثابتة المرتبطة بالمشروع ${fmtDA(inp.fixedCosts)}.`
-      ),
-    },
-    {
-      icon: "📊",
-      color: "bg-secondary/10 border-secondary/30",
-      text: t(
-        `Seuil de rentabilité du projet : ${fmtN(bepU, 1)} unités (CA: ${fmtDA(bepR)}). ` +
-        `En dessous de ce volume, le projet génère une perte. Marge sur coût variable : ${fmtDA(cm)} / unité (taux ${fmtN(cmr, 2)} %).`,
-        `نقطة تعادل المشروع عند ${fmtN(bepU, 1)} وحدة (رقم أعمال: ${fmtDA(bepR)}). ` +
-        `دون هذا الحجم، يُسجّل المشروع خسارة. هامش المساهمة ${fmtDA(cm)}/وحدة (نسبة ${fmtN(cmr, 2)}%).`
-      ),
-    },
-    {
-      icon: cmr >= 50 ? "✅" : cmr >= 30 ? "⚠️" : "🔴",
-      color: cmr >= 50 ? "bg-green-50 border-green-300"
-           : cmr >= 30 ? "bg-amber-50 border-amber-300"
-           : "bg-red-50 border-red-300",
-      text: t(
-        `Risque lié à l'engagement dans les charges fixes du projet : ${riskLabelFr}. ` +
-        (cmr >= 50
-          ? "Bonne structure de coûts — le projet peut atteindre son seuil avec un volume de ventes raisonnable. Profil de risque favorable."
-          : cmr >= 30
-          ? "Marge acceptable, mais valider la capacité du marché à absorber le volume requis avant de s'engager dans les charges fixes."
-          : "Marge faible — un volume élevé est indispensable pour couvrir les charges du projet. Risque de pertes prolongées avant d'atteindre le seuil."),
-        `مستوى مخاطرة الالتزام بأعباء المشروع: ${riskLabelAr}. ` +
-        (cmr >= 50
-          ? "هيكل تكاليف جيد — نقطة التعادل قابلة للتحقق بحجم مبيعات معتدل. ملف المشروع مناسب."
-          : cmr >= 30
-          ? "هامش مقبول، لكن تحقق من قدرة السوق على استيعاب الحجم المطلوب قبل الالتزام بالأعباء الثابتة."
-          : "هامش ضعيف — حجم مبيعات مرتفع ضروري لتغطية أعباء المشروع. خطر خسائر ممتدة قبل بلوغ نقطة التعادل.")
-      ),
-    },
-    ...(result.marginOfSafetyPct !== undefined ? [{
-      icon: result.marginOfSafetyPct >= 25 ? "🛡️" : result.marginOfSafetyPct >= 10 ? "⚠️" : "🔴",
-      color: result.marginOfSafetyPct >= 25 ? "bg-green-50 border-green-300"
-           : result.marginOfSafetyPct >= 10  ? "bg-amber-50 border-amber-300"
-           : "bg-red-50 border-red-300",
-      text: t(
-        `Marge de sécurité du projet (au volume de ventes prévu) : ${fmtN(result.marginOfSafetyPct, 1)} % ` +
-        `(${fmtN(result.marginOfSafetyUnits, 1)} unités / ${fmtDA(result.marginOfSafetyRevenue)}). ` +
-        (result.marginOfSafetyPct >= 25
-          ? "Zone confortable — le projet résiste à une baisse significative de la demande avant de retomber en perte."
-          : result.marginOfSafetyPct >= 10
-          ? "Marge étroite — une stratégie commerciale active est indispensable pour maintenir le volume au-dessus du seuil."
-          : "Marge critique — le projet est très exposé à tout ralentissement de la demande. Reconsidérer la tarification ou les charges."),
-        `هامش أمان المشروع (عند الحجم المتوقع): ${fmtN(result.marginOfSafetyPct, 1)}% ` +
-        `(${fmtN(result.marginOfSafetyUnits, 1)} وحدة / ${fmtDA(result.marginOfSafetyRevenue)}). ` +
-        (result.marginOfSafetyPct >= 25
-          ? "منطقة آمنة — المشروع يتحمّل تراجعاً في الطلب قبل العودة للخسارة."
-          : result.marginOfSafetyPct >= 10
-          ? "هامش ضيق — استراتيجية تسويقية نشطة ضرورية للحفاظ على الحجم فوق نقطة التعادل."
-          : "هامش حرج — المشروع مُعرَّض لأي تباطؤ في الطلب. مراجعة التسعير أو الأعباء ضرورية.")
-      ),
-    }] : []),
-    ...(result.operatingLeverage !== undefined ? [{
-      icon: "⚡",
-      color: "bg-orange-50 border-orange-200",
-      text: t(
-        `Levier opérationnel du projet (DOL) = ${fmtN(result.operatingLeverage, 2)}×. ` +
-        `Une augmentation de 10 % des ventes du projet génère ${fmtN(result.operatingLeverage * 10, 1)} % de hausse sur le résultat opérationnel.`,
-        `الرافعة التشغيلية للمشروع = ${fmtN(result.operatingLeverage, 2)}×. ` +
-        `زيادة مبيعات المشروع 10% تُولّد نمواً في الربح التشغيلي بنسبة ${fmtN(result.operatingLeverage * 10, 1)}%.`
-      ),
-    }] : []),
-  ];
+  const para1 = t(
+    `Pour couvrir les ${fmtDA(inp.fixedCosts)} de charges fixes engagées par le projet "${inp.productName}", il faut vendre ${fmtN(bepU, 1)} unités à ${fmtDA(inp.sellingPrice)} l'une — soit un chiffre d'affaires de ${fmtDA(bepR)}. Chaque unité vendue dégage une marge sur coût variable de ${fmtDA(cm)} (${fmtN(cmr, 1)} %), ${cmQual}.`,
+    `لتغطية الأعباء الثابتة البالغة ${fmtDA(inp.fixedCosts)} التي يلتزم بها مشروع "${inp.productName}"، يجب بيع ${fmtN(bepU, 1)} وحدة بسعر ${fmtDA(inp.sellingPrice)} للوحدة — أي تحقيق رقم أعمال قدره ${fmtDA(bepR)}. تُدرّ كل وحدة مباعة هامش مساهمة بـ ${fmtDA(cm)} (${fmtN(cmr, 1)}%)، وهو ${cmQual}.`
+  );
+
+  // Para 2: gap between expected sales and BEP (only when expectedSalesVolume provided)
+  let para2 = "";
+  if (result.marginOfSafetyPct !== undefined && inp.expectedSalesVolume !== undefined) {
+    const mos   = result.marginOfSafetyPct;
+    const mosU  = result.marginOfSafetyUnits   ?? 0;
+    const mosR  = result.marginOfSafetyRevenue ?? 0;
+    const above = mosU >= 0;
+    if (above) {
+      const comfort = mos >= 25
+        ? t("Ce coussin est confortable : les ventes peuvent reculer de près d'un quart avant que le projet bascule en perte.",
+            "هذه الوسادة مريحة: يمكن للمبيعات أن تتراجع بما يقارب الربع قبل أن يعود المشروع إلى منطقة الخسارة.")
+        : mos >= 10
+        ? t("Ce coussin est étroit : toute perturbation commerciale significative suffit à repasser sous le seuil.",
+            "هذه الوسادة ضيقة: أي اضطراب تجاري ملحوظ كافٍ للعودة دون نقطة التعادل.")
+        : t("Ce coussin est insuffisant : la moindre baisse de la demande expose le projet à des pertes immédiates.",
+            "هذه الوسادة غير كافية: أدنى تراجع في الطلب يُعرّض المشروع لخسائر فورية.");
+      para2 = t(
+        `Avec un volume de ventes prévu de ${fmtN(inp.expectedSalesVolume, 1)} unités, le projet se situe ${fmtN(mosU, 1)} unités au-dessus du seuil, dégageant un bénéfice net de ${fmtDA(result.netProfit ?? 0)} et une marge de sécurité de ${fmtN(mos, 1)} % (soit ${fmtDA(mosR)} de CA tampon). ${comfort}`,
+        `بحجم مبيعات متوقع يبلغ ${fmtN(inp.expectedSalesVolume, 1)} وحدة، يقع المشروع ${fmtN(mosU, 1)} وحدة فوق نقطة التعادل، محققاً ربحاً صافياً بـ ${fmtDA(result.netProfit ?? 0)} وهامش أمان ${fmtN(mos, 1)}% (أي ${fmtDA(mosR)} من رقم الأعمال كوسادة). ${comfort}`
+      );
+    } else {
+      para2 = t(
+        `Avec un volume de ventes prévu de ${fmtN(inp.expectedSalesVolume, 1)} unités, le projet ne couvre pas encore ses charges fixes : il lui manque ${fmtN(Math.abs(mosU), 1)} unités pour atteindre l'équilibre, ce qui signifie que le projet sera déficitaire au niveau de production envisagé. Une révision de la tarification, des charges ou du volume cible s'impose avant le lancement.`,
+        `بحجم مبيعات متوقع يبلغ ${fmtN(inp.expectedSalesVolume, 1)} وحدة، لا يُغطي المشروع بعدُ أعباءه الثابتة: يحتاج ${fmtN(Math.abs(mosU), 1)} وحدة إضافية لبلوغ التعادل، مما يعني أن المشروع سيكون خاسراً عند مستوى الإنتاج المخطط. مراجعة التسعير أو الأعباء أو الحجم المستهدف ضرورة قبل الإطلاق.`
+      );
+    }
+  }
+
+  // Para 3: structural risk + operating leverage (always)
+  const riskSentFr = cmr >= 50
+    ? `La structure de coûts du projet est favorable : avec ${fmtN(cmr, 1)} % de taux de marge, chaque euro de CA supplémentaire contribue significativement à absorber les charges fixes.`
+    : cmr >= 30
+    ? `Le taux de marge de ${fmtN(cmr, 1)} % est acceptable mais pas confortable : le projet dépend d'une exécution commerciale rigoureuse pour maintenir le volume nécessaire.`
+    : `Avec seulement ${fmtN(cmr, 1)} % de taux de marge, la structure économique du projet est sous tension : le volume requis pour couvrir les charges est élevé, et toute sous-performance commerciale engendre des pertes rapidement.`;
+  const riskSentAr = cmr >= 50
+    ? `هيكل تكاليف المشروع ملائم: بنسبة هامش ${fmtN(cmr, 1)}%، كل دينار إضافي في رقم الأعمال يُسهم بشكل ملموس في استيعاب الأعباء الثابتة.`
+    : cmr >= 30
+    ? `نسبة الهامش ${fmtN(cmr, 1)}% مقبولة لكن غير مريحة: يعتمد المشروع على تنفيذ تجاري صارم للحفاظ على الحجم اللازم.`
+    : `بنسبة هامش ${fmtN(cmr, 1)}% فقط، الهيكل الاقتصادي للمشروع في حالة ضغط: الحجم المطلوب لتغطية الأعباء مرتفع، وأي تقصير تجاري يُفضي إلى خسائر سريعة.`;
+  const dolSentFr = result.operatingLeverage !== undefined
+    ? ` Le levier opérationnel de ${fmtN(result.operatingLeverage, 2)}× amplifie les deux sens : une hausse de 10 % des ventes améliore le résultat de ${fmtN(result.operatingLeverage * 10, 1)} %, mais une baisse équivalente le dégrade d'autant — ce qui rend la maîtrise du volume critique.`
+    : "";
+  const dolSentAr = result.operatingLeverage !== undefined
+    ? ` الرافعة التشغيلية البالغة ${fmtN(result.operatingLeverage, 2)}× تُضخّم الاتجاهين: ارتفاع المبيعات 10% يُحسّن النتيجة بـ ${fmtN(result.operatingLeverage * 10, 1)}%، لكن انخفاضها بالقدر ذاته يُدهورها بنفس النسبة — مما يجعل ضبط الحجم أمراً محورياً.`
+    : "";
+  const para3 = t(riskSentFr + dolSentFr, riskSentAr + dolSentAr);
+
+  // Para 4: target profit volume (only when set)
+  const para4 = result.targetProfitUnits !== undefined ? t(
+    `Pour atteindre l'objectif de bénéfice de ${fmtDA(inp.targetProfit)}, le projet doit vendre ${fmtN(result.targetProfitUnits, 1)} unités — soit ${fmtN((result.targetProfitUnits ?? 0) - bepU, 1)} unités au-delà du seuil de rentabilité. Cet écart définit le volume supplémentaire à assurer par le plan commercial pour que l'investissement soit pleinement rentable.`,
+    `لبلوغ هدف الربح البالغ ${fmtDA(inp.targetProfit)}، يجب على المشروع بيع ${fmtN(result.targetProfitUnits, 1)} وحدة — أي ${fmtN((result.targetProfitUnits ?? 0) - bepU, 1)} وحدة فوق نقطة التعادل. هذا الفارق يُحدد الحجم الإضافي الذي يجب أن تضمنه الخطة التجارية لتكون الاستثمار مُجدياً تماماً.`
+  ) : "";
 
   // ── Project-specific Go/No-Go suggestions ─────────────────────────────────
   interface Suggestion { icon: string; title: string; desc: string; color: string; borderColor: string; }
@@ -128,13 +119,11 @@ export function ProjectBreakEvenReport({ result, projectName, sector }: Props) {
       borderColor: "border-l-primary",
       title: t(
         "Valider la capacité d'absorption du marché",
-        "التحقق من قدرة السوق على استيعاب الحجم"
+        "التحقق من qدرة السوق على استيعاب الحجم"
       ),
       desc: t(
-        `Le projet requiert ${fmtN(bepU, 1)} unités vendues pour atteindre le seuil. ` +
-        `Avant de s'engager dans les charges fixes, estimez le volume réellement accessible sur votre marché cible (étude de clientèle, benchmarks sectoriels, concurrence locale).`,
-        `المشروع يتطلب بيع ${fmtN(bepU, 1)} وحدة للوصول لنقطة التعادل. ` +
-        `قبل الالتزام بالأعباء الثابتة، قيّم حجم السوق المتاح فعلياً (دراسة عملاء، مقارنة قطاعية، المنافسة المحلية).`
+        `Avant de vous engager dans les charges fixes, conduisez une estimation du volume réellement accessible : enquête auprès de la clientèle cible, benchmarks de ventes sectoriels, analyse de la concurrence locale. Comparez ce volume accessible au seuil calculé pour juger si le projet est commercialement viable dans votre marché.`,
+        `قبل الالتزام بالأعباء الثابتة، أجرِ تقييماً للحجم المتاح فعلياً: استبيان لدى الشريحة المستهدفة، مقارنة قطاعية لأحجام المبيعات، تحليل المنافسة المحلية. قارن هذا الحجم بنقطة التعادل المحسوبة للحكم على جدوى المشروع تجارياً في سوقك.`
       ),
     },
     {
@@ -146,12 +135,8 @@ export function ProjectBreakEvenReport({ result, projectName, sector }: Props) {
         "وضع جدول زمني للوصول إلى نقطة التعادل"
       ),
       desc: t(
-        `Un nouveau projet n'atteint pas son régime de croisière dès le premier mois. ` +
-        `Définissez des jalons réalistes : Mois 1 → X unités, Mois 3 → Y unités... et identifiez à quel mois vous atteignez les ${fmtN(bepU, 1)} unités. ` +
-        `Ce délai définit la durée de financement des pertes initiales.`,
-        `المشروع الجديد لا يبلغ حجمه الكامل في الشهر الأول. ` +
-        `ضع معالم واقعية: الشهر 1 → X وحدة، الشهر 3 → Y وحدة... وحدّد متى تصل إلى ${fmtN(bepU, 1)} وحدة. ` +
-        `هذه الفترة تُحدد مدة تمويل الخسائر الأولية.`
+        `Un nouveau projet n'atteint pas son régime de croisière dès le premier mois. Définissez des jalons de montée en charge réalistes (Mois 1, 3, 6…) et identifiez le mois auquel le volume atteint le seuil de rentabilité. Ce mois-clé définit la durée pendant laquelle le projet consomme du cash avant de s'autofinancer — et donc le montant de trésorerie à mobiliser dès le départ.`,
+        `المشروع الجديد لا يبلغ طاقته الكاملة في الشهر الأول. ضع معالم نمو واقعية (الشهر 1، 3، 6...) وحدّد الشهر الذي يبلغ فيه الحجم نقطة التعادل. هذا الشهر المحوري يُحدد المدة التي يستهلك فيها المشروع السيولة قبل تمويل ذاته — وبالتالي مقدار النقد الواجب تعبئته منذ البداية.`
       ),
     },
     {
@@ -163,10 +148,8 @@ export function ProjectBreakEvenReport({ result, projectName, sector }: Props) {
         "تأمين تمويل مرحلة ما قبل التعادل"
       ),
       desc: t(
-        `Chaque mois où les ventes sont inférieures à ${fmtN(bepU, 1)} unités, le projet accumule des pertes. ` +
-        `Calculez le déficit maximal prévisible et assurez-vous que votre plan de financement (fonds propres, crédit bancaire, associés) couvre cette période sans mettre en péril la continuité du projet.`,
-        `كل شهر تكون فيه المبيعات دون ${fmtN(bepU, 1)} وحدة، يتراكم عجز تشغيلي. ` +
-        `احسب أقصى عجز محتمل وتأكد أن خطة تمويل المشروع (رأس مال ذاتي، قرض بنكي، شركاء) تُغطي هذه المرحلة دون المساس باستمرارية النشاط.`
+        `Estimez le déficit cumulé maximal pendant la montée en charge (pertes mensuelles × durée estimée avant le seuil) et assurez-vous que votre plan de financement — fonds propres, crédit bancaire, apports d'associés — couvre ce montant avec une marge de sécurité. Un projet bien calculé mais sous-financé peut échouer faute de trésorerie, même si le modèle économique est solide.`,
+        `قدّر أقصى عجز تراكمي خلال مرحلة النمو (الخسائر الشهرية × المدة المقدّرة قبل التعادل) وتأكد أن خطة التمويل — رأس مال ذاتي، قرض بنكي، مساهمات الشركاء — تُغطي هذا المبلغ مع هامش أمان. مشروع محسوب جيداً لكن ممول بشكل ناقص قد يفشل بسبب شُح السيولة، حتى لو كان النموذج الاقتصادي سليماً.`
       ),
     },
     ...(cmr < 40 ? [{
@@ -178,10 +161,8 @@ export function ProjectBreakEvenReport({ result, projectName, sector }: Props) {
         "تحسين الهيكل الاقتصادي قبل إطلاق المشروع"
       ),
       desc: t(
-        `Le taux de marge de ${fmtN(cmr, 1)} % est inférieur à 40 %. ` +
-        `Avant de lancer le projet, explorez : révision à la hausse du prix de vente, négociation des coûts d'approvisionnement, ou réduction des charges fixes via des solutions alternatives (sous-traitance, location courte durée).`,
-        `نسبة الهامش ${fmtN(cmr, 1)}% أقل من 40%. ` +
-        `قبل إطلاق المشروع، ادرس: رفع سعر البيع، التفاوض على التوريد، أو تخفيض الأعباء الثابتة عبر حلول بديلة (تعاقد خارجي، إيجار قصير المدى).`
+        `Trois leviers à explorer en priorité avant de finaliser le modèle : (1) révision à la hausse du prix de vente — même +5 % peut déplacer significativement le seuil vers le bas ; (2) négociation des coûts d'approvisionnement avec des volumes d'engagement ou des fournisseurs alternatifs ; (3) réduction des charges fixes via sous-traitance, location courte durée ou mutualisation d'équipements.`,
+        `ثلاث رافعات يجب استكشافها بالأولوية قبل إقرار النموذج: (1) رفع سعر البيع — حتى +5% يمكنه خفض نقطة التعادل بشكل ملحوظ؛ (2) التفاوض على تكاليف التوريد بحجم التزام أو موردين بديلين؛ (3) تخفيض الأعباء الثابتة عبر التعاقد الخارجي أو الإيجار قصير المدى أو مشاركة المعدات.`
       ),
     }] : []),
     ...(result.marginOfSafetyPct !== undefined && result.marginOfSafetyPct < 20 ? [{
@@ -189,14 +170,12 @@ export function ProjectBreakEvenReport({ result, projectName, sector }: Props) {
       color: "bg-red-50",
       borderColor: "border-l-red-500",
       title: t(
-        "Marge de sécurité insuffisante — revoir le modèle",
-        "هامش أمان غير كافٍ — مراجعة الجدوى"
+        "Renforcer le coussin de sécurité avant l'engagement",
+        "تعزيز وسادة الأمان قبل الالتزام"
       ),
       desc: t(
-        `Avec ${fmtN(result.marginOfSafetyPct, 1)} % de marge de sécurité, la moindre fluctuation de la demande expose le projet à des pertes. ` +
-        `Envisagez de rehausser le prix de vente de 10–15 % ou de diversifier les canaux de distribution pour élargir la base client avant de vous engager.`,
-        `هامش أمان ${fmtN(result.marginOfSafetyPct, 1)}% فقط — أي تقلب في الطلب يعيد المشروع للخسارة. ` +
-        `ادرس رفع السعر 10-15% أو تنويع قنوات التوزيع لتوسيع قاعدة العملاء قبل الانطلاق.`
+        `Deux approches complémentaires pour élargir la marge de sécurité : (1) augmenter le prix de vente de 10–15 % sur les segments les moins sensibles au prix — ce qui réduit le seuil et élargit le tampon ; (2) diversifier les canaux de distribution pour atteindre des segments clients supplémentaires et réduire la dépendance à un seul canal. N'engagez pas les charges fixes avant d'avoir sécurisé une marge de sécurité d'au moins 20 %.`,
+        `نهجان تكميليان لتوسيع هامش الأمان: (1) رفع سعر البيع 10-15% على الشرائح الأقل حساسيةً للسعر — مما يُخفض نقطة التعادل ويوسّع الوسادة؛ (2) تنويع قنوات التوزيع لاستقطاب شرائح عملاء إضافية وتقليل الاعتماد على قناة واحدة. لا تلتزم بالأعباء الثابتة قبل تأمين هامش أمان لا يقل عن 20%.`
       ),
     }] : []),
     ...(inp.fixedCosts / (inp.sellingPrice * bepU) > 0.5 ? [{
@@ -204,31 +183,25 @@ export function ProjectBreakEvenReport({ result, projectName, sector }: Props) {
       color: "bg-green-50",
       borderColor: "border-l-green-600",
       title: t(
-        "Optimiser les charges fixes dédiées au projet",
-        "تحسين الأعباء الثابتة الخاصة بالمشروع"
+        "Alléger les charges fixes dédiées au projet",
+        "تخفيف الأعباء الثابتة الخاصة بالمشروع"
       ),
       desc: t(
-        `Les charges fixes représentent ${fmtN((inp.fixedCosts / bepR) * 100, 1)} % du CA au seuil — ` +
-        `un engagement important pour un nouveau projet. Étudiez des alternatives : équipements d'occasion, espace partagé, contrats à durée déterminée pour le personnel initial.`,
-        `الأعباء الثابتة تمثل ${fmtN((inp.fixedCosts / bepR) * 100, 1)}% من رقم أعمال التعادل — ` +
-        `التزام كبير لمشروع ناشئ. ادرس بدائل: معدات مستعملة، مساحة مشتركة، عقود محددة المدة للموظفين في المرحلة الأولى.`
+        `Lorsque les charges fixes absorbent plus de la moitié du CA au seuil, le risque financier du démarrage est concentré. Pour alléger cet engagement initial : privilégiez les équipements d'occasion ou en leasing, étudiez des espaces partagés ou en co-working pour les locaux, et limitez les embauches permanentes au strict minimum en démarrant avec des contrats à durée déterminée ou de la sous-traitance.`,
+        `عندما تستنزف الأعباء الثابتة أكثر من نصف رقم أعمال التعادل، يتركّز المخاطر المالية عند الانطلاق. لتخفيف هذا الالتزام المبدئي: فضّل المعدات المستعملة أو التأجير التمويلي، ادرس المساحات المشتركة للمكاتب، وقلّص التوظيف الدائم إلى الحد الأدنى بالبدء بعقود محددة المدة أو التعاقد الخارجي.`
       ),
     }] : []),
     ...(result.targetProfitUnits !== undefined ? [{
-      icon: "🎯",
+      icon: "🏆",
       color: "bg-primary/5",
       borderColor: "border-l-primary",
       title: t(
-        "Atteindre le bénéfice cible du projet",
-        "تحقيق الربح المستهدف للمشروع"
+        "Intégrer le volume-cible dans le plan commercial",
+        "إدراج الحجم المستهدف في الخطة التجارية"
       ),
       desc: t(
-        `Pour que le projet génère ${fmtDA(inp.targetProfit)}, il faut atteindre ${fmtN(result.targetProfitUnits, 1)} unités ` +
-        `(${fmtN((result.targetProfitUnits ?? 0) - bepU, 1)} unités au-delà du seuil). ` +
-        `Intégrez cet objectif dans votre business plan et définissez un délai réaliste pour l'atteindre.`,
-        `لتحقيق ربح المشروع المستهدف ${fmtDA(inp.targetProfit)}، يلزم الوصول إلى ${fmtN(result.targetProfitUnits, 1)} وحدة ` +
-        `(${fmtN((result.targetProfitUnits ?? 0) - bepU, 1)} وحدة فوق نقطة التعادل). ` +
-        `أدمج هذا الهدف في خطة أعمال المشروع وحدد جدولاً زمنياً واقعياً للوصول إليه.`
+        `Traduisez cet objectif de volume en plan d'action commercial concret : canaux de vente à activer, cadence de prospection, offres promotionnelles de lancement, partenariats de distribution. Définissez un délai réaliste pour atteindre ce volume et utilisez-le comme KPI principal du suivi mensuel du projet.`,
+        `حوّل هدف الحجم هذا إلى خطة عمل تجارية ملموسة: قنوات البيع المُفعَّلة، إيقاع التنقيب، عروض الإطلاق الترويجية، شراكات التوزيع. حدّد جدولاً زمنياً واقعياً لبلوغ هذا الحجم واستخدمه كمؤشر أداء رئيسي في متابعة المشروع الشهرية.`
       ),
     }] : []),
   ];
@@ -308,19 +281,26 @@ export function ProjectBreakEvenReport({ result, projectName, sector }: Props) {
           <BarChart2 className="w-5 h-5 text-primary" />
           {t("Analyse de Viabilité du Projet", "تحليل جدوى المشروع")}
         </h2>
-        <div className="space-y-2">
-          {analysisLines.map((line, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex items-start gap-3 rounded-lg border px-4 py-3 text-sm",
-                line.color
-              )}
-            >
-              <span className="text-base leading-snug shrink-0">{line.icon}</span>
-              <span className="leading-relaxed">{line.text}</span>
-            </div>
-          ))}
+        <div className={cn(
+          "rounded-lg border border-primary/20 bg-primary/5 px-5 py-4 space-y-3 text-sm leading-relaxed text-foreground",
+          isAr && "text-right"
+        )}>
+          <p>{para1}</p>
+          {para2 && (
+            <p className={cn(
+              result.marginOfSafetyPct !== undefined && result.marginOfSafetyPct < 10
+                ? "font-medium text-destructive/90"
+                : result.marginOfSafetyPct !== undefined && result.marginOfSafetyPct < 25
+                ? "text-amber-700"
+                : "text-muted-foreground"
+            )}>{para2}</p>
+          )}
+          <p className={cn(
+            cmr < 30 ? "font-medium text-destructive/90"
+            : cmr < 50 ? "text-amber-700"
+            : "text-muted-foreground"
+          )}>{para3}</p>
+          {para4 && <p>{para4}</p>}
         </div>
       </div>
 
