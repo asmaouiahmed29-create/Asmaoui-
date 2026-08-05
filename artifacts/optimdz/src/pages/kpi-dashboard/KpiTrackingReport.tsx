@@ -49,176 +49,174 @@ export function KpiTrackingReport({ result, sector }: Props) {
   const prev   = periods.length >= 2 ? periods[periods.length - 2] : null;
 
   // ── Situational Analysis ──────────────────────────────────────────────────
+  // analysisLines kept for PDF export; paragraphs drive the on-screen rendering
   interface AnalysisLine { icon: string; text: string; color: string }
   const analysisLines: AnalysisLine[] = [];
 
-  // 1. Overall trend
-  const overallTrendText = summary.overallProfitTrend === "up"
+  const periodLabel = periodType === "monthly"
+    ? t("mois", "أشهر")
+    : t("trimestre(s)", "أرباع سنة");
+
+  // ── Para 1: overall performance scope & trend ────────────────────────────
+  const para1 = summary.overallProfitTrend === "up"
     ? t(
-        `Sur l'ensemble des ${periods.length} périodes, le bénéfice net de "${businessName}" est en progression globale (+${fmtPct(summary.avgProfitGrowthPct)} en moyenne par période). La dynamique d'ensemble est positive.`,
-        `على مدى ${periods.length} فترات، يشهد صافي ربح "${businessName}" تحسناً إجمالياً (${fmtPct(summary.avgProfitGrowthPct)} في المتوسط لكل فترة). الديناميكية الإجمالية إيجابية.`
+        `Sur les ${periods.length} ${periodLabel} analysés (${periods[0].label} → ${latest.label}), "${businessName}" affiche une dynamique positive : le bénéfice net progresse en moyenne de ${fmtPct(summary.avgProfitGrowthPct)} par période, tandis que le chiffre d'affaires croît de ${fmtPct(summary.avgRevenueGrowthPct)}. La trajectoire d'ensemble est encourageante et témoigne d'une gestion saine de la croissance.`,
+        `على مدى ${periods.length} ${periodLabel} المحللة (${periods[0].label} → ${latest.label})، تُظهر "${businessName}" ديناميكية إيجابية: يتقدم صافي الربح بمعدل ${fmtPct(summary.avgProfitGrowthPct)} في المتوسط لكل فترة، ويرتفع رقم الأعمال بـ ${fmtPct(summary.avgRevenueGrowthPct)}. المسار الإجمالي مشجّع ويعكس إدارة سليمة للنمو.`
       )
     : summary.overallProfitTrend === "down"
     ? t(
-        `Sur l'ensemble des ${periods.length} périodes, le bénéfice net est en recul global (${fmtPct(summary.avgProfitGrowthPct)} en moyenne par période). Une attention particulière est requise pour inverser la tendance.`,
-        `على مدى ${periods.length} فترات، يشهد صافي الربح تراجعاً إجمالياً (${fmtPct(summary.avgProfitGrowthPct)} في المتوسط لكل فترة). يُستوجب اهتمام خاص لعكس الاتجاه.`
+        `Sur les ${periods.length} ${periodLabel} analysés (${periods[0].label} → ${latest.label}), "${businessName}" enregistre un recul du bénéfice net de ${fmtPct(Math.abs(summary.avgProfitGrowthPct))} en moyenne par période. Même si le chiffre d'affaires évolue de ${fmtPct(summary.avgRevenueGrowthPct)}, la trajectoire bénéficiaire appelle une attention soutenue et une révision des leviers de performance.`,
+        `على مدى ${periods.length} ${periodLabel} المحللة (${periods[0].label} → ${latest.label})، تُسجّل "${businessName}" تراجعاً في صافي الربح بمعدل ${fmtPct(Math.abs(summary.avgProfitGrowthPct))} لكل فترة. وبينما يتطور رقم الأعمال بـ ${fmtPct(summary.avgRevenueGrowthPct)}، تستوجب مسيرة الربحية اهتماماً مستمراً ومراجعة لرافعات الأداء.`
       )
     : t(
-        `Sur l'ensemble des ${periods.length} périodes, la performance est globalement stable — ni amélioration ni dégradation significative du bénéfice net (${fmtPct(summary.avgProfitGrowthPct)} en moyenne).`,
-        `على مدى ${periods.length} فترات، الأداء مستقر في مجمله — لا تحسن ولا تدهور ملحوظ في صافي الربح (${fmtPct(summary.avgProfitGrowthPct)} في المتوسط).`
+        `Sur les ${periods.length} ${periodLabel} analysés (${periods[0].label} → ${latest.label}), "${businessName}" présente une performance globalement stable : le bénéfice net varie de ${fmtPct(summary.avgProfitGrowthPct)} en moyenne par période, sans tendance haussière ou baissière marquée. Cette stabilité peut être un point d'appui — ou le signe que des leviers de croissance restent inexploités.`,
+        `على مدى ${periods.length} ${periodLabel} المحللة (${periods[0].label} → ${latest.label})، تُبدي "${businessName}" أداءً مستقراً في مجمله: يتفاوت صافي الربح بمعدل ${fmtPct(summary.avgProfitGrowthPct)} لكل فترة دون اتجاه صاعد أو هابط واضح. هذا الاستقرار قد يكون نقطة ارتكاز — أو إشارة إلى وجود رافعات نمو لم تُستثمر بعد.`
       );
-  analysisLines.push({ icon: "📊", color: "bg-primary/10 border-primary/30", text: overallTrendText });
+  analysisLines.push({ icon: "📊", color: "bg-primary/10 border-primary/30", text: para1 });
 
-  // 2. Latest period vs previous
+  // ── Para 2: latest period detail vs previous ─────────────────────────────
+  let para2 = "";
   if (prev) {
-    const revDiff = latest.revenue - prev.revenue;
+    const revDiff  = latest.revenue   - prev.revenue;
     const profDiff = latest.netProfit - prev.netProfit;
-    const latestText = t(
-      `Dernière période "${latest.label}" : CA = ${fmtDA(latest.revenue)} (${revDiff >= 0 ? "+" : ""}${fmtDA(revDiff)} vs "${prev.label}"), Bénéfice = ${fmtDA(latest.netProfit)} (${profDiff >= 0 ? "+" : ""}${fmtDA(profDiff)}), Marge = ${fmtPctAbs(latest.profitMarginPct)}.`,
-      `آخر فترة "${latest.label}": CA = ${fmtDA(latest.revenue)} (${revDiff >= 0 ? "+" : ""}${fmtDA(revDiff)} مقابل "${prev.label}")، ربح = ${fmtDA(latest.netProfit)} (${profDiff >= 0 ? "+" : ""}${fmtDA(profDiff)})، هامش = ${fmtPctAbs(latest.profitMarginPct)}.`
+    const revDir   = revDiff  >= 0 ? t("en hausse", "بارتفاع") : t("en baisse", "بانخفاض");
+    const profDir  = profDiff >= 0 ? t("en amélioration", "بتحسن")  : t("en repli",     "بتراجع");
+    para2 = t(
+      `La dernière période (${latest.label}) affiche un CA de ${fmtDA(latest.revenue)}, ${revDir} de ${fmtDA(Math.abs(revDiff))} par rapport à ${prev.label}. Le bénéfice net s'établit à ${fmtDA(latest.netProfit)} — ${profDir} de ${fmtDA(Math.abs(profDiff))} — pour une marge de ${fmtPctAbs(latest.profitMarginPct)}. ${summary.profitTrend === "up" ? "Ce résultat confirme la dynamique positive." : summary.profitTrend === "down" ? "Ce glissement mérite d'être surveillé de près." : "Le résultat reste comparable à la période précédente."}`,
+      `الفترة الأخيرة (${latest.label}) تُسجّل رقم أعمال بـ ${fmtDA(latest.revenue)}، ${revDir} بمقدار ${fmtDA(Math.abs(revDiff))} مقارنةً بـ ${prev.label}. يبلغ صافي الربح ${fmtDA(latest.netProfit)} — ${profDir} بمقدار ${fmtDA(Math.abs(profDiff))} — لهامش ربح ${fmtPctAbs(latest.profitMarginPct)}. ${summary.profitTrend === "up" ? "هذه النتيجة تؤكد الديناميكية الإيجابية." : summary.profitTrend === "down" ? "هذا الانخفاض يستحق متابعة دقيقة." : "النتيجة تبقى مقارِبة للفترة السابقة."}`
     );
     analysisLines.push({
       icon: summary.profitTrend === "up" ? "✅" : summary.profitTrend === "down" ? "⚠️" : "➡️",
       color: summary.profitTrend === "up" ? "bg-green-50 border-green-300"
            : summary.profitTrend === "down" ? "bg-amber-50 border-amber-300"
            : "bg-muted/30 border-border",
-      text: latestText,
+      text: para2,
     });
   }
 
-  // 3. Consecutive profit declines
+  // ── Para 3: structural risk signals (merged) ─────────────────────────────
+  const riskFrParts: string[] = [];
+  const riskArParts: string[] = [];
+
   if (summary.consecutiveProfitDeclines >= 2) {
-    analysisLines.push({
-      icon: "🚨",
-      color: "bg-red-50 border-red-300",
-      text: t(
-        `⚠️ Alerte : le bénéfice net décline depuis ${summary.consecutiveProfitDeclines} périodes consécutives. Ce signal persistant indique un problème structurel (hausse des charges, érosion des prix, perte de volume). Une action corrective urgente est nécessaire.`,
-        `⚠️ تنبيه: يتراجع صافي الربح منذ ${summary.consecutiveProfitDeclines} فترات متتالية. هذه الإشارة المستمرة تدل على مشكلة هيكلية (ارتفاع الأعباء، تآكل الأسعار، انخفاض الحجم). يلزم اتخاذ إجراء تصحيحي عاجل.`
-      ),
-    });
+    riskFrParts.push(`Le bénéfice recule depuis ${summary.consecutiveProfitDeclines} périodes consécutives — signal persistant qui indique généralement un problème structurel (hausse des charges, érosion des prix ou perte de volume).`);
+    riskArParts.push(`تراجع صافي الربح منذ ${summary.consecutiveProfitDeclines} فترات متتالية — إشارة مستمرة تدل في الغالب على مشكلة هيكلية (ارتفاع الأعباء أو تآكل الأسعار أو انخفاض الحجم).`);
+    analysisLines.push({ icon: "🚨", color: "bg-red-50 border-red-300",
+      text: t(riskFrParts[riskFrParts.length - 1], riskArParts[riskArParts.length - 1]) });
   }
-
-  // 4. Cost growing faster than revenue
   if (summary.costGrowthFasterThanRevenue) {
-    analysisLines.push({
-      icon: "📉",
-      color: "bg-amber-50 border-amber-300",
-      text: t(
-        `Les charges croissent plus vite que le chiffre d'affaires sur l'ensemble de la période analysée. Si cette tendance se poursuit, la marge bénéficiaire continuera à se comprimer. Un audit de la structure des coûts s'impose.`,
-        `تنمو الأعباء أسرع من رقم الأعمال على مدى الفترة المحللة بأكملها. إذا استمر هذا الاتجاه، سيستمر تضيق هامش الربح. يستوجب الأمر مراجعة هيكل التكاليف.`
-      ),
-    });
+    riskFrParts.push(`Les charges progressent plus vite que le chiffre d'affaires sur l'ensemble de la période : si cette tendance se maintient, la marge continuera à se comprimer même quand le CA croît.`);
+    riskArParts.push(`تتصاعد الأعباء أسرع من رقم الأعمال على مدى كامل الفترة: إذا استمر هذا المسار، سيستمر تضيّق الهامش حتى عند نمو الإيرادات.`);
+    analysisLines.push({ icon: "📉", color: "bg-amber-50 border-amber-300",
+      text: t(riskFrParts[riskFrParts.length - 1], riskArParts[riskArParts.length - 1]) });
   }
-
-  // 5. Margin decline streak
   if (summary.marginDeclineStreak >= 2) {
-    analysisLines.push({
-      icon: "📉",
-      color: "bg-amber-50 border-amber-400",
-      text: t(
-        `La marge bénéficiaire est en recul depuis ${summary.marginDeclineStreak} périodes consécutives. Marge actuelle : ${fmtPctAbs(summary.latestMarginPct)}. Une marge qui s'érode progressivement signale soit une pression sur les prix, soit une inflation non répercutée des coûts.`,
-        `هامش الربح في تراجع منذ ${summary.marginDeclineStreak} فترات متتالية. الهامش الحالي: ${fmtPctAbs(summary.latestMarginPct)}. تآكل الهامش التدريجي يشير إلى ضغط على الأسعار أو ارتفاع تكاليف لم يُعاد نقله.`
-      ),
-    });
+    riskFrParts.push(`La marge bénéficiaire s'érode depuis ${summary.marginDeclineStreak} périodes — elle atteint aujourd'hui ${fmtPctAbs(summary.latestMarginPct)}, ce qui signale soit une pression sur les prix de vente, soit une inflation des coûts non encore répercutée.`);
+    riskArParts.push(`يتآكل هامش الربح منذ ${summary.marginDeclineStreak} فترات ليبلغ اليوم ${fmtPctAbs(summary.latestMarginPct)}، وهو ما يُشير إلى ضغط على أسعار البيع أو ارتفاع تكاليف لم تُعاد تمريرها بعد.`);
+    analysisLines.push({ icon: "📉", color: "bg-amber-50 border-amber-400",
+      text: t(riskFrParts[riskFrParts.length - 1], riskArParts[riskArParts.length - 1]) });
   }
 
-  // 6. Target performance
+  const para3fr = riskFrParts.length > 0
+    ? riskFrParts.join(" ")
+    : "";
+  const para3ar = riskArParts.length > 0
+    ? riskArParts.join(" ")
+    : "";
+  const para3 = riskFrParts.length > 0 ? t(para3fr, para3ar) : "";
+
+  // ── Para 4: target tracking ──────────────────────────────────────────────
+  let para4 = "";
   if (summary.hasTargets) {
-    const totalWithRevTarget = periods.filter(p => p.targetRevenue !== undefined).length;
-    const totalWithProfTarget = periods.filter(p => p.targetProfit !== undefined).length;
-    analysisLines.push({
-      icon: "🎯",
-      color: "bg-blue-50 border-blue-300",
-      text: t(
-        `Suivi des objectifs : CA atteint ou dépassé dans ${summary.periodsAboveRevenueTarget}/${totalWithRevTarget} période(s)` +
-        (totalWithProfTarget > 0 ? `, Bénéfice atteint dans ${summary.periodsAboveProfitTarget}/${totalWithProfTarget} période(s)` : "") +
-        `. Écart moyen CA vs objectif : ${fmtPct(summary.avgRevenueVsTargetPct ?? 0)}` +
-        (totalWithProfTarget > 0 ? `, Bénéfice : ${fmtPct(summary.avgProfitVsTargetPct ?? 0)}` : "") + ".",
-        `متابعة الأهداف: رقم الأعمال مُحقَّق أو متجاوَز في ${summary.periodsAboveRevenueTarget}/${totalWithRevTarget} فترة` +
-        (totalWithProfTarget > 0 ? `، الربح مُحقَّق في ${summary.periodsAboveProfitTarget}/${totalWithProfTarget} فترة` : "") +
-        `. متوسط الفارق CA/هدف: ${fmtPct(summary.avgRevenueVsTargetPct ?? 0)}` +
-        (totalWithProfTarget > 0 ? `، الربح: ${fmtPct(summary.avgProfitVsTargetPct ?? 0)}` : "") + "."
-      ),
-    });
+    const totalWithRevTarget  = periods.filter(p => p.targetRevenue !== undefined).length;
+    const totalWithProfTarget = periods.filter(p => p.targetProfit  !== undefined).length;
+    const hitRate = summary.periodsAboveRevenueTarget / totalWithRevTarget;
+    const hitQual = hitRate >= 0.75
+      ? t("dans la grande majorité des cas", "في الغالبية العظمى من الحالات")
+      : hitRate >= 0.5
+      ? t("dans environ la moitié des cas", "في حوالي نصف الحالات")
+      : t("dans moins de la moitié des cas", "في أقل من نصف الحالات");
+    para4 = t(
+      `Sur les objectifs fixés, le CA atteint ou dépasse la cible ${hitQual} (${summary.periodsAboveRevenueTarget}/${totalWithRevTarget} ${periodLabel}, écart moyen : ${fmtPct(summary.avgRevenueVsTargetPct ?? 0)})${totalWithProfTarget > 0 ? ` ; le bénéfice net dépasse l'objectif dans ${summary.periodsAboveProfitTarget}/${totalWithProfTarget} ${periodLabel} (écart moyen : ${fmtPct(summary.avgProfitVsTargetPct ?? 0)})` : ""}. ${hitRate >= 0.5 ? "L'atteinte des objectifs est globalement satisfaisante." : "L'écart régulier entre résultats et objectifs invite à en réviser la calibration ou l'exécution commerciale."}`,
+      `فيما يخص الأهداف المحددة، يُحقق رقم الأعمال مستوى المستهدف أو يتجاوزه ${hitQual} (${summary.periodsAboveRevenueTarget}/${totalWithRevTarget} ${periodLabel}، فارق متوسط: ${fmtPct(summary.avgRevenueVsTargetPct ?? 0)})${totalWithProfTarget > 0 ? `؛ يتخطى صافي الربح هدفه في ${summary.periodsAboveProfitTarget}/${totalWithProfTarget} ${periodLabel} (فارق متوسط: ${fmtPct(summary.avgProfitVsTargetPct ?? 0)})` : ""}. ${hitRate >= 0.5 ? "تحقيق الأهداف مُرضٍ بشكل عام." : "الفارق المنتظم بين النتائج والأهداف يدعو إلى مراجعة معاييرها أو التنفيذ التجاري."}`
+    );
+    analysisLines.push({ icon: "🎯", color: "bg-blue-50 border-blue-300", text: para4 });
   }
 
-  // 7. Best/worst periods
-  analysisLines.push({
-    icon: "💡",
-    color: "bg-secondary/10 border-secondary/30",
-    text: t(
-      `Meilleure période en termes de bénéfice net : "${summary.bestPeriodLabel}". Période la moins performante : "${summary.worstPeriodLabel}". Analysez les facteurs qui différencient ces deux périodes pour identifier des leviers d'action.`,
-      `أفضل فترة من حيث صافي الربح: "${summary.bestPeriodLabel}". أضعف فترة أداءً: "${summary.worstPeriodLabel}". حلّل العوامل المميّزة بين الفترتين للكشف عن رافعات العمل.`
-    ),
-  });
+  // ── Para 5: best/worst + learning ───────────────────────────────────────
+  const para5 = t(
+    `La période la plus performante est "${summary.bestPeriodLabel}" et la moins bonne "${summary.worstPeriodLabel}". Comparer les conditions de ces deux périodes — niveau d'activité, structure des coûts, prix de vente, mix produit — est souvent la façon la plus directe d'identifier les leviers réellement actionnables.`,
+    `أفضل فترة أداءً هي "${summary.bestPeriodLabel}" وأضعفها "${summary.worstPeriodLabel}". مقارنة ظروف هاتين الفترتين — مستوى النشاط، هيكل التكاليف، أسعار البيع، تشكيلة المنتجات — هي في الغالب أسرع طريق لتحديد الرافعات الفعلية القابلة للتفعيل.`
+  );
+  analysisLines.push({ icon: "💡", color: "bg-secondary/10 border-secondary/30", text: para5 });
 
   // ── Suggestions ────────────────────────────────────────────────────────────
   interface Suggestion { icon: string; title: string; desc: string; color: string; border: string }
   const suggestions: Suggestion[] = [];
 
-  // Cost growth
+  // Cost growth / consecutive declines
   if (summary.costGrowthFasterThanRevenue || summary.consecutiveProfitDeclines >= 2) {
     suggestions.push({
       icon: "🔍",
       color: "bg-red-50", border: "border-l-red-500",
       title: t("Audit de la structure des coûts", "مراجعة هيكل التكاليف"),
       desc: t(
-        `Les charges progressent plus vite que le CA${summary.consecutiveProfitDeclines >= 2 ? ` et le bénéfice recule depuis ${summary.consecutiveProfitDeclines} périodes` : ""}. Décomposez vos charges (fixes vs variables, personnel, loyer, matières premières) et identifiez les postes à rationaliser. Comparez vos ratios au standard du secteur.`,
-        `تتصاعد الأعباء أسرع من رقم الأعمال${summary.consecutiveProfitDeclines >= 2 ? ` والربح يتراجع منذ ${summary.consecutiveProfitDeclines} فترات` : ""}. قسّم تكاليفك (ثابتة مقابل متغيرة، عمالة، إيجار، مواد أولية) وحدد البنود التي يمكن ترشيدها. قارن نسبك بمعيار القطاع.`
+        `Décomposez vos charges en catégories (fixes vs variables, personnel, loyer, matières premières, sous-traitance) et calculez leur ratio par rapport au CA pour chaque période. Identifiez les postes dont la part augmente, et comparez à la moyenne du secteur pour prioriser les actions de rationalisation.`,
+        `قسّم أعباءك إلى فئات (ثابتة مقابل متغيرة، عمالة، إيجار، مواد أولية، مناولة) واحسب نسبتها من رقم الأعمال لكل فترة. حدّد البنود التي تتوسع حصتها، وقارنها بمعدلات القطاع لتحديد أولويات الترشيد.`
       ),
     });
   }
 
-  // Margin decline
+  // Margin decline / low margin
   if (summary.marginDeclineStreak >= 2 || summary.latestMarginPct < 10) {
     suggestions.push({
       icon: "💰",
       color: "bg-amber-50", border: "border-l-amber-500",
       title: t("Révision de la politique tarifaire", "مراجعة سياسة التسعير"),
       desc: t(
-        `La marge bénéficiaire de ${fmtPctAbs(summary.latestMarginPct)} est${summary.marginDeclineStreak >= 2 ? " en déclin depuis plusieurs périodes" : " en dessous des seuils recommandés"}. Examinez si vos prix de vente couvrent suffisamment la hausse des coûts. Une hausse tarifaire même modérée (+3-5%) peut significativement améliorer la marge si la demande est inélastique.`,
-        `هامش الربح البالغ ${fmtPctAbs(summary.latestMarginPct)}${summary.marginDeclineStreak >= 2 ? " في تراجع منذ فترات عدة" : " دون العتبات الموصى بها"}. افحص ما إذا كانت أسعار البيع تغطي ارتفاع التكاليف بشكل كافٍ. زيادة طفيفة في الأسعار (+3-5%) يمكن أن تُحسّن الهامش بشكل ملحوظ إذا كان الطلب غير مرن.`
+        `Vérifiez si vos prix de vente couvrent la hausse des charges sur les dernières périodes. Identifiez les produits ou clients à faible sensibilité-prix — une revalorisation ciblée de +3 à 5 % sur ces segments peut restaurer la marge sans affecter les volumes. Testez aussi un recentrage sur les offres à plus forte contribution unitaire.`,
+        `تحقق مما إذا كانت أسعار البيع تُغطي ارتفاع الأعباء خلال الفترات الأخيرة. حدّد المنتجات أو العملاء الأقل حساسيةً للسعر — زيادة مُوجَّهة بين 3 و5% في هذه الشرائح يمكنها استعادة الهامش دون التأثير على الحجم. فكّر أيضاً في التركيز على العروض الأعلى مساهمةً وحدوياً.`
       ),
     });
   }
 
-  // Revenue growth positive reinforcement
+  // Revenue growing faster than profit
   if (summary.avgRevenueGrowthPct > 5 && summary.avgProfitGrowthPct < summary.avgRevenueGrowthPct - 3) {
     suggestions.push({
       icon: "⚖️",
       color: "bg-blue-50", border: "border-l-blue-500",
-      title: t("Le CA croît mais le bénéfice suit moins vite", "رقم الأعمال ينمو لكن الربح يتأخر"),
+      title: t("Convertir la croissance du CA en croissance du bénéfice", "تحويل نمو رقم الأعمال إلى نمو في الربح"),
       desc: t(
-        `Le chiffre d'affaires progresse en moyenne de ${fmtPct(summary.avgRevenueGrowthPct)} par période, mais le bénéfice de seulement ${fmtPct(summary.avgProfitGrowthPct)}. L'écart indique que la croissance s'accompagne d'une hausse proportionnellement plus forte des charges. Assurez-vous que les économies d'échelle se concrétisent à mesure que le volume augmente.`,
-        `يتقدم رقم الأعمال بمعدل ${fmtPct(summary.avgRevenueGrowthPct)} لكل فترة في المتوسط، لكن الربح بـ ${fmtPct(summary.avgProfitGrowthPct)} فقط. الفارق يدل على أن النمو مصحوب بارتفاع أكبر نسبياً في الأعباء. تأكد من أن وفورات الحجم تتحقق مع زيادة الإنتاج.`
+        `L'écart entre la croissance du CA et celle du bénéfice indique que certains coûts augmentent proportionnellement plus que les revenus. Identifiez les charges dont le ratio CA augmente avec le volume (commissions, logistique, emballage) et vérifiez si les économies d'échelle attendues se concrétisent réellement — sinon, renégociez les contrats fournisseurs ou revoyez les conditions tarifaires.`,
+        `الفجوة بين نمو رقم الأعمال ونمو الربح تكشف أن بعض التكاليف ترتفع بنسبة أكبر من الإيرادات. حدّد الأعباء التي تتوسع نسبتها مع الحجم (عمولات، لوجستيك، تغليف) وتحقق مما إذا كانت وفورات الحجم المتوقعة تتحقق فعلاً — وإلا أعد التفاوض على عقود الموردين أو راجع شروط التسعير.`
       ),
     });
   }
 
-  // Targets
+  // Targets missed frequently
   if (summary.hasTargets) {
     const revenueTargetCount = periods.filter(p => p.targetRevenue !== undefined).length;
     if (summary.periodsAboveRevenueTarget < revenueTargetCount / 2) {
       suggestions.push({
         icon: "🎯",
         color: "bg-purple-50", border: "border-l-purple-500",
-        title: t("Réévaluer les objectifs ou le plan commercial", "إعادة تقييم الأهداف أو الخطة التجارية"),
+        title: t("Recalibrer les objectifs ou renforcer l'exécution", "إعادة معايرة الأهداف أو تعزيز التنفيذ"),
         desc: t(
-          `Le CA dépasse les objectifs dans moins de la moitié des périodes. Soit les objectifs sont trop ambitieux, soit l'exécution commerciale manque de rigueur. Analysez les périodes sous-performantes pour comprendre si le problème vient de la demande (saisonnalité, concurrence) ou de l'offre (capacité, stock, équipe).`,
-          `رقم الأعمال يتجاوز الأهداف في أقل من نصف الفترات. إما أن الأهداف طموحة جداً، أو أن التنفيذ التجاري يفتقر إلى الصرامة. حلّل الفترات ذات الأداء المنخفض لفهم ما إذا كانت المشكلة في الطلب (موسمية، منافسة) أو العرض (طاقة، مخزون، فريق).`
+          `Analysez les périodes sous-performantes : le manque à gagner vient-il de la demande (saisonnalité, concurrence, pouvoir d'achat) ou de contraintes internes (capacité, stock, force de vente) ? Si la cause est externe, révisez les objectifs à la baisse et intégrez cette saisonnalité dans les prévisions. Si elle est interne, agissez sur l'outil commercial et le plan d'action.`,
+          `حلّل الفترات ذات الأداء المنخفض: هل العجز ناجم عن الطلب (موسمية، منافسة، قدرة شرائية) أم عن قيود داخلية (طاقة إنتاجية، مخزون، فريق مبيعات)؟ إن كان السبب خارجياً، اخفض الأهداف وادمج هذه الموسمية في التوقعات. وإن كان داخلياً، تحرّك على الأداة التجارية وخطة العمل.`
         ),
       });
     }
   }
 
-  // General improvement recommendation
+  // Systematic review cadence
   suggestions.push({
     icon: "📅",
     color: "bg-primary/5", border: "border-l-primary",
-    title: t("Instaurer un cycle de revue mensuel/trimestriel", "إرساء دورة مراجعة شهرية/ربع سنوية"),
+    title: t("Instaurer un cycle de revue régulier", "إرساء دورة مراجعة منتظمة"),
     desc: t(
-      `La valeur de cet outil est maximisée par une utilisation régulière et systématique. Programmez une revue de performance à chaque fin de période : comparez aux objectifs, analysez les écarts, et ajustez le plan opérationnel en conséquence. La réactivité précoce est bien moins coûteuse qu'une correction tardive.`,
-      `قيمة هذه الأداة تتعظّم بالاستخدام المنتظم والمنهجي. جدوِّل مراجعة الأداء في نهاية كل فترة: قارن بالأهداف، حلّل الانحرافات، وعدّل الخطة التشغيلية وفقاً لذلك. الاستجابة المبكرة أقل تكلفة بكثير من التصحيح المتأخر.`
+      `Programmez une revue de performance systématique à chaque fin de période : comparez résultats aux objectifs, identifiez les deux ou trois écarts prioritaires, et décidez d'une action corrective concrète avant la période suivante. La réactivité précoce coûte bien moins cher qu'une correction après plusieurs trimestres de dérive.`,
+      `جدوِّل مراجعة أداء منهجية في نهاية كل فترة: قارن النتائج بالأهداف، حدّد الانحرافين أو الثلاثة ذات الأولوية، وقرّر إجراءً تصحيحياً ملموساً قبل الفترة التالية. الاستجابة المبكرة أقل تكلفةً بكثير من التصحيح بعد أرباع عدة من الانجراف.`
     ),
   });
 
@@ -378,14 +376,22 @@ export function KpiTrackingReport({ result, sector }: Props) {
           <BarChart2 className="w-5 h-5 text-primary" />
           {t("Analyse de la Situation", "تحليل الوضع")}
         </h2>
-        <div className="space-y-2">
-          {analysisLines.map((line, i) => (
-            <div key={i}
-              className={cn("flex items-start gap-3 rounded-lg border px-4 py-3 text-sm", line.color)}>
-              <span className="text-base leading-snug shrink-0">{line.icon}</span>
-              <span className="leading-relaxed">{line.text}</span>
-            </div>
-          ))}
+        <div className={cn(
+          "rounded-lg border border-primary/20 bg-primary/5 px-5 py-4 space-y-3 text-sm leading-relaxed text-foreground",
+          isAr && "text-right"
+        )}>
+          <p>{para1}</p>
+          {para2 && <p className="text-muted-foreground">{para2}</p>}
+          {para3 && (
+            <p className={cn(
+              "font-medium",
+              summary.consecutiveProfitDeclines >= 3 || (summary.costGrowthFasterThanRevenue && summary.marginDeclineStreak >= 2)
+                ? "text-destructive/90"
+                : "text-amber-700"
+            )}>{para3}</p>
+          )}
+          {para4 && <p>{para4}</p>}
+          <p className="text-muted-foreground">{para5}</p>
         </div>
       </div>
 
