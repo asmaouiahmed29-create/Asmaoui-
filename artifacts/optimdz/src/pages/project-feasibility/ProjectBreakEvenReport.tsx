@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { generateProjectFeasibilityPDFReport } from "@/lib/generateProjectFeasibilityPDFReport";
+import { buildMarginSafetyAnalysis } from "@/lib/marginSafetyAnalysis";
 
 type SectorKey = "trade" | "industry" | "agriculture" | "services" | "custom";
 
@@ -57,33 +58,8 @@ export function ProjectBreakEvenReport({ result, projectName, sector }: Props) {
     `لتغطية الأعباء الثابتة البالغة ${fmtDA(inp.fixedCosts)} التي يلتزم بها مشروع "${inp.productName}"، يجب بيع ${fmtN(bepU, 1)} وحدة بسعر ${fmtDA(inp.sellingPrice)} للوحدة — أي تحقيق رقم أعمال قدره ${fmtDA(bepR)}. تُدرّ كل وحدة مباعة هامش مساهمة بـ ${fmtDA(cm)} (${fmtN(cmr, 1)}%)، وهو ${cmQual}.`
   );
 
-  // Para 2: gap between expected sales and BEP (only when expectedSalesVolume provided)
-  let para2 = "";
-  if (result.marginOfSafetyPct !== undefined && inp.expectedSalesVolume !== undefined) {
-    const mos   = result.marginOfSafetyPct;
-    const mosU  = result.marginOfSafetyUnits   ?? 0;
-    const mosR  = result.marginOfSafetyRevenue ?? 0;
-    const above = mosU >= 0;
-    if (above) {
-      const comfort = mos >= 25
-        ? t("Ce coussin est confortable : les ventes peuvent reculer de près d'un quart avant que le projet bascule en perte.",
-            "هذه الوسادة مريحة: يمكن للمبيعات أن تتراجع بما يقارب الربع قبل أن يعود المشروع إلى منطقة الخسارة.")
-        : mos >= 10
-        ? t("Ce coussin est étroit : toute perturbation commerciale significative suffit à repasser sous le seuil.",
-            "هذه الوسادة ضيقة: أي اضطراب تجاري ملحوظ كافٍ للعودة دون نقطة التعادل.")
-        : t("Ce coussin est insuffisant : la moindre baisse de la demande expose le projet à des pertes immédiates.",
-            "هذه الوسادة غير كافية: أدنى تراجع في الطلب يُعرّض المشروع لخسائر فورية.");
-      para2 = t(
-        `Avec un volume de ventes prévu de ${fmtN(inp.expectedSalesVolume, 1)} unités, le projet se situe ${fmtN(mosU, 1)} unités au-dessus du seuil, dégageant un bénéfice net de ${fmtDA(result.netProfit ?? 0)} et une marge de sécurité de ${fmtN(mos, 1)} % (soit ${fmtDA(mosR)} de CA tampon). ${comfort}`,
-        `بحجم مبيعات متوقع يبلغ ${fmtN(inp.expectedSalesVolume, 1)} وحدة، يقع المشروع ${fmtN(mosU, 1)} وحدة فوق نقطة التعادل، محققاً ربحاً صافياً بـ ${fmtDA(result.netProfit ?? 0)} وهامش أمان ${fmtN(mos, 1)}% (أي ${fmtDA(mosR)} من رقم الأعمال كوسادة). ${comfort}`
-      );
-    } else {
-      para2 = t(
-        `Avec un volume de ventes prévu de ${fmtN(inp.expectedSalesVolume, 1)} unités, le projet ne couvre pas encore ses charges fixes : il lui manque ${fmtN(Math.abs(mosU), 1)} unités pour atteindre l'équilibre, ce qui signifie que le projet sera déficitaire au niveau de production envisagé. Une révision de la tarification, des charges ou du volume cible s'impose avant le lancement.`,
-        `بحجم مبيعات متوقع يبلغ ${fmtN(inp.expectedSalesVolume, 1)} وحدة، لا يُغطي المشروع بعدُ أعباءه الثابتة: يحتاج ${fmtN(Math.abs(mosU), 1)} وحدة إضافية لبلوغ التعادل، مما يعني أن المشروع سيكون خاسراً عند مستوى الإنتاج المخطط. مراجعة التسعير أو الأعباء أو الحجم المستهدف ضرورة قبل الإطلاق.`
-      );
-    }
-  }
+  // Margin-of-safety explanation: short, connected paragraphs for managers.
+  const marginSafetyParagraphs = buildMarginSafetyAnalysis(result);
 
   // Para 3: structural risk + operating leverage (always)
   const riskSentFr = cmr >= 50
@@ -174,8 +150,8 @@ export function ProjectBreakEvenReport({ result, projectName, sector }: Props) {
         "تعزيز وسادة الأمان قبل الالتزام"
       ),
       desc: t(
-        `Deux approches complémentaires pour élargir la marge de sécurité : (1) augmenter le prix de vente de 10–15 % sur les segments les moins sensibles au prix — ce qui réduit le seuil et élargit le tampon ; (2) diversifier les canaux de distribution pour atteindre des segments clients supplémentaires et réduire la dépendance à un seul canal. N'engagez pas les charges fixes avant d'avoir sécurisé une marge de sécurité d'au moins 20 %.`,
-        `نهجان تكميليان لتوسيع هامش الأمان: (1) رفع سعر البيع 10-15% على الشرائح الأقل حساسيةً للسعر — مما يُخفض نقطة التعادل ويوسّع الوسادة؛ (2) تنويع قنوات التوزيع لاستقطاب شرائح عملاء إضافية وتقليل الاعتماد على قناة واحدة. لا تلتزم بالأعباء الثابتة قبل تأمين هامش أمان لا يقل عن 20%.`
+        `Élargissez le coussin de sécurité en testant une hausse du prix sur les segments les moins sensibles, en négociant les coûts variables avec les fournisseurs et en diversifiant les canaux de distribution. Mesurez l'effet de chaque action sur le seuil avant d'engager les charges fixes.`,
+        `وسّع هامش الأمان عبر اختبار رفع السعر على الشرائح الأقل حساسيةً، وتخفيض التكاليف المتغيرة بالتفاوض مع الموردين، وتنويع قنوات التوزيع. قِس أثر كل إجراء على نقطة التعادل قبل الالتزام بالأعباء الثابتة.`
       ),
     }] : []),
     ...(inp.fixedCosts / (inp.sellingPrice * bepU) > 0.5 ? [{
@@ -286,15 +262,15 @@ export function ProjectBreakEvenReport({ result, projectName, sector }: Props) {
           isAr && "text-right"
         )}>
           <p>{para1}</p>
-          {para2 && (
-            <p className={cn(
+          {marginSafetyParagraphs.fr.map((_, i) => (
+            <p key={i} className={cn(
               result.marginOfSafetyPct !== undefined && result.marginOfSafetyPct < 10
                 ? "font-medium text-destructive/90"
                 : result.marginOfSafetyPct !== undefined && result.marginOfSafetyPct < 25
                 ? "text-amber-700"
                 : "text-muted-foreground"
-            )}>{para2}</p>
-          )}
+            )}>{isAr ? marginSafetyParagraphs.ar[i] : marginSafetyParagraphs.fr[i]}</p>
+          ))}
           <p className={cn(
             cmr < 30 ? "font-medium text-destructive/90"
             : cmr < 50 ? "text-amber-700"

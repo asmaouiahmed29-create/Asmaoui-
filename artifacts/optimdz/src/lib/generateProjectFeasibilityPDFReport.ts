@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import type { BreakEvenResult } from "./breakEvenAlgorithm";
+import { buildMarginSafetyAnalysis } from "./marginSafetyAnalysis";
 
 // ── Brand tokens (identical to other OptimDZ PDFs) ────────────────────────────
 const C = {
@@ -298,6 +299,7 @@ function buildEvaluationPage(
   result: BreakEvenResult, projectName: string, sector: string | undefined, totalPages: number
 ) {
   const { input: inp, contributionMarginRatio: cmr, breakEvenUnits: bepU } = result;
+  const marginSafetyParagraphs = buildMarginSafetyAnalysis(result);
 
   const riskLevelAr = cmr < 30 ? "عالية" : cmr < 50 ? "متوسطة" : "منخفضة";
 
@@ -321,17 +323,11 @@ function buildEvaluationPage(
        : "نسبة هامش منخفضة — يلزم حجم مبيعات مرتفع للوصول لنقطة التعادل. مخاطر الخسارة عالية عند تأخر بلوغ النقطة."),
      cmr >= 50 ? C.greenLight : cmr >= 30 ? C.orangeLight : "#ffebee",
      cmr >= 50 ? C.green + "50" : cmr >= 30 ? C.orange + "50" : "#ef9a9a"],
-    ...(result.marginOfSafetyPct !== undefined ? [[
-      `${result.marginOfSafetyPct >= 25 ? "🛡️" : result.marginOfSafetyPct >= 10 ? "⚠️" : "🔴"}`,
-      `هامش أمان المشروع عند التشغيل الكامل: ${f(result.marginOfSafetyPct, 1)}% ` +
-      `(${f(result.marginOfSafetyUnits, 1)} وحدة / ${Math.round(result.marginOfSafetyRevenue ?? 0).toLocaleString("fr-DZ")} DA). ` +
-      (result.marginOfSafetyPct >= 25
-        ? "هامش مريح — المشروع يتحمّل تراجعاً في المبيعات قبل الوصول للخسارة."
-        : result.marginOfSafetyPct >= 10
-        ? "هامش ضيق — يستوجب خطة تسويقية قوية لضمان استدامة النشاط."
-        : "هامش حرج — أي انخفاض في الطلب يعرّض المشروع لخسارة فورية. مراجعة التكاليف أو التسعير ضرورية."),
-      result.marginOfSafetyPct >= 25 ? C.greenLight : result.marginOfSafetyPct >= 10 ? C.orangeLight : "#ffebee",
-      result.marginOfSafetyPct >= 25 ? C.green + "50" : result.marginOfSafetyPct >= 10 ? C.orange + "50" : "#ef9a9a",
+    ...(marginSafetyParagraphs.ar.length > 0 ? [[
+      `${result.marginOfSafetyPct! >= 25 ? "🛡️" : result.marginOfSafetyPct! >= 10 ? "⚠️" : "🔴"}`,
+      marginSafetyParagraphs.ar.join(" "),
+      result.marginOfSafetyPct! >= 25 ? C.greenLight : result.marginOfSafetyPct! >= 10 ? C.orangeLight : "#ffebee",
+      result.marginOfSafetyPct! >= 25 ? C.green + "50" : result.marginOfSafetyPct! >= 10 ? C.orange + "50" : "#ef9a9a",
     ] as [string, string, string, string]] : []),
   ];
 
@@ -352,8 +348,7 @@ function buildEvaluationPage(
       C.secondary, C.greenLight] as [string, string, string, string, string]] : []),
     ...(result.marginOfSafetyPct !== undefined && result.marginOfSafetyPct < 20 ? [[
       "⚠️", "هامش أمان غير كافٍ — إعادة النظر في التسعير · Revoir le modèle économique",
-      `هامش الأمان ${f(result.marginOfSafetyPct, 1)}% يعني أن تراجعاً بسيطاً في الطلب يُعيد المشروع إلى الخسارة. ` +
-      `درّس رفع السعر بنسبة 10–15% أو تخفيض التكاليف المتغيرة عبر التفاوض مع الموردين قبل إطلاق المشروع.`,
+      `وسّع هامش الأمان عبر اختبار رفع السعر على الشرائح الأقل حساسيةً، وتخفيض التكاليف المتغيرة بالتفاوض مع الموردين، وتنويع قنوات التوزيع. قِس أثر كل إجراء على نقطة التعادل قبل الالتزام بالأعباء الثابتة.`,
       C.orange, C.orangeLight] as [string, string, string, string, string]] : []),
     ...(result.targetProfitUnits !== undefined ? [[
       "📈", "خطة تحقيق الربح المستهدف · Atteindre le bénéfice cible du projet",
