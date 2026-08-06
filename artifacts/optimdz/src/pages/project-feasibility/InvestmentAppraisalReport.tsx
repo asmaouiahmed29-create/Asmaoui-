@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { generateInvestmentAppraisalPDFReport } from "@/lib/generateInvestmentAppraisalPDFReport";
+import { buildInvestmentAppraisalAnalysis } from "@/lib/investmentAppraisalAnalysis";
 
 type SectorKey = "trade" | "industry" | "agriculture" | "services" | "custom";
 
@@ -83,69 +84,12 @@ export function InvestmentAppraisalReport({ result, projectName, sector }: Props
     },
   }[verdict];
 
-  // ── Situational analysis lines ─────────────────────────────────────────────
-  const pv = result.totalPV;
+  // ── Situational analysis paragraphs ─────────────────────────────────────────
+  const investmentAnalysis = buildInvestmentAppraisalAnalysis(result);
   const analysisLines: { icon: string; text: string; color: string }[] = [
-    {
-      icon: "💰",
-      color: "bg-primary/10 border-primary/30",
-      text: t(
-        `L'investissement initial de ${fmtDA(inp.initialInvestment)} sur ${n} an${n > 1 ? "s" : ""} génère une valeur actuelle nette (VAN) de ${fmtDA(npv)} avec un taux d'actualisation de ${fmtPct(r, 1)}. ` +
-        `La somme des flux actualisés est ${fmtDA(pv)}, soit ${fmtN((pv / inp.initialInvestment - 1) * 100, 1)} % de l'investissement initial.`,
-        `الاستثمار الأولي ${fmtDA(inp.initialInvestment)} على مدى ${n} ${n === 1 ? "سنة" : "سنوات"} يُولّد صافي قيمة حالية (NPV) بقيمة ${fmtDA(npv)} بمعدل خصم ${fmtPct(r, 1)}. ` +
-        `مجموع التدفقات المخصومة ${fmtDA(pv)}، أي ${fmtN((pv / inp.initialInvestment - 1) * 100, 1)}% من الاستثمار الأولي.`
-      ),
-    },
-    {
-      icon: npv >= 0 ? "✅" : "🔴",
-      color: npv >= 0 ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300",
-      text: t(
-        npv >= 0
-          ? `VAN positive (${fmtDA(npv)}) — l'investissement crée de la valeur au-delà du coût du capital (${fmtPct(r, 1)}). Chaque dinar investi génère ${fmtN(profitabilityIndex, 3)} DA de valeur actualisée (IP > 1 ✅).`
-          : `VAN négative (${fmtDA(npv)}) — l'investissement détruit de la valeur au taux de ${fmtPct(r, 1)}. La somme actualisée des flux ne couvre pas l'investissement initial (IP = ${fmtN(profitabilityIndex, 3)} < 1).`,
-        npv >= 0
-          ? `NPV موجبة (${fmtDA(npv)}) — الاستثمار يُنشئ قيمة تفوق تكلفة رأس المال (${fmtPct(r, 1)}). كل دينار مستثمر يُولّد ${fmtN(profitabilityIndex, 3)} دينار من القيمة الحالية (PI > 1 ✅).`
-          : `NPV سالبة (${fmtDA(npv)}) — الاستثمار يُدمّر قيمة بمعدل ${fmtPct(r, 1)}. مجموع التدفقات المخصومة لا يُغطي الاستثمار الأولي (PI = ${fmtN(profitabilityIndex, 3)} < 1).`
-      ),
-    },
-    {
-      icon: irr !== null ? (irr >= r ? "📊" : "⚠️") : "❓",
-      color: irr !== null ? (irr >= r ? "bg-secondary/10 border-secondary/30" : "bg-amber-50 border-amber-300") : "bg-muted border-border",
-      text: t(
-        irr !== null
-          ? `TRI = ${fmtPct(irr, 2)} — taux de rendement propre de l'investissement. ` +
-            (irr >= r
-              ? `Supérieur au taux requis (${fmtPct(r, 1)}) → l'investissement dépasse le seuil de rentabilité minimal. Rentabilité supplémentaire : ${fmtN(irr - r, 2)} points de pourcentage.`
-              : `Inférieur au taux requis (${fmtPct(r, 1)}) → l'investissement ne satisfait pas le rendement minimum. Écart : −${fmtN(r - irr, 2)} points de pourcentage.`)
-          : "Le TRI n'a pas pu être calculé dans la plage [−99 %, 500 %]. Cela peut indiquer des flux de trésorerie atypiques (multiples changements de signe).",
-        irr !== null
-          ? `IRR = ${fmtPct(irr, 2)} — معدل العائد الذاتي للاستثمار. ` +
-            (irr >= r
-              ? `أعلى من المعدل المطلوب (${fmtPct(r, 1)}) → الاستثمار يتجاوز الحد الأدنى للمردودية. الفارق الإيجابي: ${fmtN(irr - r, 2)} نقطة مئوية.`
-              : `أدنى من المعدل المطلوب (${fmtPct(r, 1)}) → الاستثمار لا يُحقق المردودية الدنيا المطلوبة. العجز: ${fmtN(r - irr, 2)} نقطة مئوية.`)
-          : "لم يُمكن حساب IRR في النطاق [−99 %، 500 %]. قد يشير إلى تدفقات نقدية غير تقليدية (تغييرات إشارة متعددة)."
-      ),
-    },
-    {
-      icon: simplePayback !== null && simplePayback < n ? "⏱️" : "⚠️",
-      color: simplePayback !== null && simplePayback < n ? "bg-secondary/10 border-secondary/30" : "bg-amber-50 border-amber-300",
-      text: t(
-        simplePayback !== null
-          ? `Délai de récupération simple : ${fmtYears(simplePayback, "fr")} sur ${n} ans. ` +
-            (discountedPayback !== null
-              ? `Délai actualisé : ${fmtYears(discountedPayback, "fr")} (intègre la valeur temps de l'argent). `
-              : "Récupération actualisée non atteinte dans la durée du projet. ") +
-            `La différence entre les deux délais (${discountedPayback !== null ? fmtN(discountedPayback - simplePayback, 2) : "—"} an${(discountedPayback !== null && discountedPayback - simplePayback > 1) ? "s" : ""}) reflète l'impact du coût du capital.`
-          : `Le capital investi (${fmtDA(inp.initialInvestment)}) n'est pas récupéré sur la durée du projet (${n} ans). Risque élevé d'immobilisation du capital.`,
-        simplePayback !== null
-          ? `فترة الاسترداد البسيطة: ${fmtYears(simplePayback, "ar")} من أصل ${n} سنوات. ` +
-            (discountedPayback !== null
-              ? `فترة الاسترداد المخصومة: ${fmtYears(discountedPayback, "ar")} (تأخذ بعين الاعتبار القيمة الزمنية للنقود). `
-              : "لم يُسترَد رأس المال المخصوم ضمن مدة المشروع. ") +
-            `الفرق بين الفترتين يعكس تأثير تكلفة رأس المال.`
-          : `رأس المال المستثمر (${fmtDA(inp.initialInvestment)}) لن يُسترَد ضمن مدة المشروع (${n} سنوات). خطر مرتفع لتجميد رأس المال.`
-      ),
-    },
+    { icon: npv > 0 ? "✅" : "🔴", color: npv > 0 ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300", text: isAr ? investmentAnalysis.ar[0] : investmentAnalysis.fr[0] },
+    { icon: irr !== null && irr >= r ? "📊" : "⚠️", color: irr !== null && irr >= r ? "bg-secondary/10 border-secondary/30" : "bg-amber-50 border-amber-300", text: isAr ? investmentAnalysis.ar[1] : investmentAnalysis.fr[1] },
+    { icon: simplePayback !== null && simplePayback < n ? "⏱️" : "⚠️", color: simplePayback !== null && simplePayback < n ? "bg-secondary/10 border-secondary/30" : "bg-amber-50 border-amber-300", text: isAr ? investmentAnalysis.ar[2] : investmentAnalysis.fr[2] },
   ];
 
   // ── Suggestions ────────────────────────────────────────────────────────────
@@ -157,39 +101,38 @@ export function InvestmentAppraisalReport({ result, projectName, sector }: Props
       color: "bg-primary/5", borderColor: "border-l-primary",
       title: t("Tester la sensibilité aux hypothèses", "اختبار الحساسية للفرضيات"),
       desc: t(
-        `La VAN de ${fmtDA(npv)} repose entièrement sur les flux prévisionnels. Une variation de 10 % des flux annuels ou du taux d'actualisation peut changer la conclusion. Identifiez les scénarios pessimiste, central et optimiste avant de décider.`,
-        `NPV البالغة ${fmtDA(npv)} تعتمد كلياً على التدفقات التقديرية. تغيير 10% في التدفقات السنوية أو معدل الخصم قد يُغيّر التوصية. حدّد سيناريوهات متشائمة ووسطى ومتفائلة قبل اتخاذ القرار.`
+        `Construisez trois scénarios — pessimiste, central et optimiste — en faisant varier les flux annuels et le taux d'actualisation de manière cohérente. Documentez les hypothèses et retenez les variables qui doivent être suivies après le lancement.`,
+        `أنشئ ثلاثة سيناريوهات — متشائم ومرجعي ومتفائل — عبر تغيير التدفقات السنوية ومعدل الخصم بصورة متسقة. وثّق الفرضيات وحدّد المتغيرات التي يجب متابعتها بعد الإطلاق.`
       ),
     },
     // NPV-specific
     ...(npv < 0 ? [{
       icon: "🔴",
       color: "bg-red-50", borderColor: "border-l-red-500",
-      title: t("VAN négative — reconsidérer les paramètres", "NPV سالبة — مراجعة المتغيرات"),
+      title: t("Revoir les paramètres avant engagement", "مراجعة المتغيرات قبل الالتزام"),
       desc: t(
-        `Avec une VAN de ${fmtDA(npv)}, l'investissement détruit de la valeur au taux de ${fmtPct(r, 1)}. Explorez : (1) réduire l'investissement initial, (2) améliorer les flux (optimiser les coûts d'exploitation), (3) accepter un taux de rendement requis plus bas si le risque le justifie.`,
-        `مع NPV سالبة ${fmtDA(npv)}، الاستثمار يُدمّر قيمة بمعدل ${fmtPct(r, 1)}. استكشف: (1) تخفيض الاستثمار الأولي، (2) تحسين التدفقات (تخفيض تكاليف التشغيل)، (3) قبول معدل عائد مطلوب أدنى إذا كان الخطر يُبرر ذلك.`
+        `Avant toute décision, testez trois leviers dans le modèle : réduire l'investissement initial, améliorer les flux par les coûts ou les revenus, et revoir le calendrier de décaissement. Ne retenez un taux requis plus bas qu'après avoir documenté le risque qui le justifie.`,
+        `قبل اتخاذ القرار، اختبر ثلاثة روافع في النموذج: تخفيض الاستثمار الأولي، تحسين التدفقات عبر التكاليف أو الإيرادات، ومراجعة جدول الإنفاق. لا تعتمد معدل عائد مطلوباً أدنى إلا بعد توثيق الخطر الذي يبرره.`
       ),
     }] as Suggestion[] : []),
     // IRR-specific
     ...(irr !== null && irr < r ? [{
       icon: "📊",
       color: "bg-amber-50", borderColor: "border-l-amber-500",
-      title: t(`TRI (${fmtPct(irr, 1)}) inférieur au taux requis (${fmtPct(r, 1)})`,
-               `IRR (${fmtPct(irr, 1)}) دون المعدل المطلوب (${fmtPct(r, 1)})`),
+      title: t("Rehausser le rendement attendu ou réduire le risque", "رفع العائد المتوقع أو تخفيض المخاطر"),
       desc: t(
-        `L'écart de ${fmtN(r - irr, 2)} points de pourcentage signifie que l'investissement ne génère pas le rendement minimum attendu. Réévaluez si le taux requis est calibré au bon niveau de risque, ou si des synergies non-capturées dans les flux méritent d'être modélisées.`,
-        `الفجوة ${fmtN(r - irr, 2)} نقطة مئوية تعني أن الاستثمار لا يُحقق الحد الأدنى للعائد المنتظر. أعد تقييم مستوى معدل العائد المطلوب مع الخطر الفعلي، أو ابحث عن تأثيرات تآزرية غير مُدرَجة في التدفقات.`
+        `Recalibrez le modèle en vérifiant les hypothèses de revenus, les coûts d'exploitation et le calendrier des encaissements. Si des synergies ou économies sont certaines, intégrez-les avec une justification documentée plutôt que de les laisser implicites.`,
+        `أعد معايرة النموذج عبر التحقق من فرضيات الإيرادات وتكاليف التشغيل وتوقيت التحصيل. إذا كانت هناك تأثيرات تآزرية أو وفورات مؤكدة، فأدرجها مع تبرير موثق بدلاً من تركها ضمنية.`
       ),
     }] as Suggestion[] : []),
     // Payback risk
     ...(discountedPayback === null || discountedPayback >= n ? [{
       icon: "⏰",
       color: "bg-amber-50", borderColor: "border-l-amber-500",
-      title: t("Capital non récupéré dans la durée du projet", "رأس المال غير مُسترَد ضمن مدة المشروع"),
+      title: t("Sécuriser la trésorerie et la sortie du projet", "حماية السيولة وخطة الخروج"),
       desc: t(
-        `Le délai de récupération actualisé dépasse la durée de l'investissement (${n} ans). Cela accroît l'exposition au risque : une dégradation des flux en fin de projet peut rendre définitive la perte. Évaluez si la valeur résiduelle peut améliorer la situation ou si la durée de vie économique est sous-estimée.`,
-        `فترة الاسترداد المخصومة تتجاوز مدة الاستثمار (${n} سنوات). هذا يزيد التعرض للمخاطر: أي تدهور في التدفقات نهاية المشروع قد يجعل الخسارة نهائية. قيّم إذا كانت القيمة المتبقية تُحسّن الوضع أو إذا كان العمر الاقتصادي الفعلي أطول مما افتُرض.`
+        `Préparez un plan de sécurisation de la trésorerie pour les dernières années : vérifiez la valeur résiduelle, les options de sortie et la durée économique réelle de l'actif. Fixez aussi un seuil de réexamen si les encaissements cumulés prennent du retard.`,
+        `ضع خطة لحماية السيولة في السنوات الأخيرة: تحقق من القيمة المتبقية وخيارات الخروج والعمر الاقتصادي الفعلي للأصل. وحدد أيضاً عتبة لإعادة التقييم إذا تأخرت التحصيلات التراكمية.`
       ),
     }] as Suggestion[] : []),
     // Always: financing structure
@@ -198,8 +141,8 @@ export function InvestmentAppraisalReport({ result, projectName, sector }: Props
       color: "bg-green-50", borderColor: "border-l-green-600",
       title: t("Optimiser le plan de financement", "تحسين هيكل التمويل"),
       desc: t(
-        `Un financement mixte (fonds propres + crédit bancaire) peut abaisser le coût moyen pondéré du capital (CMPC) et améliorer la VAN. En Algérie, les dispositifs ANSEJ / ANADE / ANGEM ou les crédits d'équipement bancaires peuvent réduire l'effort propre initial.`,
-        `التمويل المختلط (رأس مال ذاتي + قرض بنكي) قد يُخفّض متوسط تكلفة رأس المال المرجّح (WACC) ويُحسّن NPV. في الجزائر، أجهزة ANSEJ / ANADE / ANGEM أو القروض البنكية للتجهيز قد تُقلّل من الجهد الذاتي الأولي.`
+        `Comparez plusieurs structures de financement en distinguant le coût, les garanties, le calendrier de remboursement et l'effet sur la trésorerie. Retenez la solution qui protège la liquidité du projet sans transférer un risque excessif aux fonds propres.`,
+        `قارن بين هياكل تمويل متعددة مع التمييز بين التكلفة والضمانات وجدول السداد وأثرها على السيولة. اختر الحل الذي يحمي سيولة المشروع دون نقل خطر مفرط إلى رأس المال الذاتي.`
       ),
     },
     // High-NPV: reinvestment warning
@@ -208,18 +151,10 @@ export function InvestmentAppraisalReport({ result, projectName, sector }: Props
       color: "bg-primary/5", borderColor: "border-l-primary",
       title: t("Vérifier l'hypothèse de réinvestissement des flux", "التحقق من فرضية إعادة استثمار التدفقات"),
       desc: t(
-        `Le TRI suppose implicitement que les flux intermédiaires sont réinvestis au même TRI (${irr !== null ? fmtPct(irr, 1) : "—"}). Si ce taux est irréaliste pour les opportunités disponibles, le TRI surévalue la rentabilité réelle. Calculez le TRI modifié (TRIM) avec un taux de réinvestissement réaliste pour une vision plus précise.`,
-        `IRR يفترض ضمنياً أن التدفقات المؤقتة تُعاد استثمارها بنفس معدل IRR (${irr !== null ? fmtPct(irr, 1) : "—"}). إذا كان هذا غير واقعي، فإن IRR يُبالغ في تقدير الربحية الفعلية. احسب MIRR بمعدل إعادة استثمار واقعي للحصول على صورة أدق.`
+        `Vérifiez que les flux intermédiaires peuvent réellement être réinvestis dans des opportunités comparables. Si ce n'est pas le cas, complétez l'analyse par un scénario de réinvestissement prudent et comparez ses résultats au plan de base.`,
+        `تحقق من إمكانية إعادة استثمار التدفقات الوسيطة فعلياً في فرص مماثلة. وإذا لم يكن ذلك ممكناً، فأكمل التحليل بسيناريو إعادة استثمار حذر وقارن نتائجه بالخطة الأساسية.`
       ),
     }] as Suggestion[] : []),
-    // Always: go/no-go summary
-    {
-      icon: verdictInfo.icon,
-      color: verdict === "go" ? "bg-green-50" : verdict === "conditional" ? "bg-amber-50" : "bg-red-50",
-      borderColor: verdict === "go" ? "border-l-green-600" : verdict === "conditional" ? "border-l-amber-500" : "border-l-red-500",
-      title: isAr ? verdictInfo.ar : verdictInfo.fr,
-      desc: isAr ? verdictInfo.descAr : verdictInfo.descFr,
-    },
   ];
 
   // ── Save ────────────────────────────────────────────────────────────────────
@@ -336,13 +271,12 @@ export function InvestmentAppraisalReport({ result, projectName, sector }: Props
           {t("Analyse de Viabilité", "تحليل الجدوى")}
         </h2>
         <div className="space-y-2">
-          {analysisLines.map((line, i) => (
-            <div key={i}
-              className={cn("flex items-start gap-3 rounded-lg border px-4 py-3 text-sm", line.color)}>
-              <span className="text-base leading-snug shrink-0">{line.icon}</span>
-              <span className="leading-relaxed">{line.text}</span>
-            </div>
-          ))}
+          <div className={cn(
+            "rounded-lg border border-primary/20 bg-primary/5 px-5 py-4 space-y-3 text-sm leading-relaxed text-foreground",
+            isAr && "text-right"
+          )}>
+            {analysisLines.map((line, i) => <p key={i}>{line.text}</p>)}
+          </div>
         </div>
       </div>
 

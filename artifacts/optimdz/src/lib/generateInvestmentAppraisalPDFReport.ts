@@ -308,9 +308,10 @@ function buildEvaluationPage(opts: InvestmentAppraisalPDFOptions, totalPages: nu
   ).join("");
 
   // Analysis lines — passed from results page (language-aware, same text as screen)
-  const analysisHtml = analysisLines.map(line =>
-    analysisRow(line.icon, line.text, twBg(line.color), twBorder(line.color))
-  ).join("");
+  const analysisHtml = `<div style="background:${C.primaryLight};border:1px solid ${C.primary}33;border-radius:8px;
+    padding:11px 14px;margin-bottom:14px;font-size:11px;line-height:1.65;">
+    ${analysisLines.map(line => `<p style="margin:0 0 7px;">${line.text}</p>`).join("")}
+  </div>`;
 
   // Suggestion cards — passed from results page (all cards, bilingual, correct colors)
   const suggestionsHtml = suggestions.map(s =>
