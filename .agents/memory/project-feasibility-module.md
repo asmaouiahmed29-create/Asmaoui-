@@ -43,3 +43,10 @@ problemData.type = "project-breakeven" (different from "breakeven" used by Finan
 
 **Why project-specific framing matters:**
 General financial analysis optimizes an ongoing business. Go/No-Go analysis determines whether to start at all — the suggestions must answer "should I commit to these fixed costs?" not "how do I run my business better."
+
+## Comparison Reporting Convention
+Investment-alternative analysis should present one connected, manager-facing narrative: explain the common comparison basis, give each alternative's computed metrics in a sentence, quantify the lead, describe any return/liquidity/capital trade-off, and end with one conditional recommendation. Avoid repeating the winner as separate recommendation cards.
+
+**Why:** A headline winner without the underlying numbers or trade-offs reads like a label rather than decision support, and repeated winner text makes the report feel circular.
+
+**How to apply:** Keep calculation logic unchanged; derive all prose from the current `ComparisonResult`, and ensure equal-duration cases use NPV while unequal-duration cases use EAA as the primary comparison metric.

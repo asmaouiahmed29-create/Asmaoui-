@@ -43,169 +43,100 @@ export function InvestmentComparisonReport({ result, projectTitle, sector }: Pro
 
   const {
     alternatives, winner, unequalDurations, primaryCriterion,
-    hasRankingConflicts, conflictDetails, discountRate,
+    discountRate,
   } = result;
 
   const sorted = [...alternatives].sort((a, b) => a.overallRank - b.overallRank);
   const best   = sorted[0];
   const second = sorted[1];
 
-  // ── Situational analysis ──────────────────────────────────────────────────
-  const npvMargin = best.appraisal.npv - second.appraisal.npv;
-  const eaaMargin =
+  // ── Connected managerial analysis ──────────────────────────────────────────
+  // Keep the recommendation in one conclusion paragraph. The banner and
+  // comparison table already expose the headline, so repeating it in a
+  // recommendation card made the report feel circular.
+  const primaryMargin =
     unequalDurations && best.eaa !== null && second.eaa !== null
       ? best.eaa - second.eaa
-      : null;
+      : best.appraisal.npv - second.appraisal.npv;
+  const primaryMetricFr = unequalDurations ? "rente annuelle équivalente" : "valeur créée";
+  const primaryMetricAr = unequalDurations ? "المعادل السنوي للقيمة" : "القيمة المُنشأة";
+  const paybackLeader = [...alternatives]
+    .filter(a => a.appraisal.discountedPayback !== null || a.appraisal.simplePayback !== null)
+    .sort((a, b) =>
+      (a.appraisal.discountedPayback ?? a.appraisal.simplePayback ?? Infinity) -
+      (b.appraisal.discountedPayback ?? b.appraisal.simplePayback ?? Infinity)
+    )[0];
+  const lowestInvestment = [...alternatives].sort(
+    (a, b) => a.appraisal.input.initialInvestment - b.appraisal.input.initialInvestment
+  )[0];
 
-  const analysisLines: { icon: string; text: string; color: string }[] = [
-    {
-      icon: "📊",
-      color: "bg-primary/10 border-primary/30",
-      text: t(
-        `${alternatives.length} alternatives comparées avec un taux d'actualisation commun de ${fmtPct(discountRate, 1)}. ` +
-        `Critère de décision principal : ${primaryCriterion === "eaa" ? "EAA — Rente Équivalente Annuelle (durées inégales)" : "VAN — Valeur Actuelle Nette (durées égales)"}.`,
-        `تمت مقارنة ${alternatives.length} بدائل بمعدل خصم مشترك ${fmtPct(discountRate, 1)}. ` +
-        `معيار القرار الرئيسي: ${primaryCriterion === "eaa" ? "EAA — المعادل السنوي (مدد مختلفة)" : "NPV — القيمة الحالية الصافية (مدد متساوية)"}.`
-      ),
-    },
-    {
-      icon: "🏆",
-      color: "bg-amber-50 border-amber-300",
-      text: t(
-        `Alternative recommandée : "${best.input.name}" — ${primaryCriterion === "eaa" && best.eaa !== null
-          ? `EAA de ${fmtDA(best.eaa)}/an (${eaaMargin !== null ? `+${fmtDA(eaaMargin)}/an` : ""} vs "${second.input.name}")`
-          : `VAN de ${fmtDA(best.appraisal.npv)} (+${fmtDA(npvMargin)} vs "${second.input.name}")`}.` +
-        ` TRI : ${best.appraisal.irr !== null ? fmtPct(best.appraisal.irr, 1) : "—"}, ` +
-        `Indice de rentabilité : ${fmtN(best.appraisal.profitabilityIndex, 3)}.`,
-        `البديل الموصى به: "${best.input.name}" — ${primaryCriterion === "eaa" && best.eaa !== null
-          ? `EAA = ${fmtDA(best.eaa)}/سنة (${eaaMargin !== null ? `+${fmtDA(eaaMargin)}/سنة` : ""} مقارنة بـ "${second.input.name}")`
-          : `NPV = ${fmtDA(best.appraisal.npv)} (+${fmtDA(npvMargin)} مقارنة بـ "${second.input.name}")`}. ` +
-        `IRR: ${best.appraisal.irr !== null ? fmtPct(best.appraisal.irr, 1) : "—"}, ` +
-        `مؤشر الربحية: ${fmtN(best.appraisal.profitabilityIndex, 3)}.`
-      ),
-    },
-    {
-      icon: unequalDurations ? "📐" : "✅",
-      color: unequalDurations ? "bg-blue-50 border-blue-300" : "bg-green-50 border-green-300",
-      text: unequalDurations
-        ? t(
-          `Les durées de projet diffèrent (${alternatives.map(a => `${a.input.name}: ${a.input.duration} ans`).join(", ")}). ` +
-          `L'EAA a été calculée pour normaliser la comparaison. ` +
-          `Une VAN plus élevée ne suffit pas pour comparer des projets de durées différentes — l'EAA est le critère équitable.`,
-          `تختلف مدد المشاريع (${alternatives.map(a => `${a.input.name}: ${a.input.duration} سنوات`).join("، ")}). ` +
-          `تم حساب EAA لتطبيع المقارنة. ` +
-          `ارتفاع NPV وحده لا يكفي لمقارنة مشاريع بمدد مختلفة — EAA هو المعيار العادل.`
-        )
-        : t(
-          `Les durées sont identiques (${best.input.duration} ans) — la VAN est le critère de décision approprié. ` +
-          `Pas besoin de l'EAA dans ce cas.`,
-          `المدد متساوية (${best.input.duration} سنوات) — NPV هو معيار القرار المناسب. ` +
-          `لا حاجة لـ EAA في هذه الحالة.`
-        ),
-    },
-    ...(hasRankingConflicts ? [{
-      icon: "⚠️",
-      color: "bg-amber-50 border-amber-400",
-      text: t(
-        `Conflits de classement détectés : ` +
-        conflictDetails.map(d =>
-          `"${d.altName}" est 1er selon ${primaryCriterion.toUpperCase()} mais ${d.rank}ème selon ${d.criterion} (1er : "${d.vs}")`
-        ).join(" · ") +
-        `. La VAN${unequalDurations ? "/EAA" : ""} reste la référence en finance de projet car elle mesure la richesse créée en valeur absolue.`,
-        `تم رصد تعارض في الترتيب: ` +
-        conflictDetails.map(d =>
-          `"${d.altName}" الأول وفق ${primaryCriterion.toUpperCase()} لكن المرتبة ${d.rank} وفق ${d.criterion} (الأول: "${d.vs}")`
-        ).join(" · ") +
-        `. NPV${unequalDurations ? "/EAA" : ""} يبقى المرجع في تمويل المشاريع لأنه يقيس الثروة المُنشأة بقيمة مطلقة.`
-      ),
-    }] : [{
-      icon: "✅",
-      color: "bg-green-50 border-green-300",
-      text: t(
-        `Convergence totale des indicateurs : VAN, TRI, Indice de Rentabilité et Délai de récupération désignent tous "${winner.input.name}" comme meilleure alternative — signal de robustesse fort.`,
-        `تقاطع كامل للمؤشرات: NPV وIRR ومؤشر الربحية وفترة الاسترداد كلها تُشير إلى "${winner.input.name}" كأفضل بديل — إشارة قوية على المتانة.`
-      ),
-    }]),
-    {
-      icon: "💡",
-      color: "bg-secondary/10 border-secondary/30",
-      text: t(
-        `Tradeoffs clés : ` +
-        alternatives.map(a => {
-          const parts: string[] = [];
-          if (a.appraisal.simplePayback !== null && best.appraisal.simplePayback !== null) {
-            if (a.overallRank === 1 && best.appraisal.simplePayback > (sorted.find(x => x.overallRank === 2)?.appraisal.simplePayback ?? Infinity)) {
-              parts.push(`récupération plus lente que les alternatives`);
-            }
-          }
-          if (a.appraisal.input.initialInvestment > best.appraisal.input.initialInvestment && a.overallRank !== 1) {
-            parts.push(`investissement initial plus élevé (${fmtDA(a.appraisal.input.initialInvestment)})`);
-          }
-          return parts.length ? `"${a.input.name}" : ${parts.join(", ")}` : null;
-        }).filter(Boolean).join(" · ") || `Pas de tradeoff majeur identifié entre les alternatives.`,
-        `المفاضلات الرئيسية: ` +
-        (alternatives.some(a => a.appraisal.simplePayback !== null)
-          ? alternatives.map(a => {
-              if (a.overallRank !== 1 && a.appraisal.input.initialInvestment < best.appraisal.input.initialInvestment) {
-                return `"${a.input.name}": استثمار أولي أقل (${fmtDA(a.appraisal.input.initialInvestment)}) لكن عائد إجمالي أقل`;
-              }
-              return null;
-            }).filter(Boolean).join(" · ") || "لا توجد مفاضلات رئيسية مُحددة."
-          : "لا توجد مفاضلات رئيسية مُحددة.")
-      ),
-    },
+  const alternativeMetrics = alternatives.map(a => {
+    const irr = a.appraisal.irr !== null ? fmtPct(a.appraisal.irr, 1) : t("non calculable", "غير قابل للحساب");
+    const payback = a.appraisal.discountedPayback !== null
+      ? fmtYears(a.appraisal.discountedPayback, isAr ? "ar" : "fr")
+      : t("non récupéré pendant la durée du projet", "غير مسترد خلال مدة المشروع");
+    const primaryValue = unequalDurations && a.eaa !== null
+      ? t(
+        `une rente annuelle équivalente de ${fmtDA(a.eaa)}`,
+        `معادل سنوي للقيمة قدره ${fmtDA(a.eaa)}`
+      )
+      : t(
+        `une valeur créée de ${fmtDA(a.appraisal.npv)}`,
+        `قيمة مُنشأة قدرها ${fmtDA(a.appraisal.npv)}`
+      );
+    return t(
+      `Pour "${a.input.name}", les flux prévisionnels représentent ${primaryValue}, avec une valeur actuelle nette de ${fmtDA(a.appraisal.npv)}, un taux de rendement interne de ${irr} et une récupération actualisée en ${payback}.`,
+      `بالنسبة إلى "${a.input.name}"، تُظهر التدفقات المتوقعة ${primaryValue}، مع صافي قيمة حالية قدره ${fmtDA(a.appraisal.npv)}، ومعدل عائد داخلي يبلغ ${irr}، واسترداد مخصوم خلال ${payback}.`
+    );
+  });
+
+  const tradeoffParts: string[] = [];
+  if (paybackLeader && paybackLeader.input.name !== best.input.name) {
+    const bestPayback = best.appraisal.discountedPayback ?? best.appraisal.simplePayback;
+    const leaderPayback = paybackLeader.appraisal.discountedPayback ?? paybackLeader.appraisal.simplePayback;
+    if (bestPayback !== null && leaderPayback !== null) {
+      tradeoffParts.push(t(
+        `"${best.input.name}" crée davantage de valeur, mais son capital est récupéré en ${fmtYears(bestPayback)} contre ${fmtYears(leaderPayback)} pour "${paybackLeader.input.name}"`,
+        `"${best.input.name}" ينشئ قيمة أكبر، لكن استرداد رأس ماله يستغرق ${fmtYears(bestPayback, "ar")} مقابل ${fmtYears(leaderPayback, "ar")} لـ"${paybackLeader.input.name}"`
+      ));
+    }
+  }
+  if (lowestInvestment.input.name !== best.input.name) {
+    tradeoffParts.push(t(
+      `"${lowestInvestment.input.name}" demande moins de capital au départ (${fmtDA(lowestInvestment.appraisal.input.initialInvestment)} contre ${fmtDA(best.appraisal.input.initialInvestment)})`,
+      `"${lowestInvestment.input.name}" يتطلب رأس مال أولياً أقل (${fmtDA(lowestInvestment.appraisal.input.initialInvestment)} مقابل ${fmtDA(best.appraisal.input.initialInvestment)})`
+    ));
+  }
+  if (tradeoffParts.length === 0) {
+    tradeoffParts.push(t(
+      `Les indicateurs ne font pas apparaître de compromis dominant : l'alternative retenue arrive aussi en tête sur la récupération et le niveau d'investissement initial.`,
+      `لا تُظهر المؤشرات مفاضلة مهيمنة؛ فالبديل المختار يتقدم أيضاً في سرعة الاسترداد وحجم الاستثمار الأولي.`
+    ));
+  }
+
+  const analysisParagraphs = [
+    t(
+      unequalDurations
+        ? `La comparaison porte sur ${alternatives.length} alternatives avec un taux d'actualisation commun de ${fmtPct(discountRate, 1)}. Comme les durées diffèrent (${alternatives.map(a => `${a.input.name}: ${a.input.duration} ans`).join(", ")}), la rente annuelle équivalente permet de comparer équitablement la valeur créée chaque année.`
+        : `La comparaison porte sur ${alternatives.length} alternatives de ${best.input.duration} ans, avec un taux d'actualisation commun de ${fmtPct(discountRate, 1)}. Les durées étant identiques, la valeur actuelle nette permet de mesurer directement la richesse créée par chaque option.`,
+      unequalDurations
+        ? `تقارن الدراسة بين ${alternatives.length} بدائل باستخدام معدل خصم موحد قدره ${fmtPct(discountRate, 1)}. وبما أن المدد مختلفة (${alternatives.map(a => `${a.input.name}: ${a.input.duration} سنوات`).join("، ")}، استُخدم المعادل السنوي للقيمة لمقارنة القيمة التي ينشئها كل بديل سنوياً بعدل.`
+        : `تقارن الدراسة بين ${alternatives.length} بدائل مدتها ${best.input.duration} سنوات باستخدام معدل خصم موحد قدره ${fmtPct(discountRate, 1)}. وبما أن المدد متساوية، فإن صافي القيمة الحالية يوضح مباشرة مقدار الثروة التي ينشئها كل خيار.`
+    ),
+    ...alternativeMetrics,
+    t(
+      `Sur le critère principal, "${best.input.name}" arrive en tête avec ${primaryMetricFr} de ${unequalDurations && best.eaa !== null ? fmtDA(best.eaa) + " par an" : fmtDA(best.appraisal.npv)}, soit ${primaryMargin >= 0 ? "un avantage de " : "un écart de "}${fmtDA(Math.abs(primaryMargin))} par rapport à "${second.input.name}". Cette avance doit être lue avec les autres indicateurs : ${tradeoffParts.join(" ; ")}.`,
+      `وفق المعيار الرئيسي، يأتي "${best.input.name}" في المقدمة بقيمة ${unequalDurations && best.eaa !== null ? fmtDA(best.eaa) + " سنوياً كمعادل للقيمة" : fmtDA(best.appraisal.npv) + " كقيمة حالية صافية"}، أي بفارق ${fmtDA(Math.abs(primaryMargin))} عن "${second.input.name}". ويجب قراءة هذا التفوق مع المؤشرات الأخرى: ${tradeoffParts.join("؛ ")}.`
+    ),
+    t(
+      `Nous recommandons donc de retenir "${best.input.name}" pour la décision financière, car il maximise ${primaryMetricFr} selon les hypothèses saisies. Avant de vous engager, confirmez toutefois les flux attendus, la capacité de financement et les risques opérationnels ; si la liquidité immédiate prime sur la valeur totale créée, l'alternative qui récupère le capital le plus vite mérite un examen séparé.`,
+      `نوصي لذلك باعتماد "${best.input.name}" في القرار المالي لأنه يعظم ${primaryMetricAr} وفق الافتراضات المدخلة. وقبل الالتزام، تحقّق من التدفقات المتوقعة وقدرة التمويل والمخاطر التشغيلية؛ وإذا كانت السيولة الفورية أهم من القيمة الإجمالية، فادرس بشكل منفصل البديل الأسرع في استرداد رأس المال.`
+    ),
   ];
 
   // ── Suggestions ────────────────────────────────────────────────────────────
   interface Suggestion { icon: string; title: string; desc: string; color: string; border: string; }
   const suggestions: Suggestion[] = [];
-
-  suggestions.push({
-    icon: "🏆",
-    color: "bg-amber-50", border: "border-l-amber-500",
-    title: t(`Choisir "${best.input.name}" sur le plan financier`, `اختر "${best.input.name}" من المنظور المالي`),
-    desc: t(
-      `Sur la base des données fournies, "${best.input.name}" génère la plus grande valeur avec un${primaryCriterion === "eaa" ? "e EAA de " + fmtDA(best.eaa) + "/an" : "e VAN de " + fmtDA(best.appraisal.npv)} et un TRI de ${best.appraisal.irr !== null ? fmtPct(best.appraisal.irr, 1) : "—"}. ` +
-      `C'est la recommandation principale selon les critères financiers standard.`,
-      `استناداً إلى البيانات المُدخلة، يُولّد "${best.input.name}" أعلى قيمة بـ ${primaryCriterion === "eaa" ? "EAA = " + fmtDA(best.eaa) + "/سنة" : "NPV = " + fmtDA(best.appraisal.npv)} وIRR = ${best.appraisal.irr !== null ? fmtPct(best.appraisal.irr, 1) : "—"}. ` +
-      `هذه هي التوصية الرئيسية وفق المعايير المالية القياسية.`
-    ),
-  });
-
-  // Conflict caveat
-  if (hasRankingConflicts) {
-    const pbWinner = conflictDetails.find(d => d.criterion === "Délai de récupération");
-    if (pbWinner) {
-      suggestions.push({
-        icon: "⚡",
-        color: "bg-blue-50", border: "border-l-blue-500",
-        title: t(
-          `Si la liquidité à court terme est prioritaire — considérer "${pbWinner.vs}"`,
-          `إذا كانت السيولة قصيرة الأجل أولوية — ضع في الاعتبار "${pbWinner.vs}"`
-        ),
-        desc: t(
-          `"${pbWinner.vs}" récupère l'investissement plus rapidement. Si votre trésorerie est contrainte ou si vous anticipez des besoins de liquidités dans les prochaines années, cette alternative peut être préférable malgré une VAN${unequalDurations ? "/EAA" : ""} inférieure.`,
-          `"${pbWinner.vs}" يُستردّ منه الاستثمار بشكل أسرع. إذا كانت السيولة محدودة أو توقعت احتياجات نقدية في السنوات القادمة، قد يكون هذا البديل مفضلاً رغم انخفاض NPV${unequalDurations ? "/EAA" : ""}.`
-        ),
-      });
-    }
-  }
-
-  // Investment scale consideration
-  const sortedByI0 = [...alternatives].sort((a, b) => a.appraisal.input.initialInvestment - b.appraisal.input.initialInvestment);
-  if (sortedByI0[0].input.name !== best.input.name) {
-    suggestions.push({
-      icon: "💰",
-      color: "bg-green-50", border: "border-l-green-600",
-      title: t("Considérer la contrainte de capital disponible", "ضع في الاعتبار قيد رأس المال المتاح"),
-      desc: t(
-        `L'alternative recommandée nécessite un investissement initial de ${fmtDA(best.appraisal.input.initialInvestment)}. ` +
-        `Si le capital disponible est limité, "${sortedByI0[0].input.name}" (${fmtDA(sortedByI0[0].appraisal.input.initialInvestment)}) pourrait être envisagée avec un plan de financement adapté.`,
-        `البديل الموصى به يحتاج استثماراً أولياً بـ ${fmtDA(best.appraisal.input.initialInvestment)}. ` +
-        `إذا كان رأس المال المتاح محدوداً، يمكن النظر في "${sortedByI0[0].input.name}" (${fmtDA(sortedByI0[0].appraisal.input.initialInvestment)}) مع خطة تمويل مناسبة.`
-      ),
-    });
-  }
 
   // Non-financial factors
   suggestions.push({
@@ -344,13 +275,11 @@ export function InvestmentComparisonReport({ result, projectTitle, sector }: Pro
           <BarChart2 className="w-5 h-5 text-primary" />
           {t("Analyse Comparative de la Situation", "التحليل المقارن للوضع")}
         </h2>
-        <div className="space-y-2">
-          {analysisLines.map((line, i) => (
-            <div key={i}
-              className={cn("flex items-start gap-3 rounded-lg border px-4 py-3 text-sm", line.color)}>
-              <span className="text-base leading-snug shrink-0">{line.icon}</span>
-              <span className="leading-relaxed">{line.text}</span>
-            </div>
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-4 space-y-3">
+          {analysisParagraphs.map((paragraph, i) => (
+            <p key={i} className="text-sm leading-relaxed text-foreground">
+              {paragraph}
+            </p>
           ))}
         </div>
       </div>
